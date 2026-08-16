@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 04</title>
+  <desc id="desc">A seed tray with a sprout and component cells.</desc>
+  <rect width="256" height="256" rx="44" fill="#eef3ed"/>
+  <path d="M58 108h140l-16 78H74l-16-78Z" fill="#313b34"/>
+  <path d="M72 108h112l-14-34H86l-14 34Z" fill="#4a5a4d"/>
+  <path d="M91 130h74M86 158h84" stroke="#d9c7a1" stroke-width="10" stroke-linecap="round"/>
+  <path d="M112 108v78M144 108v78" stroke="#202820" stroke-width="10" stroke-linecap="round"/>
+  <path d="M128 86V50" stroke="#5d9f6a" stroke-width="14" stroke-linecap="round"/>
+  <path d="M124 52c-22-24-48-21-63-2 24 1 43 10 63 2Z" fill="#70bf78"/>
+  <path d="M133 50c17-29 47-28 64-9-25 4-43 15-64 9Z" fill="#8ed08b"/>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 07</title>
+  <desc id="desc">A fresh glass case cube with a sprout and angled highlights.</desc>
+  <defs>
+    <linearGradient id="bg" x1="42" y1="28" x2="214" y2="228" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f2fbff"/>
+      <stop offset="1" stop-color="#dff7ee"/>
+    </linearGradient>
+    <linearGradient id="glassTop" x1="84" y1="42" x2="183" y2="121" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#9de8ee" stop-opacity=".52"/>
+    </linearGradient>
+    <linearGradient id="glassLeft" x1="64" y1="91" x2="134" y2="198" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c7f3f7" stop-opacity=".74"/>
+      <stop offset="1" stop-color="#7bd4df" stop-opacity=".48"/>
+    </linearGradient>
+    <linearGradient id="glassRight" x1="128" y1="107" x2="192" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e9fff7" stop-opacity=".68"/>
+      <stop offset="1" stop-color="#75dcbc" stop-opacity=".45"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <path d="M128 50 194 88v76l-66 38-66-38V88l66-38Z" fill="#d7f8f8"/>
+  <path d="M128 50v74l66-36-66-38Z" fill="url(#glassTop)"/>
+  <path d="M128 124v78l66-38V88l-66 36Z" fill="url(#glassRight)"/>
+  <path d="M128 124 62 88v76l66 38v-78Z" fill="url(#glassLeft)"/>
+  <path d="M62 88 128 50l66 38v76l-66 38-66-38V88Z" fill="none" stroke="#3aaec2" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M128 124 62 88M128 124l66-36M128 124v78" fill="none" stroke="#6ecbd5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M91 118 123 136" stroke="#ffffff" stroke-opacity=".92" stroke-width="9" stroke-linecap="round"/>
+  <path d="M154 126 177 113" stroke="#ffffff" stroke-opacity=".78" stroke-width="8" stroke-linecap="round"/>
+  <path d="M98 151 119 163" stroke="#ffffff" stroke-opacity=".55" stroke-width="7" stroke-linecap="round"/>
+  <path d="M128 94V58" stroke="#3c9f74" stroke-width="14" stroke-linecap="round"/>
+  <path d="M124 60c-19-25-43-22-57-5 22 1 39 10 57 5Z" fill="#51bf78"/>
+  <path d="M133 58c15-29 42-29 57-12-23 4-39 15-57 12Z" fill="#79d98a"/>
+</svg>

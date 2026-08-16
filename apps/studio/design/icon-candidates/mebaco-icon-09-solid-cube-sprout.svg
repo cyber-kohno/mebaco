@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 09</title>
+  <desc id="desc">A transparent-background solid cube with a high-contrast sprout.</desc>
+  <path d="M128 36 211 84v95l-83 48-83-48V84l83-48Z" fill="#5dd5df"/>
+  <path d="M128 36v92l83-44-83-48Z" fill="#bdf7f8"/>
+  <path d="M128 128v99l83-48V84l-83 44Z" fill="#59d3b3"/>
+  <path d="M128 128 45 84v95l83 48v-99Z" fill="#43b9d1"/>
+  <path d="M45 84 128 36l83 48v95l-83 48-83-48V84Z" fill="none" stroke="#138aa7" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M128 128 45 84M128 128l83-44M128 128v99" fill="none" stroke="#1ba0b8" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M128 84V35" stroke="#187748" stroke-width="20" stroke-linecap="round"/>
+  <path d="M122 38c-27-30-62-26-82-2 32 2 57 14 82 2Z" fill="#2fb55f"/>
+  <path d="M136 35c21-37 60-36 81-12-32 6-57 20-81 12Z" fill="#6fdc82"/>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 06</title>
+  <desc id="desc">A bright clear glass container with a sprout.</desc>
+  <defs>
+    <linearGradient id="bg" x1="52" y1="30" x2="206" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#eefbff"/>
+      <stop offset=".55" stop-color="#e7fff8"/>
+      <stop offset="1" stop-color="#d4f1ff"/>
+    </linearGradient>
+    <linearGradient id="front" x1="76" y1="104" x2="178" y2="195" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#72d8e6" stop-opacity=".5"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#bg)"/>
+  <path d="M68 95h120l-14 88H82L68 95Z" fill="url(#front)"/>
+  <path d="M82 95 104 63h76l8 32H82Z" fill="#ffffff" fill-opacity=".58"/>
+  <path d="M68 95h120l-14 88H82L68 95ZM82 95 104 63h76l8 32" fill="none" stroke="#35b8ce" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M96 130h64" stroke="#ffffff" stroke-opacity=".92" stroke-width="11" stroke-linecap="round"/>
+  <path d="M106 157h44" stroke="#45c7d7" stroke-opacity=".55" stroke-width="9" stroke-linecap="round"/>
+  <path d="M128 82V47" stroke="#3ea16f" stroke-width="14" stroke-linecap="round"/>
+  <path d="M124 50c-20-24-47-22-62-3 24 1 43 10 62 3Z" fill="#54c47b"/>
+  <path d="M133 48c16-29 46-28 62-9-24 4-43 15-62 9Z" fill="#80dc8f"/>
+</svg>

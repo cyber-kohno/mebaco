@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 03</title>
+  <desc id="desc">A bold M mark with a sprout.</desc>
+  <rect width="256" height="256" rx="56" fill="#f7f8f3"/>
+  <path d="M58 190V72h34l36 54 36-54h34v118h-34v-68l-27 40h-18l-27-40v68H58Z" fill="#26332a"/>
+  <path d="M128 86V48" stroke="#5a9f66" stroke-width="14" stroke-linecap="round"/>
+  <path d="M124 51c-18-22-42-20-55-4 21 1 38 9 55 4Z" fill="#6fca7a"/>
+  <path d="M133 49c14-26 39-26 54-10-21 4-37 14-54 10Z" fill="#8ccf89"/>
+</svg>

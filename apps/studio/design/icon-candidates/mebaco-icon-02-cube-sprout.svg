@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Mebaco icon candidate 02</title>
+  <desc id="desc">A component cube with a sprout.</desc>
+  <rect width="256" height="256" rx="48" fill="#1f2421"/>
+  <path d="M128 50 194 88v76l-66 38-66-38V88l66-38Z" fill="#d8c7a3"/>
+  <path d="M128 50v74l66-36-66-38Z" fill="#eadbbd"/>
+  <path d="M128 124v78l66-38V88l-66 36Z" fill="#b99d6b"/>
+  <path d="M128 124 62 88v76l66 38v-78Z" fill="#c9b181"/>
+  <path d="M128 94V58" stroke="#7fb069" stroke-width="14" stroke-linecap="round"/>
+  <path d="M124 60c-19-25-43-22-57-5 22 1 39 10 57 5Z" fill="#6fca7a"/>
+  <path d="M133 58c15-29 42-29 57-12-23 4-39 15-57 12Z" fill="#8acb88"/>
+</svg>
