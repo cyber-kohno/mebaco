@@ -63,6 +63,47 @@ describe('ElementEditSchema number field', () => {
   })
 })
 
+describe('ElementEditSchema formula field', () => {
+  const injectionSource = 'declare var $state: { count: number; title: string; users: { name: string }[]; };'
+
+  it('rejects expressions that do not match primitive expected types', () => {
+    const formulaField: ElementEditSchema.FormulaField = {
+      type: 'formula',
+      key: 'countSource',
+      label: 'Count',
+      required: true,
+      expectedType: 'number',
+    }
+
+    expect(ElementEditSchema.validateFormula(
+      formulaField,
+      '$state.title',
+      injectionSource,
+    )).toBe('Expression must return number.')
+    expect(ElementEditSchema.validateFormula(
+      formulaField,
+      '$state.count',
+      injectionSource,
+    )).toBeNull()
+  })
+
+  it('rejects empty array literals for collection expressions', () => {
+    const formulaField: ElementEditSchema.FormulaField = {
+      type: 'formula',
+      key: 'collectionSource',
+      label: 'Collection',
+      required: true,
+      expectedType: 'array',
+    }
+
+    expect(ElementEditSchema.validateFormula(
+      formulaField,
+      '[]',
+      injectionSource,
+    )).toBe('Collection item type could not be inferred.')
+  })
+})
+
 describe('ElementEditSchema related text fields', () => {
   it('rejects duplicate local variable names', () => {
     const textField: ElementEditSchema.TextField = {

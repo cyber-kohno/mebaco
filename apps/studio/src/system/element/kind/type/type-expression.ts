@@ -1,3 +1,5 @@
+import LiteralUnion from './literal-union'
+
 namespace TypeExpression {
   export const primitiveTypes = ['string', 'number', 'boolean'] as const
   export type PrimitiveName = (typeof primitiveTypes)[number]
@@ -140,6 +142,11 @@ namespace TypeExpression {
         .join(' | ')
     } else if (base.type === 'named') {
       baseText = resolveTypeName(base.namedTypeId) ?? 'MissingType'
+    } else if (base.type === 'object') {
+      baseText = `{ ${base.properties.map((property) => {
+        const propertyTypeText = getTypeText(property.valueType, resolveTypeName)
+        return `${property.id}${property.optional ? '?' : ''}: ${propertyTypeText}${property.nullable ? ' | null' : ''};`
+      }).join(' ')} }`
     } else if (base.type === 'string' && base.literals != null) {
       baseText = base.literals.map((literal) => JSON.stringify(literal)).join(' | ')
     } else if (base.type === 'number' && base.literals != null) {
@@ -152,6 +159,7 @@ namespace TypeExpression {
       base.type === 'reference' && base.objectTypeIds.length > 1
       || base.type === 'string' && base.literals != null && base.literals.length > 1
       || base.type === 'number' && base.literals != null && base.literals.length > 1
+      || base.type === 'object'
     )
     return `${needsParentheses ? `(${baseText})` : baseText}${'[]'.repeat(depth)}`
   }
@@ -262,6 +270,9 @@ namespace TypeExpression {
         }
         if (base.type === 'string' && base.literals != null) {
           if (base.literals.length === 0) return 'Add at least one string literal.'
+          if (base.literals.some((literal) => LiteralUnion.validateTextLength(literal) != null)) {
+            return `String literal must be ${LiteralUnion.maxTextLength} characters or fewer.`
+          }
           if (new Set(base.literals).size !== base.literals.length) {
             return 'String literal is duplicated.'
           }

@@ -1,4 +1,5 @@
 import type UnionDefinition from '../type/union-definition'
+import LiteralUnion from '../type/literal-union'
 
 namespace SwitchValueType {
   export type PrimitiveName = 'string' | 'number'
@@ -102,6 +103,15 @@ namespace SwitchValueType {
     return findUnion(definition.unionTypeId)?.values ?? null
   }
 
+  export const getPrimitiveNameFromOptions = (
+    definition: Definition,
+    literalUnionOptions: readonly LiteralUnionOption[],
+  ): PrimitiveName | null => (
+    definition.type === 'primitive'
+      ? definition.primitive
+      : literalUnionOptions.find((option) => option.value === definition.unionTypeId)?.valueType ?? null
+  )
+
   export const getLabel = (
     definition: Definition,
     resolveUnionName: (unionTypeId: string) => string | undefined = () => undefined,
@@ -118,6 +128,32 @@ namespace SwitchValueType {
     return `${definition.primitive}${literalText}`
   }
 
+  const formatLiteral = (
+    literal: Literal,
+  ): string => (
+    typeof literal === 'string'
+      ? JSON.stringify(literal)
+      : String(literal)
+  )
+
+  export const getTypeText = (
+    definition: Definition,
+    literalUnionOptions: readonly LiteralUnionOption[] = [],
+  ): string => {
+    if (definition.type === 'union') {
+      const option = literalUnionOptions.find((candidate) => (
+        candidate.value === definition.unionTypeId
+      ))
+      return option == null
+        ? 'string | number'
+        : option.values.map(formatLiteral).join(' | ')
+    }
+
+    return definition.literals == null
+      ? definition.primitive
+      : definition.literals.map(formatLiteral).join(' | ')
+  }
+
   export const validate = (
     definition: Definition,
     literalUnionOptions: readonly LiteralUnionOption[],
@@ -130,6 +166,13 @@ namespace SwitchValueType {
     }
     if (definition.literals == null) return null
     if (definition.literals.length === 0) return 'Add at least one literal.'
+    if (
+      definition.primitive === 'string'
+      && definition.literals.some((literal) => (
+        typeof literal === 'string'
+        && LiteralUnion.validateTextLength(literal) != null
+      ))
+    ) return `Literal must be ${LiteralUnion.maxTextLength} characters or fewer.`
     if (new Set(definition.literals).size !== definition.literals.length) {
       return 'Literal is duplicated.'
     }

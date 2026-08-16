@@ -75,6 +75,22 @@ namespace MonacoDiagnostics {
         }
       })
   }
+
+  export const createWholeModelErrorMarker = (
+    monaco: typeof Monaco,
+    model: Monaco.editor.ITextModel,
+    message: string,
+  ): Monaco.editor.IMarkerData => {
+    const lineCount = model.getLineCount()
+    return {
+      severity: monaco.MarkerSeverity.Error,
+      message,
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: lineCount,
+      endColumn: model.getLineMaxColumn(lineCount),
+    }
+  }
 }
 
 export default MonacoDiagnostics

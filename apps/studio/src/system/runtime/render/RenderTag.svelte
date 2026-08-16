@@ -56,7 +56,11 @@
 
   $effect(() => {
     setStyleResult(node.id, styleResult)
-    return () => setStyleResult(node.id, null)
+  })
+
+  $effect(() => {
+    const nodeId = node.id
+    return () => setStyleResult(nodeId, null)
   })
 
   const getAttributeValue = (

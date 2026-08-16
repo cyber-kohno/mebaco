@@ -82,19 +82,14 @@ namespace VariableElement {
         getExpectedTypeText: (values) => {
           if (values.explicitType !== 'true') return undefined
           const definition = parseValueType(values)
-          const valueType = TypeExpression.getTypeText(
-            definition.valueType,
+          return ValueTypeDefinition.getTypeText(
+            definition,
             (id) => (
               options.referenceOptions?.find((option) => option.value === id)?.label
               ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
               ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
             ),
           )
-          return `${valueType}${
-            definition.nullable
-              ? ' | null'
-              : ''
-          }`
         },
       },
     ],

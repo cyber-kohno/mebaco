@@ -19,8 +19,10 @@
   --mbc-color-selection: #bfeff5;
   --mbc-color-focus-ring: #4ec3d3;
   --mbc-width-id-field: 320px;
+  --mbc-width-mode-field: 100px;
   --mbc-width-value-type-field: 200px;
   --mbc-width-array-depth-field: 64px;
+  --mbc-width-literal-union-field: calc(24ch + 24px);
   --mbc-form-column-gap: 12px;
   --mbc-form-control-gap: 4px;
   --mbc-form-action-gap: var(--mbc-form-control-gap);

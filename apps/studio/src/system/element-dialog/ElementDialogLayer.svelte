@@ -209,9 +209,6 @@
         || field.type === 'styleBases'
         || field.type === 'styleMonitor'
         || field.type === 'objectShape'
-        || field.type === 'unionDefinition'
-        || field.type === 'switchValueType'
-        || field.type === 'valueType'
       ))}
     >
       <h2>{title}</h2>
@@ -370,10 +367,6 @@
           </div>
         {:else if field.type === 'switchValueType'}
           <div class="field" data-validation-severity={issue?.severity}>
-            <span class="field-label">
-              {field.label}
-              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
-            </span>
             <SwitchValueTypeEditor
               value={values[field.key] ?? field.defaultValue ?? ''}
               literalUnionOptions={field.literalUnionOptions}
@@ -386,10 +379,6 @@
           </div>
         {:else if field.type === 'valueType'}
           <div class="field" data-validation-severity={issue?.severity}>
-            <span class="field-label">
-              {field.label}
-              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
-            </span>
             <ValueTypeEditor
               value={values[field.key] ?? field.defaultValue ?? ''}
               objectOptions={field.objectOptions}
@@ -446,6 +435,7 @@
                 : ValueTypeDefinition.parse(values[field.valueTypeDefinitionKey] ?? '') ?? undefined}
               valueType={values[field.valueTypeKey] ?? 'string'}
               arrayDepth={Number(values[field.arrayDepthKey] ?? '0')}
+              expectedTypeText={field.getExpectedTypeText?.(values)}
               injectionSource={getInjectionSource('expression')}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -466,8 +456,10 @@
             {#if field.type === 'text'}
               <input
                 class:id-width={field.width === 'id'}
+                class:mode-width={field.width === 'mode'}
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
+                class:literal-union-width={field.width === 'literalUnion'}
                 type="text"
                 value={values[field.key] ?? ''}
                 aria-invalid={issue == null ? undefined : true}
@@ -487,8 +479,10 @@
               <span class:select-with-detail={selectedOption?.detail != null}>
                 <select
                   class:id-width={field.width === 'id'}
+                  class:mode-width={field.width === 'mode'}
                   class:value-type-width={field.width === 'valueType'}
                   class:array-depth-width={field.width === 'arrayDepth'}
+                  class:literal-union-width={field.width === 'literalUnion'}
                   value={values[field.key] ?? ''}
                   aria-invalid={issue == null ? undefined : true}
                   data-validation-severity={issue?.severity}
@@ -522,8 +516,10 @@
             {#if field.type === 'number'}
               <input
                 class:id-width={field.width === 'id'}
+                class:mode-width={field.width === 'mode'}
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
+                class:literal-union-width={field.width === 'literalUnion'}
                 type="number"
                 value={values[field.key] ?? ''}
                 min={field.min}
@@ -769,12 +765,20 @@
     width: min(100%, var(--mbc-width-id-field));
   }
 
+  .mode-width {
+    width: min(100%, var(--mbc-width-mode-field));
+  }
+
   .value-type-width {
     width: min(100%, var(--mbc-width-value-type-field));
   }
 
   .array-depth-width {
     width: min(100%, var(--mbc-width-array-depth-field));
+  }
+
+  .literal-union-width {
+    width: min(100%, var(--mbc-width-literal-union-field));
   }
 
   .select-with-detail {

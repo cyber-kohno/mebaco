@@ -5,6 +5,7 @@
   import MonacoFactory from './monaco-factory'
   import MonacoInjection from './monaco-injection'
   import MonacoOverflowLayer from './monaco-overflow-layer'
+  import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
 
   type Props = {
     value: string
@@ -39,6 +40,7 @@
   let layoutFrame: number | null = null
   let resizeObserver: ResizeObserver | null = null
   let overflowLayer: MonacoOverflowLayer.Layer | null = null
+  let completionProvider: Monaco.IDisposable | null = null
   let destroyed = false
   const scheduledTimers = new Set<number>()
 
@@ -120,7 +122,6 @@
     const diagnostics = [
       ...await service.getSyntacticDiagnostics(uri),
       ...await service.getSemanticDiagnostics(uri),
-      ...await service.getSuggestionDiagnostics(uri),
     ]
 
     const markers = MonacoDiagnostics.createMarkers(
@@ -131,6 +132,19 @@
       MonacoInjection.getAnalysisOffsetLine(getAnalysisOptions()),
       userModel.getLineCount(),
     )
+    if (mode === 'expression' && expectedType === 'array') {
+      const inferred = ExpressionTypeInference.inferArrayItem(
+        getInjectionSource(),
+        userModel.getValue(),
+      )
+      if (!inferred.ok) {
+        markers.push(MonacoDiagnostics.createWholeModelErrorMarker(
+          monaco,
+          userModel,
+          inferred.error,
+        ))
+      }
+    }
 
     monaco.editor.setModelMarkers(userModel, 'mebaco', markers)
     onDiagnosticsChange?.(
@@ -138,6 +152,44 @@
         .filter((marker) => marker.severity === monaco?.MarkerSeverity.Error)
         .map((marker) => marker.message),
     )
+  }
+
+  const getAnalysisPosition = (
+    position: Monaco.Position,
+  ): Monaco.Position | null => {
+    if (monaco == null) return null
+    return new monaco.Position(
+      position.lineNumber + MonacoInjection.getAnalysisOffsetLine(getAnalysisOptions()),
+      position.column,
+    )
+  }
+
+  const toCompletionKind = (
+    kind: string,
+  ): Monaco.languages.CompletionItemKind => {
+    if (monaco == null) return 0
+    switch (kind) {
+      case 'property':
+      case 'memberVariable':
+        return monaco.languages.CompletionItemKind.Property
+      case 'function':
+      case 'memberFunction':
+        return monaco.languages.CompletionItemKind.Function
+      case 'method':
+        return monaco.languages.CompletionItemKind.Method
+      case 'class':
+        return monaco.languages.CompletionItemKind.Class
+      case 'interface':
+        return monaco.languages.CompletionItemKind.Interface
+      case 'const':
+      case 'let':
+      case 'var':
+        return monaco.languages.CompletionItemKind.Variable
+      case 'keyword':
+        return monaco.languages.CompletionItemKind.Keyword
+      default:
+        return monaco.languages.CompletionItemKind.Text
+    }
   }
 
   const scheduleLayout = () => {
@@ -220,6 +272,62 @@
     lastEditorValue = value
     overflowLayer = MonacoOverflowLayer.create()
 
+    completionProvider = monaco.languages.registerCompletionItemProvider('typescript', {
+      triggerCharacters: ['.', '{', '"', "'"],
+      provideCompletionItems: async (model, position) => {
+        if (
+          monaco == null
+          || userModel == null
+          || analysisModel == null
+          || model.uri.toString() !== userModel.uri.toString()
+        ) return { suggestions: [] }
+
+        const analysisPosition = getAnalysisPosition(position)
+        if (analysisPosition == null) return { suggestions: [] }
+
+        const service = await MonacoFactory.getTypeScriptService(monaco, analysisModel.uri) as {
+          getCompletionsAtPosition(
+            uri: string,
+            position: number,
+            options: Record<string, unknown>,
+          ): Promise<{
+            entries?: Array<{
+              name: string
+              kind: string
+              sortText?: string
+              source?: string
+            }>
+          } | undefined>
+        }
+        const completions = await service.getCompletionsAtPosition(
+          analysisModel.uri.toString(),
+          analysisModel.getOffsetAt(analysisPosition),
+          {
+            includeCompletionsForModuleExports: false,
+            includeCompletionsWithInsertText: true,
+            includeAutomaticOptionalChainCompletions: true,
+          },
+        )
+        const word = model.getWordUntilPosition(position)
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        }
+
+        return {
+          suggestions: completions?.entries?.map((entry) => ({
+            label: entry.name,
+            kind: toCompletionKind(entry.kind),
+            insertText: entry.name,
+            sortText: entry.sortText,
+            range,
+          })) ?? [],
+        }
+      },
+    })
+
     editor = monaco.editor.create(mountContainer, {
       model: userModel,
       language: 'typescript',
@@ -272,6 +380,7 @@
     resizeObserver?.disconnect()
 
     editor?.dispose()
+    completionProvider?.dispose()
     overflowLayer?.destroy()
     userModel?.dispose()
     analysisModel?.dispose()

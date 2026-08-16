@@ -7,6 +7,7 @@ import ContentActions from '../../content-actions'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TagCatalog from './tag-catalog'
 import TagTreeLabel from './TagTreeLabel.svelte'
+import TreeStore from '../../../store/tree-store'
 import type StyleElement from './style-element'
 import StyleResolver from './style-resolver'
 
@@ -391,6 +392,7 @@ namespace TagElement {
         ))
       }
 
+      items.push(action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'))
       return items
     },
     contentHost: {

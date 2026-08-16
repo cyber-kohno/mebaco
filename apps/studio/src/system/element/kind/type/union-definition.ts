@@ -1,4 +1,5 @@
 import type ObjectShape from './object-shape'
+import LiteralUnion from './literal-union'
 
 namespace UnionDefinition {
   export type LiteralValueType = 'string' | 'number'
@@ -88,6 +89,13 @@ namespace UnionDefinition {
     }
 
     if (definition.values.length === 0) return 'Add at least one literal.'
+    if (
+      definition.valueType === 'string'
+      && definition.values.some((value) => (
+        typeof value === 'string'
+        && LiteralUnion.validateTextLength(value) != null
+      ))
+    ) return `Literal must be ${LiteralUnion.maxTextLength} characters or fewer.`
     if (new Set(definition.values).size !== definition.values.length) {
       return 'Literal is duplicated.'
     }

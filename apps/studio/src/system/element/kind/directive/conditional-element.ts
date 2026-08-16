@@ -53,6 +53,7 @@ namespace ConditionalElement {
         }))
       }
 
+      items.push(action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'))
       return items
     },
     childSlots: [],

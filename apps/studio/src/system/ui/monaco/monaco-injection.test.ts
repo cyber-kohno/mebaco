@@ -22,4 +22,14 @@ describe('MonacoInjection', () => {
       injectionSource: 'type MyObj = {};\ndeclare var $state: MyObj;',
     })).toBe(4)
   })
+
+  it('uses detailed expected type text for expression analysis', () => {
+    const source = MonacoInjection.wrapForAnalysis(
+      '{}',
+      'expression',
+      { expectedTypeText: 'User | null' },
+    )
+
+    expect(source).toContain('const __mebacoExpressionResult: User | null = (')
+  })
 })

@@ -43,6 +43,14 @@ namespace ValueTypeDefinition {
   export const getArrayDepth = (
     definition: Definition,
   ): number => TypeExpression.unwrapArray(definition.valueType).depth
+
+  export const getTypeText = (
+    definition: Definition,
+    resolveTypeName: (typeId: string) => string | undefined = () => undefined,
+  ): string => {
+    const valueType = TypeExpression.getTypeText(definition.valueType, resolveTypeName)
+    return `${valueType}${definition.nullable ? ' | null' : ''}`
+  }
 }
 
 export default ValueTypeDefinition

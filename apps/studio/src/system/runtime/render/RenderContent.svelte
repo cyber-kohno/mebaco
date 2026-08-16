@@ -17,15 +17,18 @@
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
     evaluateRetention?: boolean
+    contentNodes?: readonly TreeNode.Node[]
   }
   let { hostNode, projectNode, styleCatalog, formulaContext, renderRevision,
-    invalidateRuntime, setActionError, setStyleResult, evaluateRetention = true }: Props = $props()
+    invalidateRuntime, setActionError, setStyleResult, evaluateRetention = true,
+    contentNodes }: Props = $props()
   const result = $derived.by(() => {
     renderRevision
     return evaluateRetention
       ? RetentionResolver.resolve(hostNode, formulaContext, projectNode)
       : { context: formulaContext, error: null, errorNodeId: null }
   })
+  const children = $derived(contentNodes ?? ContentHost.getContentChildren(hostNode))
   $effect(() => {
     setActionError(result.errorNodeId ?? hostNode.id, result.error)
     return () => setActionError(hostNode.id, null)
@@ -33,7 +36,7 @@
 </script>
 
 {#if result.error == null}
-  {#each ContentHost.getContentChildren(hostNode) as childNode (childNode.id)}
+  {#each children as childNode (childNode.id)}
     <ElementDispatcher node={childNode} {projectNode} {styleCatalog}
       formulaContext={result.context} {renderRevision} {invalidateRuntime}
       {setActionError} {setStyleResult} />

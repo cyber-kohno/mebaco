@@ -83,6 +83,28 @@ describe('runtime StyleResolver', () => {
     expect(result.declarations.map((item) => item.value)).toEqual(['2', '"item:true"'])
   })
 
+  it('resolves square tag style declarations used by runtime preview', () => {
+    const square = StyleFixture.style('square', {
+      rules: [
+        StyleFixture.literal('display', 'inline-block'),
+        StyleFixture.literal('width', '100px'),
+        StyleFixture.literal('height', '100px'),
+        StyleFixture.literal('background', 'red'),
+      ],
+    })
+    const result = StyleResolver
+      .createCatalog(StyleFixture.project([square]))
+      .resolve([StyleFixture.application('square')], FormulaContext.createEmpty())
+
+    expect(result.errors).toEqual([])
+    expect(result.declarations.map(({ property, value }) => ({ property, value }))).toEqual([
+      { property: 'display', value: 'inline-block' },
+      { property: 'width', value: '100px' },
+      { property: 'height', value: '100px' },
+      { property: 'background', value: 'red' },
+    ])
+  })
+
   it('applies conditions and reports invalid condition results', () => {
     const style = StyleFixture.style('conditional', {
       rules: [StyleFixture.literal('display', 'block')],

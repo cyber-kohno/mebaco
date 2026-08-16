@@ -7,7 +7,8 @@
     value: string
     ariaLabel?: string
     injectionSource?: string
-    expectedType?: 'string' | 'number' | 'boolean'
+    expectedType?: 'string' | 'number' | 'boolean' | 'array'
+    expectedTypeText?: string
     validationMessage?: string
     validationSeverity?: 'warning' | 'error'
     onValueChange: (value: string) => void
@@ -18,6 +19,7 @@
     ariaLabel = 'Formula',
     injectionSource,
     expectedType,
+    expectedTypeText,
     validationMessage,
     validationSeverity,
     onValueChange,
@@ -60,6 +62,7 @@
     {value}
     {injectionSource}
     {expectedType}
+    {expectedTypeText}
     {onValueChange}
     onDiagnosticsChange={(messages) => {
       diagnosticMessages = messages

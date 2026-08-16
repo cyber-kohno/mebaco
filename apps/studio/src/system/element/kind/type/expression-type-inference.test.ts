@@ -32,6 +32,16 @@ describe('ExpressionTypeInference', () => {
     )).toEqual({ ok: false, error: 'Collection must return an array.' })
   })
 
+  it('rejects empty array literals because the item type is never', () => {
+    expect(ExpressionTypeInference.inferArrayItem(
+      injectionSource,
+      '[]',
+    )).toEqual({
+      ok: false,
+      error: 'Collection item type could not be inferred.',
+    })
+  })
+
   it('widens primitive literals for mutable Variable bindings', () => {
     expect(ExpressionTypeInference.inferType('', '1')).toEqual({
       ok: true,

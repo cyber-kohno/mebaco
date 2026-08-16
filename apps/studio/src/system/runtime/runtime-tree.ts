@@ -10,6 +10,7 @@ import type SwitchElement from '../element/kind/directive/switch-element'
 import type LoopElement from '../element/kind/directive/loop-element'
 import type BlockElement from '../element/kind/block/block-element'
 import type TreeNode from '../tree/tree-node'
+import ContentHost from '../element/content-host'
 
 namespace RuntimeTree {
   export type AppRuntime = {
@@ -143,8 +144,7 @@ namespace RuntimeTree {
   export const getComponentRootViewNodes = (
     componentNode: TreeNode.Node,
   ): TreeNode.Node[] => {
-    const elementsNode = componentNode.children.find((node) => node.element.kind === 'elements')
-    return elementsNode?.children.filter(isViewNode) ?? []
+    return ContentHost.getContentChildren(componentNode).filter(isViewNode)
   }
 
   export const createStyleMap = (

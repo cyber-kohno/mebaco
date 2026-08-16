@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Plus, Trash2 } from '@lucide/svelte'
   import type ObjectShape from './object-shape'
+  import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
   import UnionDefinition from './union-definition'
 
   type Props = {
@@ -19,13 +20,10 @@
 
   let definition = $state<UnionDefinition.Definition>(UnionDefinition.create())
   let serializedValue = $state('')
-  let literalDraft = $state('')
-
   $effect(() => {
     if (value === serializedValue) return
     definition = UnionDefinition.parse(value) ?? UnionDefinition.create()
     serializedValue = value
-    literalDraft = ''
   })
 
   const emit = (nextDefinition: UnionDefinition.Definition) => {
@@ -44,24 +42,11 @@
   const setLiteralValueType = (valueType: UnionDefinition.LiteralValueType) => {
     if (definition.type !== 'literal') return
     emit(UnionDefinition.createLiteral(valueType))
-    literalDraft = ''
   }
 
-  const addLiteral = () => {
+  const addLiteral = (literal: string | number) => {
     if (definition.type !== 'literal') return
-
-    if (definition.valueType === 'string') {
-      if (literalDraft.length === 0 || definition.values.includes(literalDraft)) return
-      emit({ ...definition, values: [...definition.values, literalDraft] })
-      literalDraft = ''
-      return
-    }
-
-    if (literalDraft.trim().length === 0) return
-    const value = Number(literalDraft)
-    if (!Number.isFinite(value) || definition.values.includes(value)) return
-    emit({ ...definition, values: [...definition.values, value] })
-    literalDraft = ''
+    emit({ ...definition, values: [...definition.values, literal] })
   }
 
   const removeLiteral = (index: number) => {
@@ -145,49 +130,13 @@
       </select>
     </label>
 
-    <div class="literal-editor">
-      <span class="detail-label">Literals</span>
-      <div class="literal-content">
-        <div class="input-row">
-          <input
-            type={definition.valueType === 'number' ? 'number' : 'text'}
-            value={literalDraft}
-            aria-label="Literal Value"
-            oninput={(event) => {
-              literalDraft = event.currentTarget.value
-            }}
-            onkeydown={(event) => {
-              if (event.key !== 'Enter') return
-              event.preventDefault()
-              addLiteral()
-            }}
-          />
-          <button
-            class="icon-button"
-            type="button"
-            title="Add Literal"
-            aria-label="Add Literal"
-            onclick={addLiteral}
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-
-        <div class="chip-list">
-          {#each definition.values as literal, index}
-            <span class="chip">
-              <span>{formatLiteral(literal)}</span>
-              <button
-                type="button"
-                title="Remove Literal"
-                aria-label={`Remove Literal ${formatLiteral(literal)}`}
-                onclick={() => removeLiteral(index)}
-              >x</button>
-            </span>
-          {/each}
-        </div>
-      </div>
-    </div>
+    <LiteralUnionDraftEditor
+      label="Literals"
+      valueType={definition.valueType}
+      values={definition.values}
+      onAdd={addLiteral}
+      onRemove={removeLiteral}
+    />
   {:else}
     <div class="object-editor">
       <span class="detail-label">Objects</span>
@@ -244,7 +193,6 @@
   }
 
   label,
-  .literal-editor,
   .object-editor {
     display: grid;
     grid-template-columns: 110px minmax(0, 1fr);
@@ -262,7 +210,6 @@
     font-weight: 700;
   }
 
-  .literal-content,
   .object-content {
     display: grid;
     gap: 7px;
@@ -275,44 +222,6 @@
     gap: 4px;
   }
 
-  .chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    max-height: 180px;
-    overflow: auto;
-  }
-
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    border: 1px solid #9acbd4;
-    border-radius: 5px;
-    background: #eef8fa;
-    color: #6f551c;
-    font-weight: 700;
-  }
-
-  .chip > span {
-    padding: 0 8px;
-  }
-
-  .chip button {
-    width: 26px;
-    height: 26px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    border-left: 1px solid #b8d9df;
-    border-radius: 0;
-    background: transparent;
-    color: #ad4c5a;
-    font: inherit;
-    font-size: 15px;
-  }
-
-  input,
   select {
     min-width: 0;
     width: min(100%, var(--mbc-width-id-field));
@@ -361,7 +270,8 @@
     color: #ad4c5a;
   }
 
-  .command-button:disabled {
+  .command-button:disabled,
+  .icon-button:disabled {
     opacity: 0.42;
   }
 </style>

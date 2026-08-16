@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import RenderContent from './render/RenderContent.svelte'
   import FormulaContext from './formula/formula-context'
   import RuntimeState from './runtime-state'
@@ -23,6 +24,7 @@
   } | null>(null)
   let styleResults = $state<Record<number, StyleResolver.Result>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
+  let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(runtime))
@@ -70,34 +72,114 @@
     ? []
     : RuntimeTree.getComponentRootViewNodes(entryComponentNode))
 
+  $effect(() => {
+    if (runtimeStyleElement == null) return
+    runtimeStyleElement.textContent = runtimeStyleSheet
+  })
+
   const invalidateRuntime = () => {
     renderRevision += 1
   }
+
+  const scriptErrorsEqual = (
+    left: ScriptError.Value | undefined,
+    right: ScriptError.Value | undefined,
+  ): boolean => (
+    left?.stage === right?.stage
+    && left?.message === right?.message
+    && left?.line === right?.line
+    && left?.column === right?.column
+  )
+
+  const arraysEqual = <T,>(
+    left: readonly T[],
+    right: readonly T[],
+    isEqual: (leftItem: T, rightItem: T) => boolean,
+  ): boolean => (
+    left.length === right.length
+    && left.every((leftItem, index) => isEqual(leftItem, right[index]))
+  )
+
+  const styleSourcesEqual = (
+    left: StyleResolver.DeclarationSource,
+    right: StyleResolver.DeclarationSource,
+  ): boolean => (
+    left.styleId === right.styleId
+    && left.valueType === right.valueType
+    && arraysEqual(left.path, right.path, (leftItem, rightItem) => leftItem === rightItem)
+  )
+
+  const styleDeclarationsEqual = (
+    left: StyleResolver.Declaration,
+    right: StyleResolver.Declaration,
+  ): boolean => (
+    left.property === right.property
+    && left.value === right.value
+    && left.state === right.state
+    && styleSourcesEqual(left.source, right.source)
+  )
+
+  const styleErrorsEqual = (
+    left: StyleResolver.Error,
+    right: StyleResolver.Error,
+  ): boolean => (
+    left.type === right.type
+    && left.message === right.message
+    && left.styleId === right.styleId
+    && left.referenceId === right.referenceId
+    && left.parameterId === right.parameterId
+    && left.property === right.property
+    && scriptErrorsEqual(left.scriptError, right.scriptError)
+    && arraysEqual(left.path, right.path, (leftItem, rightItem) => leftItem === rightItem)
+  )
+
+  const styleResultsEqual = (
+    left: StyleResolver.Result,
+    right: StyleResolver.Result,
+  ): boolean => (
+    arraysEqual(left.declarations, right.declarations, styleDeclarationsEqual)
+    && arraysEqual(left.errors, right.errors, styleErrorsEqual)
+  )
+
+  const isEmptyStyleResult = (
+    result: StyleResolver.Result,
+  ): boolean => result.declarations.length === 0 && result.errors.length === 0
 
   const setActionError = (
     nodeId: number,
     error: ScriptError.Value | null,
   ) => {
-    actionError = error == null ? null : { nodeId, error }
+    const currentError = untrack(() => actionError)
+    const nextError = error == null ? null : { nodeId, error }
+    if (
+      currentError?.nodeId === nextError?.nodeId
+      && scriptErrorsEqual(currentError?.error, nextError?.error)
+    ) return
+    actionError = nextError
   }
 
   const setStyleResult = (
     nodeId: number,
     result: StyleResolver.Result | null,
   ) => {
-    if (result == null) {
-      if (styleResults[nodeId] == null) return
-      const nextResults = { ...styleResults }
+    const currentResults = untrack(() => styleResults)
+    if (result == null || isEmptyStyleResult(result)) {
+      if (currentResults[nodeId] == null) return
+      const nextResults = { ...currentResults }
       delete nextResults[nodeId]
       styleResults = nextResults
       return
     }
-    styleResults = { ...styleResults, [nodeId]: result }
+    if (
+      currentResults[nodeId] != null
+      && styleResultsEqual(currentResults[nodeId], result)
+    ) return
+    styleResults = { ...currentResults, [nodeId]: result }
   }
 </script>
 
 <div class="runtime-view">
-  <style>{runtimeStyleSheet}</style>
+  <style bind:this={runtimeStyleElement}></style>
   {#if actionError != null}
     <div class="runtime-error" role="alert">
       <span>{ScriptError.format(actionError.error)}</span>
@@ -132,7 +214,8 @@
   {:else if rootViewNodes.length === 0}
     <div class="runtime-message">Entry component has no elements.</div>
   {:else}
-    <RenderContent hostNode={entryComponentNode} {projectNode} {styleCatalog}
+    <RenderContent hostNode={entryComponentNode} contentNodes={rootViewNodes}
+      {projectNode} {styleCatalog}
       {formulaContext} {renderRevision} {invalidateRuntime}
       {setActionError} {setStyleResult} />
   {/if}

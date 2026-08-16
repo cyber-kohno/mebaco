@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Plus, Trash2 } from '@lucide/svelte'
+  import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
   import TypeExpression from './type-expression'
   import ValueTypeDefinition from './value-type-definition'
 
@@ -18,8 +19,6 @@
     errorMessage = null,
     onValueChange,
   }: Props = $props()
-
-  let literalDraft = $state('')
 
   const definition = $derived(
     ValueTypeDefinition.parse(value) ?? ValueTypeDefinition.create(),
@@ -43,7 +42,6 @@
   const setBaseType = (
     baseType: TypeExpression.BaseType,
   ) => {
-    literalDraft = ''
     if (baseType === 'reference') {
       emitBase(TypeExpression.createReference(['']), false)
       return
@@ -119,26 +117,17 @@
     enabled: boolean,
   ) => {
     if (base.type !== 'string' && base.type !== 'number') return
-    literalDraft = ''
     emitBase(enabled ? { ...base, literals: [] } : TypeExpression.createPrimitive(base.type))
   }
 
-  const addLiteral = () => {
+  const addLiteral = (literal: string | number) => {
     if (base.type !== 'string' && base.type !== 'number') return
     if (base.literals == null) return
-
     if (base.type === 'string') {
-      if (literalDraft.length === 0 || base.literals.includes(literalDraft)) return
-      emitBase({ ...base, literals: [...base.literals, literalDraft] })
-      literalDraft = ''
+      emitBase({ ...base, literals: [...base.literals, String(literal)] })
       return
     }
-
-    if (literalDraft.trim().length === 0) return
-    const value = Number(literalDraft)
-    if (!Number.isFinite(value) || base.literals.includes(value)) return
-    emitBase({ ...base, literals: [...base.literals, value] })
-    literalDraft = ''
+    emitBase({ ...base, literals: [...base.literals, Number(literal)] })
   }
 
   const removeLiteral = (
@@ -249,48 +238,13 @@
     </label>
 
     {#if base.literals != null}
-      <div class="detail-field">
-        <span class="detail-label">Literals</span>
-        <div class="literal-content">
-          <div class="input-row">
-            <input
-              type={base.type === 'number' ? 'number' : 'text'}
-              value={literalDraft}
-              aria-label="Literal Value"
-              oninput={(event) => {
-                literalDraft = event.currentTarget.value
-              }}
-              onkeydown={(event) => {
-                if (event.key !== 'Enter') return
-                event.preventDefault()
-                addLiteral()
-              }}
-            />
-            <button
-              class="icon-button"
-              type="button"
-              title="Add Literal"
-              aria-label="Add Literal"
-              onclick={addLiteral}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-          <div class="chip-list">
-            {#each base.literals as literal, index}
-              <span class="chip">
-                <span>{formatLiteral(literal)}</span>
-                <button
-                  type="button"
-                  title="Remove Literal"
-                  aria-label={`Remove Literal ${formatLiteral(literal)}`}
-                  onclick={() => removeLiteral(index)}
-                >x</button>
-              </span>
-            {/each}
-          </div>
-        </div>
-      </div>
+      <LiteralUnionDraftEditor
+        label="Literals"
+        valueType={base.type}
+        values={base.literals}
+        onAdd={addLiteral}
+        onRemove={removeLiteral}
+      />
     {/if}
   {/if}
 
@@ -349,8 +303,7 @@
     padding-top: 8px;
   }
 
-  .reference-list,
-  .literal-content {
+  .reference-list {
     display: grid;
     gap: 7px;
     min-width: 0;
@@ -363,7 +316,6 @@
   }
 
   select,
-  input[type='text'],
   input[type='number'] {
     min-width: 0;
     width: min(100%, var(--mbc-width-id-field));
@@ -384,43 +336,6 @@
     justify-self: start;
     width: 16px;
     height: 16px;
-  }
-
-  .chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    max-height: 96px;
-    overflow: auto;
-  }
-
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    border: 1px solid #9acbd4;
-    border-radius: 5px;
-    background: #eef8fa;
-    color: #6f551c;
-    font-weight: 700;
-  }
-
-  .chip > span {
-    padding: 0 8px;
-  }
-
-  .chip button {
-    width: 26px;
-    height: 26px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    border-left: 1px solid #b8d9df;
-    border-radius: 0;
-    background: transparent;
-    color: #ad4c5a;
-    font: inherit;
-    font-size: 15px;
   }
 
   .command-button,

@@ -9,6 +9,7 @@
     valueType: string
     arrayDepth: number
     valueTypeDefinition?: ValueTypeDefinition.Definition
+    expectedTypeText?: string
     injectionSource?: string
     onValueChange: (value: string) => void
   }
@@ -18,6 +19,7 @@
     valueType,
     arrayDepth,
     valueTypeDefinition,
+    expectedTypeText,
     injectionSource,
     onValueChange,
   }: Props = $props()
@@ -98,6 +100,7 @@
           ariaLabel="Initial value formula"
           {injectionSource}
           {expectedType}
+          {expectedTypeText}
           onValueChange={(formulaSource) => emit({ type: 'formula', source: formulaSource })}
         />
       {:else if resolvedValueType === 'boolean'}

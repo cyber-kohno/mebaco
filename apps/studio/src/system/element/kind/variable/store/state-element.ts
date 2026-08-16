@@ -64,6 +64,17 @@ namespace StateElement {
         valueTypeKey: 'valueType',
         arrayDepthKey: 'valueType',
         valueTypeDefinitionKey: 'valueType',
+        getExpectedTypeText: (values) => {
+          const definition = parseValueType(values)
+          return ValueTypeDefinition.getTypeText(
+            definition,
+            (id) => (
+              options.referenceOptions?.find((option) => option.value === id)?.label
+              ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
+              ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
+            ),
+          )
+        },
       },
     ],
     createPreview: () => create({

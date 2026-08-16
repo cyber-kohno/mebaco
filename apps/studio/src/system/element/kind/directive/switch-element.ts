@@ -30,7 +30,7 @@ namespace SwitchElement {
   })
 
   export type CreateSchemaOptions = {
-    lockedValueType?: ValueType
+    caseValueType?: SwitchValueType.PrimitiveName
     literalUnionOptions?: readonly SwitchValueType.LiteralUnionOption[]
   }
 
@@ -44,8 +44,9 @@ namespace SwitchElement {
         type: 'switchValueType',
         key: 'valueType',
         label: 'Value Type',
-        defaultValue: SwitchValueType.stringify(options.lockedValueType ?? SwitchValueType.createPrimitive()),
+        defaultValue: SwitchValueType.stringify(SwitchValueType.createPrimitive()),
         literalUnionOptions: options.literalUnionOptions ?? [],
+        caseValueType: options.caseValueType,
       },
       {
         type: 'formula',
@@ -53,6 +54,10 @@ namespace SwitchElement {
         label: 'Expression',
         required: true,
         maxLength: 4000,
+        getExpectedTypeText: (values) => SwitchValueType.getTypeText(
+          SwitchValueType.parse(values.valueType) ?? SwitchValueType.createPrimitive(),
+          options.literalUnionOptions ?? [],
+        ),
       },
     ],
     createPreview: () => create(SwitchValueType.createPrimitive(), '...'),
@@ -61,16 +66,12 @@ namespace SwitchElement {
       source: element.source,
     }),
     create: (values) => create(
-      options.lockedValueType
-      ?? SwitchValueType.parse(values.valueType)
-      ?? SwitchValueType.createPrimitive(),
+      SwitchValueType.parse(values.valueType) ?? SwitchValueType.createPrimitive(),
       values.source,
     ),
     update: (element, values) => ({
       ...element,
-      valueType: options.lockedValueType
-        ?? SwitchValueType.parse(values.valueType)
-        ?? SwitchValueType.createPrimitive(),
+      valueType: SwitchValueType.parse(values.valueType) ?? SwitchValueType.createPrimitive(),
       source: values.source,
     }),
   })
@@ -153,8 +154,8 @@ namespace SwitchElement {
             context.node.id,
             context.element,
             createSchema({
-              lockedValueType: caseNodes.length > 0
-                ? valueType
+              caseValueType: caseNodes.length > 0
+                ? primitive
                 : undefined,
               literalUnionOptions: getLiteralUnionOptions(context.rootNode, context.node.id),
             }),
@@ -181,6 +182,7 @@ namespace SwitchElement {
         }))
       }
 
+      items.push(action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'))
       return items
     },
     childSlots: [],

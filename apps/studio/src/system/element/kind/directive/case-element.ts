@@ -44,9 +44,10 @@ namespace CaseElement {
           required: true,
           options: options.allowedValues.map((value) => ({
             value: serializeValue(value),
-            label: value.type === 'string' ? JSON.stringify(value.value) : String(value.value),
+            label: String(value.value),
           })),
           reservedValues: options.reservedValues?.map(serializeValue),
+          width: 'literalUnion',
         }
       : options.valueType === 'number'
       ? {

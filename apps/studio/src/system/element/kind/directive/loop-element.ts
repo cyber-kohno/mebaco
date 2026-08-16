@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ContentActions from '../../content-actions'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import TreeStore from '../../../store/tree-store'
 
 namespace LoopElement {
   export type Kind = 'loop'
@@ -56,6 +57,7 @@ namespace LoopElement {
         label: 'Mode',
         defaultValue: 'count',
         required: true,
+        width: 'mode',
         options: [
           { value: 'count', label: 'Count' },
           { value: 'collection', label: 'For Each' },
@@ -68,6 +70,7 @@ namespace LoopElement {
         defaultValue: '0',
         required: true,
         maxLength: 4000,
+        expectedType: 'number',
         visibleWhen: { key: 'mode', value: 'count' },
       },
       {
@@ -151,7 +154,7 @@ namespace LoopElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      return [
+      const items: ActionMenuState.Item[] = [
         action('Modify', () => {
           ElementDialog.openUpdate(
             context.node.id,
@@ -164,6 +167,9 @@ namespace LoopElement {
           context.rootNode,
         ),
       ]
+
+      items.push(action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'))
+      return items
     },
     contentHost: {
       retention: 'optional',

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus } from '@lucide/svelte'
+  import LiteralUnionDraftEditor from '../type/LiteralUnionDraftEditor.svelte'
   import SwitchValueType from './switch-value-type'
 
   type Props = {
@@ -15,8 +15,6 @@
     errorMessage = null,
     onValueChange,
   }: Props = $props()
-
-  let literalDraft = $state('')
 
   const definition = $derived(
     SwitchValueType.parse(value) ?? SwitchValueType.createPrimitive(),
@@ -35,7 +33,6 @@
   const setValueType = (
     nextValueType: SwitchValueType.PrimitiveName | 'union',
   ) => {
-    literalDraft = ''
     emit(nextValueType === 'union'
       ? SwitchValueType.createUnion('')
       : SwitchValueType.createPrimitive(nextValueType))
@@ -45,36 +42,28 @@
     enabled: boolean,
   ) => {
     if (definition.type !== 'primitive') return
-    literalDraft = ''
     emit(enabled
       ? { ...definition, literals: [] }
       : { type: 'primitive', primitive: definition.primitive })
   }
 
-  const addLiteral = () => {
+  const addLiteral = (literal: SwitchValueType.Literal) => {
     if (definition.type !== 'primitive' || definition.literals == null) return
-
-    if (definition.primitive === 'string') {
-      if (literalDraft.length === 0 || definition.literals.includes(literalDraft)) return
-      emit({ ...definition, literals: [...definition.literals, literalDraft] })
-      literalDraft = ''
-      return
-    }
-
-    if (literalDraft.trim().length === 0) return
-    const value = Number(literalDraft)
-    if (!Number.isFinite(value) || definition.literals.includes(value)) return
-    emit({ ...definition, literals: [...definition.literals, value] })
-    literalDraft = ''
+    emit({ ...definition, literals: [...definition.literals, literal] })
   }
 
   const removeLiteral = (
     index: number,
   ) => {
     if (definition.type !== 'primitive' || definition.literals == null) return
+    const literals = definition.literals.filter((_, currentIndex) => currentIndex !== index)
+    if (literals.length === 0) {
+      emit({ type: 'primitive', primitive: definition.primitive })
+      return
+    }
     emit({
       ...definition,
-      literals: definition.literals.filter((_, currentIndex) => currentIndex !== index),
+      literals,
     })
   }
 
@@ -127,49 +116,13 @@
     </label>
 
     {#if definition.literals != null}
-      <div class="literal-editor">
-        <span class="detail-label">Literals</span>
-        <div class="literal-content">
-          <div class="input-row">
-            <input
-              type={definition.primitive === 'number' ? 'number' : 'text'}
-              value={literalDraft}
-              aria-label="Literal Value"
-              oninput={(event) => {
-                literalDraft = event.currentTarget.value
-              }}
-              onkeydown={(event) => {
-                if (event.key !== 'Enter') return
-                event.preventDefault()
-                addLiteral()
-              }}
-            />
-            <button
-              class="icon-button"
-              type="button"
-              title="Add Literal"
-              aria-label="Add Literal"
-              onclick={addLiteral}
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-
-          <div class="chip-list">
-            {#each definition.literals as literal, index}
-              <span class="chip">
-                <span>{formatLiteral(literal)}</span>
-                <button
-                  type="button"
-                  title="Remove Literal"
-                  aria-label={`Remove Literal ${formatLiteral(literal)}`}
-                  onclick={() => removeLiteral(index)}
-                >x</button>
-              </span>
-            {/each}
-          </div>
-        </div>
-      </div>
+      <LiteralUnionDraftEditor
+        label="Literals"
+        valueType={definition.primitive}
+        values={definition.literals}
+        onAdd={addLiteral}
+        onRemove={removeLiteral}
+      />
     {/if}
   {/if}
 </section>
@@ -188,7 +141,7 @@
   }
 
   label,
-  .literal-editor {
+  :global(.literal-draft-editor) {
     display: grid;
     grid-template-columns: 110px minmax(0, 1fr);
     align-items: center;
@@ -196,33 +149,10 @@
     font-weight: 700;
   }
 
-  .literal-editor {
-    align-items: start;
-  }
-
   .literal-toggle input {
     justify-self: start;
   }
 
-  .detail-label {
-    padding-top: 8px;
-    font-weight: 700;
-  }
-
-  .literal-content {
-    display: grid;
-    gap: 7px;
-    min-width: 0;
-  }
-
-  .input-row {
-    display: grid;
-    grid-template-columns: minmax(0, var(--mbc-width-id-field)) 32px;
-    gap: 4px;
-  }
-
-  input[type='text'],
-  input[type='number'],
   select {
     min-width: 0;
     width: min(100%, var(--mbc-width-id-field));
@@ -240,61 +170,4 @@
     height: 16px;
   }
 
-  .chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    max-height: 180px;
-    overflow: auto;
-  }
-
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    border: 1px solid #9acbd4;
-    border-radius: 5px;
-    background: #eef8fa;
-    color: #6f551c;
-    font-weight: 700;
-  }
-
-  .chip > span {
-    padding: 0 8px;
-  }
-
-  .chip button {
-    width: 26px;
-    height: 26px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    border-left: 1px solid #b8d9df;
-    border-radius: 0;
-    background: transparent;
-    color: #ad4c5a;
-    font: inherit;
-    font-size: 15px;
-  }
-
-  .icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    min-width: 0;
-    height: 32px;
-    padding: 0;
-    border: 1px solid var(--mbc-color-border-strong);
-    border-radius: 6px;
-    background: var(--mbc-color-surface-soft);
-    color: #236f7a;
-    font: inherit;
-    font-weight: 700;
-  }
-
-  .icon-button:hover {
-    border-color: var(--mbc-color-primary);
-    background: var(--mbc-color-primary-soft);
-  }
 </style>

@@ -1,5 +1,6 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { Plus, Trash2 } from '@lucide/svelte'
+  import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
   import TypeExpression from './type-expression'
   import ObjectShape from './object-shape'
 
@@ -43,7 +44,6 @@
   let baseObjectIds = $state<string[]>([])
   let serializedValue = $state('')
   let selectedPath = $state<number[]>([])
-  let literalDraft = $state('')
 
   $effect(() => {
     if (value === serializedValue) return
@@ -159,7 +159,6 @@
     if (level == null) return
     level.splice(selectedPath.at(-1)!, 1)
     selectedPath = parentPath
-    literalDraft = ''
     emit(next)
   }
 
@@ -177,7 +176,6 @@
             : TypeExpression.createPrimitive(type)
       property.valueType = TypeExpression.wrapArray(nextBase, depth)
     })
-    literalDraft = ''
   }
 
   const setNamedType = (namedTypeId: string) => {
@@ -239,24 +237,18 @@
       if (enabled) base.literals = []
       else delete base.literals
     })
-    literalDraft = ''
   }
 
-  const addLiteral = () => {
+  const addLiteral = (literal: string | number) => {
     updateSelected((property) => {
       const { base } = TypeExpression.unwrapArray(property.valueType)
       if (base.type === 'string' && base.literals != null) {
-        if (literalDraft.length === 0 || base.literals.includes(literalDraft)) return
-        base.literals.push(literalDraft)
+        base.literals.push(String(literal))
       }
       if (base.type === 'number' && base.literals != null) {
-        if (literalDraft.trim().length === 0) return
-        const value = Number(literalDraft)
-        if (!Number.isFinite(value) || base.literals.includes(value)) return
-        base.literals.push(value)
+        base.literals.push(Number(literal))
       }
     })
-    literalDraft = ''
   }
 
   const removeLiteral = (index: number) => {
@@ -335,10 +327,9 @@
         type="button"
         class:active={selectedPath.length === 0}
         class="tree-row root-row"
-        onclick={() => {
-          selectedPath = []
-          literalDraft = ''
-        }}
+          onclick={() => {
+            selectedPath = []
+          }}
       >
         <span class="type-keyword">type</span>
         <span class="type-name">{objectId.length > 0 ? objectId : '...'}</span>
@@ -360,7 +351,6 @@
             style={`--depth: ${row.depth}`}
             onclick={() => {
               selectedPath = row.path
-              literalDraft = ''
             }}
           >
             <span class="property-name">{row.property.id}</span>
@@ -598,45 +588,12 @@
               <span>Literal Union</span>
             </label>
             {#if selectedBase.literals != null}
-              <div class="literal-editor">
-                <div class="literal-input-row">
-                  <input
-                    type={selectedBase.type === 'number' ? 'number' : 'text'}
-                    value={literalDraft}
-                    aria-label="Literal Value"
-                    oninput={(event) => {
-                      literalDraft = event.currentTarget.value
-                    }}
-                    onkeydown={(event) => {
-                      if (event.key !== 'Enter') return
-                      event.preventDefault()
-                      addLiteral()
-                    }}
-                  />
-                  <button
-                    class="icon-button"
-                    type="button"
-                    title="Add Literal"
-                    aria-label="Add Literal"
-                    onclick={addLiteral}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-                <div class="literal-list">
-                  {#each selectedBase.literals as literal, index}
-                    <span class="literal-chip">
-                      <span>{formatLiteral(literal)}</span>
-                      <button
-                        type="button"
-                        title="Remove Literal"
-                        aria-label={`Remove Literal ${formatLiteral(literal)}`}
-                        onclick={() => removeLiteral(index)}
-                      >×</button>
-                    </span>
-                  {/each}
-                </div>
-              </div>
+              <LiteralUnionDraftEditor
+                valueType={selectedBase.type}
+                values={selectedBase.literals}
+                onAdd={addLiteral}
+                onRemove={removeLiteral}
+              />
             {/if}
           </div>
         {/if}
@@ -906,53 +863,16 @@
     font-weight: 700;
   }
 
-  .reference-list,
-  .literal-editor {
+  .reference-list {
     display: grid;
     gap: 7px;
     min-width: 0;
   }
 
-  .reference-row,
-  .literal-input-row {
+  .reference-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 32px;
     gap: 4px;
-  }
-
-  .literal-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    max-height: 96px;
-    overflow: auto;
-  }
-
-  .literal-chip {
-    display: inline-flex;
-    align-items: center;
-    min-height: 28px;
-    border: 1px solid #9acbd4;
-    border-radius: 5px;
-    background: #eef8fa;
-    color: #6f551c;
-    font-weight: 700;
-  }
-
-  .literal-chip > span {
-    padding: 0 8px;
-  }
-
-  .literal-chip button {
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-left: 1px solid #b8d9df;
-    background: transparent;
-    color: #ad4c5a;
-    font: inherit;
-    font-size: 16px;
   }
 
   input,

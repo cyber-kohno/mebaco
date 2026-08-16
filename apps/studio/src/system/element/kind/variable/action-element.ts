@@ -2,6 +2,7 @@ import type ElementDefinition from '../../element-definition'
 import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import TreeStore from '../../../store/tree-store'
 
 namespace ActionElement {
   export type Kind = 'action'
@@ -13,7 +14,7 @@ namespace ActionElement {
     createTitle: 'Create Action', updateTitle: 'Update Action',
     fields: [
       { type: 'text', key: 'comment', label: 'Comment', width: 'id', maxLength: 64 },
-      { type: 'script', key: 'source', label: 'Action', required: true, maxLength: 8000 },
+      { type: 'script', key: 'source', label: 'Action', maxLength: 8000 },
     ],
     createPreview: () => create('...', ''),
     getInitialValues: (element) => ({ comment: element.comment, source: element.source }),
@@ -28,9 +29,12 @@ namespace ActionElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      return [action('Modify', () => ElementDialog.openUpdate(
-        context.node.id, context.element, createSchema(),
-      ))]
+      return [
+        action('Modify', () => ElementDialog.openUpdate(
+          context.node.id, context.element, createSchema(),
+        )),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+      ]
     },
     childSlots: [], canDisable: false,
   } satisfies ElementDefinition.Definition<Element>

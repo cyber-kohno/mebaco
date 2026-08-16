@@ -22,7 +22,7 @@ namespace ElementEditSchema {
     tab?: string
     visibleWhen?: FieldVisibility
     visibleWhenAll?: readonly FieldVisibility[]
-    width?: 'id' | 'valueType' | 'arrayDepth'
+    width?: 'id' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
   }
 
   export type TextField = {
@@ -114,6 +114,7 @@ namespace ElementEditSchema {
     valueTypeKey: string
     arrayDepthKey: string
     valueTypeDefinitionKey?: string
+    getExpectedTypeText?: (values: Readonly<Record<string, string>>) => string | undefined
   } & FieldBase
 
   export type ValueTypeField = {
@@ -203,6 +204,7 @@ namespace ElementEditSchema {
     label: string
     defaultValue?: string
     literalUnionOptions: readonly SwitchValueType.LiteralUnionOption[]
+    caseValueType?: SwitchValueType.PrimitiveName
   } & FieldBase
 
   export type Field =
@@ -333,6 +335,21 @@ namespace ElementEditSchema {
     if (field.required === true && value.length === 0) return 'Required.'
     if (field.maxLength != null && value.length > field.maxLength) {
       return `Must be ${field.maxLength} characters or fewer.`
+    }
+
+    if (
+      (
+        field.expectedType === 'string'
+        || field.expectedType === 'number'
+        || field.expectedType === 'boolean'
+      )
+      && injectionSource != null
+    ) {
+      const inferred = ExpressionTypeInference.inferType(injectionSource, value, true)
+      if (!inferred.ok) return inferred.error
+      return inferred.typeText === field.expectedType
+        ? null
+        : `Expression must return ${field.expectedType}.`
     }
 
     if (field.expectedType === 'array' && injectionSource != null) {
@@ -693,7 +710,17 @@ namespace ElementEditSchema {
   ): string | null => {
     const definition = SwitchValueType.parse(value)
     if (definition == null) return 'Select a valid Switch value type.'
-    return SwitchValueType.validate(definition, field.literalUnionOptions)
+    const error = SwitchValueType.validate(definition, field.literalUnionOptions)
+    if (error != null) return error
+    if (field.caseValueType == null) return null
+
+    const primitive = SwitchValueType.getPrimitiveNameFromOptions(
+      definition,
+      field.literalUnionOptions,
+    )
+    return primitive === field.caseValueType
+      ? null
+      : `Switch value type must remain ${field.caseValueType} while cases exist.`
   }
 
   const isStyleRule = (item: unknown): boolean => {

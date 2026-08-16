@@ -10,6 +10,11 @@ const analysisModel = {
   getPositionAt: (offset: number) => ({ lineNumber: offset, column: 1 }),
 } as never
 
+const userModel = {
+  getLineCount: () => 2,
+  getLineMaxColumn: (lineNumber: number) => lineNumber === 2 ? 8 : 4,
+} as never
+
 describe('MonacoDiagnostics', () => {
   it('drops unnecessary diagnostics from generated analysis lines', () => {
     const markers = MonacoDiagnostics.createMarkers(
@@ -48,5 +53,20 @@ describe('MonacoDiagnostics', () => {
 
     expect(markers).toHaveLength(1)
     expect(markers[0].startLineNumber).toBe(1)
+  })
+
+  it('creates a whole-model marker for custom expression validation errors', () => {
+    expect(MonacoDiagnostics.createWholeModelErrorMarker(
+      monaco,
+      userModel,
+      'Collection item type could not be inferred.',
+    )).toEqual({
+      severity: 8,
+      message: 'Collection item type could not be inferred.',
+      startLineNumber: 1,
+      startColumn: 1,
+      endLineNumber: 2,
+      endColumn: 8,
+    })
   })
 })

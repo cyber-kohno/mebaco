@@ -46,6 +46,7 @@ namespace MonacoFactory {
     defaults.setDiagnosticsOptions({
       noSemanticValidation: true,
       noSyntaxValidation: true,
+      noSuggestionDiagnostics: true,
     })
     defaults.setEagerModelSync(true)
   }
