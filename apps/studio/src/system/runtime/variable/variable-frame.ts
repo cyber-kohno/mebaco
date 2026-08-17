@@ -3,6 +3,7 @@ namespace VariableFrame {
   type Metadata = {
     target: Record<string, unknown>
     bindings: Map<string, Binding>
+    inherited: Set<string>
   }
   export type Frame = {
     values: Record<string, unknown>
@@ -15,30 +16,39 @@ namespace VariableFrame {
   ): Frame => {
     const parentMetadata = metadata.get(parent)
     const target = { ...parent }
+    const inherited = new Set(Object.keys(target))
     const bindings = new Map<string, Binding>(
       parentMetadata?.bindings
-      ?? Object.keys(parent).map((id) => [id, 'const'] as const),
+      ?? Object.keys(target).map((id) => [id, 'const'] as const),
     )
     const values = new Proxy(target, {
-      set: (current, property, value) => {
-        if (typeof property !== 'string' || !bindings.has(property)) {
+      set: (current, property, value, receiver) => {
+        if (typeof property !== 'string') {
           throw new Error(`Variable '${String(property)}' is not declared.`)
         }
-        if (bindings.get(property) === 'const') {
-          throw new Error(`Variable '${property}' is readonly.`)
+        if (bindings.has(property)) {
+          if (bindings.get(property) === 'const') {
+            throw new Error(`Variable '${property}' is readonly.`)
+          }
+          return Reflect.set(current, property, value, receiver)
         }
-        current[property] = value
-        return true
+        if (!bindings.has(property)) {
+          throw new Error(`Variable '${String(property)}' is not declared.`)
+        }
+        return Reflect.set(current, property, value, receiver)
       },
       deleteProperty: (_current, property) => {
         throw new Error(`Variable '${String(property)}' cannot be deleted.`)
       },
     })
-    metadata.set(values, { target, bindings })
+    metadata.set(values, { target, bindings, inherited })
     return {
       values,
       declare: (id, binding, value) => {
-        if (bindings.has(id)) throw new Error(`Variable '${id}' is already declared.`)
+        if (bindings.has(id) && !inherited.has(id)) {
+          throw new Error(`Variable '${id}' is already declared.`)
+        }
+        inherited.delete(id)
         bindings.set(id, binding)
         target[id] = value
       },

@@ -5,6 +5,7 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import ValueSource from '../../../ui/input/value-source'
 import TypeCatalog from '../type/type-catalog'
 import TypeExpression from '../type/type-expression'
+import ValueTypeDefinition from '../type/value-type-definition'
 import ValuePropTreeLabel from './ValuePropTreeLabel.svelte'
 
 namespace ValuePropElement {
@@ -40,35 +41,18 @@ namespace ValuePropElement {
     namedTypeOptions?: readonly TypeCatalog.Option[]
   }
 
-  const createValueType = (
-    values: Readonly<Record<string, string>>,
-  ): TypeExpression.Expression => {
-    const base = values.baseType === 'reference'
-      ? TypeExpression.createReference([values.objectTypeId])
-      : values.baseType === 'named'
-        ? TypeExpression.createNamed(values.namedTypeId)
-        : TypeExpression.createPrimitive(
-            TypeExpression.primitiveTypes.includes(values.baseType as TypeExpression.PrimitiveName)
-              ? values.baseType as TypeExpression.PrimitiveName
-              : 'string',
-          )
-    return TypeExpression.wrapArray(base, Number(values.arrayDepth))
-  }
-
-  const isNullable = (
-    values: Readonly<Record<string, string>>,
-  ): boolean => (
-    values.baseType === 'reference'
-    && values.arrayDepth === '0'
-    && values.nullable === 'true'
-  )
-
   const createDefaultValue = (
     values: Readonly<Record<string, string>>,
   ): ValueSource.Value | undefined => {
     if (values.hasDefaultValue !== 'true') return undefined
     return ValueSource.parse(values.defaultValue) ?? ValueSource.createDefault()
   }
+
+  const parseValueType = (
+    values: Readonly<Record<string, string>>,
+  ): ValueTypeDefinition.Definition => (
+    ValueTypeDefinition.parse(values.valueType) ?? ValueTypeDefinition.create()
+  )
 
   export const createSchema = (
     options: CreateSchemaOptions = {},
@@ -88,57 +72,13 @@ namespace ValuePropElement {
         reservedNames: options.reservedNames,
       },
       {
-        type: 'select',
-        key: 'baseType',
+        type: 'valueType',
+        key: 'valueType',
         label: 'Value Type',
-        width: 'valueType',
         required: true,
-        defaultValue: 'string',
-        clearWhenChanged: ['objectTypeId', 'namedTypeId', 'nullable'],
-        options: [
-          ...TypeExpression.primitiveTypes.map((type) => ({ value: type, label: type })),
-          { value: 'reference', label: TypeExpression.getBaseTypeLabel('reference') },
-          { value: 'named', label: TypeExpression.getBaseTypeLabel('named') },
-        ],
-      },
-      {
-        type: 'select',
-        key: 'objectTypeId',
-        label: 'Object',
-        width: 'id',
-        required: true,
-        options: options.referenceOptions ?? [],
-        visibleWhen: { key: 'baseType', value: 'reference' },
-      },
-      {
-        type: 'select',
-        key: 'namedTypeId',
-        label: 'Union',
-        width: 'id',
-        required: true,
-        options: options.namedTypeOptions ?? [],
-        visibleWhen: { key: 'baseType', value: 'named' },
-      },
-      {
-        type: 'number',
-        key: 'arrayDepth',
-        label: 'Array Depth',
-        width: 'arrayDepth',
-        defaultValue: '0',
-        required: true,
-        integer: true,
-        min: 0,
-        max: 9,
-      },
-      {
-        type: 'checkbox',
-        key: 'nullable',
-        label: 'Nullable',
-        defaultValue: 'false',
-        visibleWhenAll: [
-          { key: 'baseType', value: 'reference' },
-          { key: 'arrayDepth', value: '0' },
-        ],
+        defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
+        objectOptions: options.referenceOptions ?? [],
+        namedTypeOptions: options.namedTypeOptions ?? [],
       },
       {
         type: 'checkbox',
@@ -152,38 +92,35 @@ namespace ValuePropElement {
         label: 'Default Value',
         defaultValue: ValueSource.stringify(ValueSource.createDefault()),
         maxFormulaLength: 4000,
-        valueTypeKey: 'baseType',
-        arrayDepthKey: 'arrayDepth',
+        valueTypeDefinitionKey: 'valueType',
         visibleWhen: { key: 'hasDefaultValue', value: 'true' },
       },
     ],
     createPreview: () => create('...'),
     getInitialValues: (element) => {
-      const { base, depth } = TypeExpression.unwrapArray(element.valueType)
       return {
         id: element.id,
-        baseType: base.type,
-        objectTypeId: base.type === 'reference' ? base.objectTypeIds[0] ?? '' : '',
-        namedTypeId: base.type === 'named' ? base.namedTypeId : '',
-        arrayDepth: String(depth),
-        nullable: String(element.nullable),
+        valueType: ValueTypeDefinition.stringify(
+          ValueTypeDefinition.create(element.valueType, element.nullable),
+        ),
         hasDefaultValue: String(element.defaultValue !== undefined),
         defaultValue: ValueSource.stringify(element.defaultValue ?? ValueSource.createDefault()),
       }
     },
-    create: (values) => create(
-      values.id,
-      createValueType(values),
-      isNullable(values),
-      createDefaultValue(values),
-    ),
-    update: (element, values) => ({
-      ...element,
-      id: values.id,
-      valueType: createValueType(values),
-      nullable: isNullable(values),
-      defaultValue: createDefaultValue(values),
-    }),
+    create: (values) => {
+      const definition = parseValueType(values)
+      return create(values.id, definition.valueType, definition.nullable, createDefaultValue(values))
+    },
+    update: (element, values) => {
+      const definition = parseValueType(values)
+      return {
+        ...element,
+        id: values.id,
+        valueType: definition.valueType,
+        nullable: definition.nullable,
+        defaultValue: createDefaultValue(values),
+      }
+    },
   })
 
   export const definition = {

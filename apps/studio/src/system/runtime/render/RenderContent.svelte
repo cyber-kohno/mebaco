@@ -18,11 +18,15 @@
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
     evaluateRetention?: boolean
     contentNodes?: readonly TreeNode.Node[]
+    slotContents?: ReadonlyMap<string, TreeNode.Node>
+    slotDefinitions?: ReadonlyMap<string, TreeNode.Node>
+    slotCallerContext?: FormulaContext.Value
     componentStack?: readonly number[]
   }
   let { hostNode, projectNode, styleCatalog, formulaContext, renderRevision,
     invalidateRuntime, setActionError, setStyleResult, evaluateRetention = true,
-    contentNodes, componentStack = [] }: Props = $props()
+    contentNodes, slotContents, slotDefinitions, slotCallerContext,
+    componentStack = [] }: Props = $props()
   const result = $derived.by(() => {
     renderRevision
     return evaluateRetention
@@ -40,6 +44,7 @@
   {#each children as childNode (childNode.id)}
     <ElementDispatcher node={childNode} {projectNode} {styleCatalog}
       formulaContext={result.context} {renderRevision} {invalidateRuntime}
-      {setActionError} {setStyleResult} {componentStack} />
+      {setActionError} {setStyleResult} {componentStack}
+      {slotContents} {slotDefinitions} {slotCallerContext} />
   {/each}
 {/if}

@@ -24,4 +24,15 @@ describe('VariableFrame', () => {
       child.values.user = { id: 2 }
     }).toThrow("Variable 'user' is readonly.")
   })
+
+  it('allows a child declaration to shadow an inherited binding', () => {
+    const parent = VariableFrame.create({})
+    parent.declare('index', 'const', 'outer')
+    const child = VariableFrame.create(parent.values)
+
+    child.declare('index', 'const', 0)
+
+    expect(child.values.index).toBe(0)
+    expect(parent.values.index).toBe('outer')
+  })
 })

@@ -111,8 +111,8 @@ namespace ElementEditSchema {
     label: string
     defaultValue?: string
     maxFormulaLength?: number
-    valueTypeKey: string
-    arrayDepthKey: string
+    valueTypeKey?: string
+    arrayDepthKey?: string
     valueTypeDefinitionKey?: string
     getExpectedTypeText?: (values: Readonly<Record<string, string>>) => string | undefined
   } & FieldBase
@@ -389,10 +389,10 @@ namespace ElementEditSchema {
       ? null
       : ValueTypeDefinition.parse(values[field.valueTypeDefinitionKey] ?? '')
     const valueType = definition == null
-      ? values[field.valueTypeKey] ?? 'string'
+      ? values[field.valueTypeKey ?? ''] ?? 'string'
       : ValueTypeDefinition.getBaseType(definition)
     const arrayDepth = definition == null
-      ? Number(values[field.arrayDepthKey] ?? '0')
+      ? Number(values[field.arrayDepthKey ?? ''] ?? '0')
       : ValueTypeDefinition.getArrayDepth(definition)
 
     if (source.type === 'literal') {

@@ -4,6 +4,7 @@ import TypeExpression from '../element/kind/type/type-expression'
 import FormulaContext from './formula/formula-context'
 import FormulaEvaluator from './formula/formula-evaluator'
 import type RuntimeTree from './runtime-tree'
+import type TreeNode from '../tree/tree-node'
 
 namespace RuntimeState {
   const getDefaultScalarValue = (
@@ -90,6 +91,53 @@ namespace RuntimeState {
       case 'default':
         return getDefaultValue(state, projectNode)
     }
+  }
+
+  const createLayeredState = (
+    parentState: Record<string, unknown>,
+    localState: Record<string, unknown>,
+  ): Record<string, unknown> => new Proxy(localState, {
+    get: (target, property, receiver) => (
+      Reflect.has(target, property)
+        ? Reflect.get(target, property, receiver)
+        : Reflect.get(parentState, property)
+    ),
+    set: (target, property, value, receiver) => {
+      if (Reflect.has(target, property) || !Reflect.has(parentState, property)) {
+        return Reflect.set(target, property, value, receiver)
+      }
+      return Reflect.set(parentState, property, value)
+    },
+    has: (target, property) => Reflect.has(target, property) || Reflect.has(parentState, property),
+    ownKeys: (target) => [...new Set([
+      ...Reflect.ownKeys(parentState),
+      ...Reflect.ownKeys(target),
+    ])],
+    getOwnPropertyDescriptor: (target, property) => (
+      Reflect.getOwnPropertyDescriptor(target, property)
+      ?? Reflect.getOwnPropertyDescriptor(parentState, property)
+    ),
+  })
+
+  export const createComponentState = (
+    projectNode: RuntimeTree.AppRuntime['projectNode'],
+    parentState: Record<string, unknown>,
+    stateNodes: readonly TreeNode.Node[],
+  ): Record<string, unknown> => {
+    const localState: Record<string, unknown> = {}
+    const state = createLayeredState(parentState, localState)
+
+    stateNodes.forEach((node) => {
+      if (node.element.kind !== 'state') return
+      localState[node.element.id] = getDefaultValue(node.element, projectNode)
+    })
+
+    stateNodes.forEach((node) => {
+      if (node.element.kind !== 'state') return
+      localState[node.element.id] = evaluateInitialValue(node.element, state, projectNode)
+    })
+
+    return state
   }
 
   export const createState = (

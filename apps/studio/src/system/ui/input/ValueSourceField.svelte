@@ -6,8 +6,8 @@
 
   type Props = {
     value: string
-    valueType: string
-    arrayDepth: number
+    valueType?: string
+    arrayDepth?: number
     valueTypeDefinition?: ValueTypeDefinition.Definition
     expectedTypeText?: string
     injectionSource?: string
@@ -16,8 +16,8 @@
 
   let {
     value,
-    valueType,
-    arrayDepth,
+    valueType = 'string',
+    arrayDepth = 0,
     valueTypeDefinition,
     expectedTypeText,
     injectionSource,

@@ -149,10 +149,19 @@ namespace RuntimeProps {
     baseContext: FormulaContext.Value,
     projectNode: TreeNode.Node,
   ): Result => {
+    return resolveBindingsForProps(getProps(componentNode), bindings, baseContext, projectNode)
+  }
+
+  export const resolveBindingsForProps = (
+    props: readonly ValuePropElement.Element[],
+    bindings: readonly ComponentReference.Binding[],
+    baseContext: FormulaContext.Value,
+    projectNode: TreeNode.Node,
+  ): Result => {
     const values: Record<string, unknown> = {}
     const errors: string[] = []
 
-    getProps(componentNode).forEach((prop) => {
+    props.forEach((prop) => {
       const binding = bindings.find((candidate) => candidate.propId === prop.propId)
       const result = resolveSource(
         prop,

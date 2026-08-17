@@ -55,17 +55,35 @@ namespace TreeStore {
     return node.children.some((child) => addChildRec(child, parentNodeId, childNode, index))
   }
 
+  const findNodeRec = (
+    node: TreeNode.Node,
+    nodeId: number,
+  ): TreeNode.Node | null => {
+    if (node.id === nodeId) return node
+    for (const child of node.children) {
+      const found = findNodeRec(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
+
   const updateElementRec = (
     node: TreeNode.Node,
     nodeId: number,
     element: MebacoElement.Element,
+    rootNode: TreeNode.Node,
   ): boolean => {
     if (node.id === nodeId) {
       node.element = element
+      ElementRegistry.get(element.kind).syncChildren?.(
+        node as TreeNode.Node & { element: never },
+        rootNode,
+        createNode,
+      )
       return true
     }
 
-    return node.children.some((child) => updateElementRec(child, nodeId, element))
+    return node.children.some((child) => updateElementRec(child, nodeId, element, rootNode))
   }
 
   const removeNodeRec = (
@@ -108,6 +126,14 @@ namespace TreeStore {
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
       addChildRec(nextRoot, parentNodeId, childNode, index)
+      const addedNode = findNodeRec(nextRoot, childNode.id)
+      if (addedNode != null) {
+        ElementRegistry.get(addedNode.element.kind).syncChildren?.(
+          addedNode as TreeNode.Node & { element: never },
+          nextRoot,
+          createNode,
+        )
+      }
       return nextRoot
     })
     selectedNodeId.set(childNode.id)
@@ -119,7 +145,7 @@ namespace TreeStore {
   ) => {
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
-      updateElementRec(nextRoot, nodeId, element)
+      updateElementRec(nextRoot, nodeId, element, nextRoot)
       return nextRoot
     })
     selectedNodeId.set(nodeId)
@@ -156,9 +182,10 @@ namespace TreeStore {
   }
 
   export const replaceRoot = (nextRootNode: TreeNode.Node) => {
-    rootNode.set(TreeNode.clone(nextRootNode))
-    selectedNodeId.set(nextRootNode.id)
-    nextNodeId = findMaxNodeId(nextRootNode) + 1
+    const nextRoot = TreeNode.clone(nextRootNode)
+    rootNode.set(nextRoot)
+    selectedNodeId.set(nextRoot.id)
+    nextNodeId = findMaxNodeId(nextRoot) + 1
   }
 }
 

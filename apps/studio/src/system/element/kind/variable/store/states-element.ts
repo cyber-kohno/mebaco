@@ -3,6 +3,7 @@ import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import StateElement from './state-element'
 import TypeCatalog from '../../type/type-catalog'
+import StateScope from './state-scope'
 
 namespace StatesElement {
   export type Kind = 'states'
@@ -24,10 +25,13 @@ namespace StatesElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const reservedNames = context.node.children
+      const reservedNames = [
+        ...context.node.children
         .map((node) => node.element)
         .filter((element): element is StateElement.Element => element.kind === 'state')
-        .map((element) => element.id)
+        .map((element) => element.id),
+        ...StateScope.getAncestorStateIds(context.rootNode, context.node.id),
+      ]
       const referenceOptions = TypeCatalog.getReferenceOptions(
         context.rootNode,
         context.node.id,

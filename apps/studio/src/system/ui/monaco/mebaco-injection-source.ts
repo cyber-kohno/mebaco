@@ -96,21 +96,22 @@ namespace MebacoInjectionSource {
     return null
   }
 
-  const collectStates = (
-    node: TreeNode.Node,
+  const getStatesFromStore = (
+    ownerNode: TreeNode.Node,
   ): StateElement.Element[] => {
-    const states: StateElement.Element[] = []
-
-    const collect = (current: TreeNode.Node) => {
-      if (current.element.kind === 'state') {
-        states.push(current.element)
-      }
-      current.children.forEach(collect)
-    }
-
-    collect(node)
-    return states
+    const storeNode = ownerNode.children.find((child) => child.element.kind === 'store')
+    const statesNode = storeNode?.children.find((child) => child.element.kind === 'states')
+    return statesNode?.children
+      .map((child) => child.element)
+      .filter((element): element is StateElement.Element => element.kind === 'state')
+      ?? []
   }
+
+  const getDirectStates = (
+    ownerNode: TreeNode.Node,
+  ): StateElement.Element[] => ownerNode.children
+    .map((child) => child.element)
+    .filter((element): element is StateElement.Element => element.kind === 'state')
 
   const collectScopedStates = (
     targetNode: TreeNode.Node | null,
@@ -119,10 +120,20 @@ namespace MebacoInjectionSource {
     if (targetNode == null) return []
 
     const ownerAppNode = findOwnerApp(rootNode, targetNode.id)
-    if (ownerAppNode != null) return collectStates(ownerAppNode)
+    if (ownerAppNode == null) {
+      const ownerCommonNode = findOwnerCommon(rootNode, targetNode.id)
+      return ownerCommonNode == null ? getDirectStates(rootNode) : getStatesFromStore(ownerCommonNode)
+    }
 
-    const ownerCommonNode = findOwnerCommon(rootNode, targetNode.id)
-    return ownerCommonNode == null ? collectStates(rootNode) : collectStates(ownerCommonNode)
+    const states = new Map<string, StateElement.Element>()
+    getStatesFromStore(ownerAppNode).forEach((state) => states.set(state.id, state))
+    const path = findPath(rootNode, targetNode.id) ?? []
+    path
+      .filter((node) => node.element.kind === 'component')
+      .forEach((componentNode) => {
+        getStatesFromStore(componentNode).forEach((state) => states.set(state.id, state))
+      })
+    return [...states.values()]
   }
 
   const getValueType = (

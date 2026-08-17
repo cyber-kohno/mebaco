@@ -158,7 +158,7 @@
           </button>
         {/if}
 
-        <ElementTreeLabel element={row.node.element} />
+        <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} />
       </div>
     {/each}
   </div>

@@ -6,6 +6,11 @@ import ComponentElement from './kind/component/component-element'
 import ComponentUseElement from './kind/component/component-use-element'
 import ElementsElement from './kind/component/elements-element'
 import PropsElement from './kind/component/props-element'
+import SlotsElement from './kind/component/slots-element'
+import SlotElement from './kind/component/slot-element'
+import SlotContentsElement from './kind/component/slot-contents-element'
+import SlotContentElement from './kind/component/slot-content-element'
+import SlotUseElement from './kind/component/slot-use-element'
 import RetentionElement from './kind/component/retention-element'
 import ValuePropElement from './kind/component/value-prop-element'
 import ConditionalElement from './kind/directive/conditional-element'
@@ -53,6 +58,11 @@ namespace ElementRegistry {
     'component-use': ComponentUseElement.definition,
     elements: ElementsElement.definition,
     props: PropsElement.definition,
+    slots: SlotsElement.definition,
+    slot: SlotElement.definition,
+    'slot-contents': SlotContentsElement.definition,
+    'slot-content': SlotContentElement.definition,
+    'slot-use': SlotUseElement.definition,
     retention: RetentionElement.definition,
     'value-prop': ValuePropElement.definition,
     conditional: ConditionalElement.definition,

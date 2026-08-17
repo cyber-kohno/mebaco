@@ -4,6 +4,11 @@ import ComponentElement from './kind/component/component-element'
 import ComponentUseElement from './kind/component/component-use-element'
 import ElementsElement from './kind/component/elements-element'
 import PropsElement from './kind/component/props-element'
+import SlotsElement from './kind/component/slots-element'
+import SlotElement from './kind/component/slot-element'
+import SlotContentsElement from './kind/component/slot-contents-element'
+import SlotContentElement from './kind/component/slot-content-element'
+import SlotUseElement from './kind/component/slot-use-element'
 import RetentionElement from './kind/component/retention-element'
 import ValuePropElement from './kind/component/value-prop-element'
 import ConditionalElement from './kind/directive/conditional-element'
@@ -47,6 +52,11 @@ namespace MebacoElement {
     | ComponentUseElement.Kind
     | ElementsElement.Kind
     | PropsElement.Kind
+    | SlotsElement.Kind
+    | SlotElement.Kind
+    | SlotContentsElement.Kind
+    | SlotContentElement.Kind
+    | SlotUseElement.Kind
     | RetentionElement.Kind
     | ValuePropElement.Kind
     | ConditionalElement.Kind
@@ -87,6 +97,11 @@ namespace MebacoElement {
     | ComponentUseElement.Element
     | ElementsElement.Element
     | PropsElement.Element
+    | SlotsElement.Element
+    | SlotElement.Element
+    | SlotContentsElement.Element
+    | SlotContentElement.Element
+    | SlotUseElement.Element
     | RetentionElement.Element
     | ValuePropElement.Element
     | ConditionalElement.Element

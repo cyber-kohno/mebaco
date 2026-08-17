@@ -6,6 +6,10 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import ElementsElement from './elements-element'
 import PropsElement from './props-element'
 import RetentionElement from './retention-element'
+import SlotsElement from './slots-element'
+import TreeStore from '../../../store/tree-store'
+import StoreElement from '../variable/store/store-element'
+import StatesElement from '../variable/store/states-element'
 
 namespace ComponentElement {
   export type Kind = 'component'
@@ -74,6 +78,14 @@ namespace ComponentElement {
         element: PropsElement.create(),
       },
       {
+        element: StoreElement.create(),
+        children: [
+          {
+            element: StatesElement.create(),
+          },
+        ],
+      },
+      {
         element: RetentionElement.create(),
       },
       {
@@ -89,6 +101,16 @@ namespace ComponentElement {
         .map((element) => element.id)
 
       return [
+        ...((context.node.children.some((node) => node.element.kind === 'slots'))
+          ? []
+          : [action('Use slots', () => {
+              const propsIndex = context.node.children.findIndex((node) => node.element.kind === 'props')
+              TreeStore.addChild(
+                context.node.id,
+                SlotsElement.create(),
+                propsIndex < 0 ? undefined : propsIndex + 1,
+              )
+            })]),
         action('Modify', () => {
           ElementDialog.openUpdate(
             context.node.id,

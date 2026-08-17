@@ -47,6 +47,16 @@ describe('LoopResolver', () => {
     })
   })
 
+  it('allows loop bindings to shadow an outer variable', () => {
+    const result = LoopResolver.resolve(
+      node({ kind: 'loop', mode: 'count', countSource: '2', indexId: 'index' }),
+      FormulaContext.create({ $var: { index: 'outer' } }),
+    )
+
+    expect(result.error).toBeNull()
+    expect(result.iterations.map((iteration) => iteration.context.$var.index)).toEqual([0, 1])
+  })
+
   it('rejects invalid counts and non-array Collections', () => {
     const invalidCount = LoopResolver.resolve(
       node({ kind: 'loop', mode: 'count', countSource: '1.5', indexId: 'i' }),

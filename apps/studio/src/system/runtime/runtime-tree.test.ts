@@ -60,4 +60,24 @@ describe('RuntimeTree', () => {
 
     expect(RuntimeTree.getComponentRootViewNodes(componentNode)).toEqual([tagNode])
   })
+
+  it('finds states below a component Store branch', () => {
+    const stateNode = node(5, {
+      kind: 'state',
+      id: 'localCount',
+      valueType: { type: 'number' },
+      nullable: false,
+      initial: { type: 'literal', value: '1' },
+    })
+    const componentNode = node(1, { kind: 'component', id: 'Sample' }, [
+      node(2, { kind: 'props' }),
+      node(3, { kind: 'store' }, [
+        node(4, { kind: 'states' }, [stateNode]),
+      ]),
+      node(6, { kind: 'retention' }),
+      node(7, { kind: 'elements' }),
+    ])
+
+    expect(RuntimeTree.getComponentStateNodes(componentNode)).toEqual([stateNode])
+  })
 })

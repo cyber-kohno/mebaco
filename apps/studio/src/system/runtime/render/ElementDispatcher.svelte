@@ -8,6 +8,7 @@
   import RenderSwitch from './RenderSwitch.svelte'
   import RenderLoop from './RenderLoop.svelte'
   import RenderBlock from './RenderBlock.svelte'
+  import RenderSlotUse from './RenderSlotUse.svelte'
   import RuntimeTree from '../runtime-tree'
   import type ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
@@ -22,6 +23,9 @@
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
     componentStack?: readonly number[]
+    slotContents?: ReadonlyMap<string, TreeNode.Node>
+    slotDefinitions?: ReadonlyMap<string, TreeNode.Node>
+    slotCallerContext?: FormulaContext.Value
   }
 
   let {
@@ -34,6 +38,9 @@
     setActionError,
     setStyleResult,
     componentStack = [],
+    slotContents,
+    slotDefinitions,
+    slotCallerContext,
   }: Props = $props()
 </script>
 
@@ -62,6 +69,12 @@
     {setActionError}
     {setStyleResult}
     {componentStack}
+  />
+{:else if RuntimeTree.isSlotUseNode(node)}
+  <RenderSlotUse
+    {node} {projectNode} {styleCatalog} {formulaContext} {renderRevision}
+    {invalidateRuntime} {setActionError} {setStyleResult} {componentStack}
+    {slotContents} {slotDefinitions} {slotCallerContext}
   />
 {:else if RuntimeTree.isConditionalNode(node)}
   <RenderConditional

@@ -8,6 +8,9 @@ import ContentHost from '../../content-host'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TreeStore from '../../../store/tree-store'
 import type ValuePropElement from './value-prop-element'
+import SlotContentElement from './slot-content-element'
+import SlotContentsElement from './slot-contents-element'
+import type SlotElement from './slot-element'
 
 namespace ComponentUseElement {
   export type Kind = 'component-use'
@@ -23,6 +26,41 @@ namespace ComponentUseElement {
     componentId: null,
     propBindings: [],
   })
+
+  const syncSlots = (
+    node: TreeNode.Node & { element: Element },
+    rootNode: TreeNode.Node,
+    createNode: (seed: TreeNode.Seed) => TreeNode.Node,
+  ) => {
+    const componentNode = node.element.componentId == null
+      ? null
+      : findComponentNode(rootNode, node.id, node.element.componentId)
+    const slotsNode = componentNode?.children.find((child) => child.element.kind === 'slots')
+    const slotNodes = (slotsNode?.children ?? [])
+      .filter((child): child is TreeNode.Node & { element: SlotElement.Element } => child.element.kind === 'slot')
+    const slotsFolderIndex = node.children.findIndex((child) => child.element.kind === 'slot-contents')
+    if (slotNodes.length === 0) {
+      if (slotsFolderIndex >= 0) node.children.splice(slotsFolderIndex, 1)
+      return
+    }
+    const slotsFolder = slotsFolderIndex >= 0
+      ? node.children[slotsFolderIndex]
+      : createNode({ element: SlotContentsElement.create() })
+    if (slotsFolderIndex < 0) node.children.push(slotsFolder)
+    const existing = new Map(
+      slotsFolder.children
+        .filter((child) => child.element.kind === 'slot-content')
+        .map((child) => [(child.element as SlotContentElement.Element).slotId, child]),
+    )
+    slotsFolder.children = slotNodes.map((slotNode) => {
+      const contentNode = existing.get(slotNode.element.id)
+        ?? createNode(SlotContentElement.createSeed(slotNode))
+      // Slot props are definition metadata and are injected into the caller's
+      // slot scope; they are not editable children of the caller tree.
+      contentNode.children = contentNode.children.filter((child) => child.element.kind !== 'props')
+      return contentNode
+    })
+  }
 
   export type CreateSchemaOptions = {
     components?: readonly ComponentReference.Option[]
@@ -285,9 +323,11 @@ namespace ComponentUseElement {
       type: 'component',
       Component: ComponentUseTreeLabel,
     },
+    syncChildren: syncSlots,
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       return [
+        action('Refresh slots', () => TreeStore.updateElement(context.node.id, context.element)),
         action('Modify', () => {
           ElementDialog.openUpdate(
             context.node.id,

@@ -1,6 +1,7 @@
 import type AppElement from '../element/kind/app/app-element'
 import type ComponentElement from '../element/kind/component/component-element'
 import type ComponentUseElement from '../element/kind/component/component-use-element'
+import type SlotUseElement from '../element/kind/component/slot-use-element'
 import type EntryElement from '../element/kind/app/entry-element'
 import type StateElement from '../element/kind/variable/store/state-element'
 import type StyleElement from '../element/kind/view/style-element'
@@ -77,6 +78,12 @@ namespace RuntimeTree {
     node.element.kind === 'component-use'
   )
 
+  export const isSlotUseNode = (
+    node: TreeNode.Node,
+  ): node is TreeNode.Node & { element: SlotUseElement.Element } => (
+    node.element.kind === 'slot-use'
+  )
+
   export const isConditionalNode = (
     node: TreeNode.Node,
   ): node is TreeNode.Node & { element: ConditionalElement.Element } => (
@@ -108,6 +115,7 @@ namespace RuntimeTree {
       | TagElement.Element
       | TextElement.Element
       | ComponentUseElement.Element
+      | SlotUseElement.Element
       | ConditionalElement.Element
       | SwitchElement.Element
       | LoopElement.Element
@@ -116,6 +124,7 @@ namespace RuntimeTree {
     isTagNode(node)
     || isTextNode(node)
     || isComponentUseNode(node)
+    || isSlotUseNode(node)
     || isConditionalNode(node)
     || isSwitchNode(node)
     || isLoopNode(node)
@@ -140,7 +149,7 @@ namespace RuntimeTree {
     projectNode,
     appNode,
     entryNode: collectNodes(appNode, isEntryNode)[0] ?? null,
-    stateNodes: collectNodes(appNode, isStateNode),
+    stateNodes: getAppStateNodes(appNode),
     componentNodes: collectNodes(appNode, isEntryComponentNode),
     styleNodes: collectNodes(appNode, isStyleNode),
   })
@@ -160,6 +169,22 @@ namespace RuntimeTree {
     componentNode: TreeNode.Node,
   ): TreeNode.Node[] => {
     return ContentHost.getContentChildren(componentNode).filter(isViewNode)
+  }
+
+  export const getComponentStateNodes = (
+    componentNode: TreeNode.Node,
+  ): TreeNode.Node[] => {
+    const storeNode = componentNode.children.find((child) => child.element.kind === 'store')
+    const statesNode = storeNode?.children.find((child) => child.element.kind === 'states')
+    return statesNode?.children.filter(isStateNode) ?? []
+  }
+
+  export const getAppStateNodes = (
+    appNode: TreeNode.Node,
+  ): TreeNode.Node[] => {
+    const storeNode = appNode.children.find((child) => child.element.kind === 'store')
+    const statesNode = storeNode?.children.find((child) => child.element.kind === 'states')
+    return statesNode?.children.filter(isStateNode) ?? []
   }
 
   export const createStyleMap = (

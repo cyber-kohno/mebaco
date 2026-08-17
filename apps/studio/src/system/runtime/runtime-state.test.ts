@@ -39,4 +39,27 @@ describe('RuntimeState', () => {
 
     expect(RuntimeState.createState(runtime)).toEqual({ selectedUser: null })
   })
+
+  it('creates a component-local state layer over its parent state', () => {
+    const projectNode = node({ kind: 'project' })
+    const parentState = { shared: 1 }
+    const stateNode = node({
+      kind: 'state',
+      id: 'localCount',
+      valueType: TypeExpression.createPrimitive('number'),
+      nullable: false,
+      initial: { type: 'literal', value: '2' },
+    })
+
+    const localState = RuntimeState.createComponentState(
+      projectNode,
+      parentState,
+      [stateNode],
+    )
+
+    expect(localState.localCount).toBe(2)
+    expect(localState.shared).toBe(1)
+    localState.shared = 3
+    expect(parentState.shared).toBe(3)
+  })
 })

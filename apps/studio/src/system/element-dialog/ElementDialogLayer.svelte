@@ -447,8 +447,8 @@
               valueTypeDefinition={field.valueTypeDefinitionKey == null
                 ? undefined
                 : ValueTypeDefinition.parse(values[field.valueTypeDefinitionKey] ?? '') ?? undefined}
-              valueType={values[field.valueTypeKey] ?? 'string'}
-              arrayDepth={Number(values[field.arrayDepthKey] ?? '0')}
+              valueType={field.valueTypeKey == null ? undefined : values[field.valueTypeKey] ?? 'string'}
+              arrayDepth={field.arrayDepthKey == null ? undefined : Number(values[field.arrayDepthKey] ?? '0')}
               expectedTypeText={field.getExpectedTypeText?.(values)}
               injectionSource={getInjectionSource('expression')}
               onValueChange={(nextValue) => {

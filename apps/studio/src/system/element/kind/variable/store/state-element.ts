@@ -8,6 +8,7 @@ import ValueSource from '../../../../ui/input/value-source'
 import TypeCatalog from '../../type/type-catalog'
 import TypeExpression from '../../type/type-expression'
 import ValueTypeDefinition from '../../type/value-type-definition'
+import StateScope from './state-scope'
 
 namespace StateElement {
   export type Kind = 'state'
@@ -129,11 +130,15 @@ namespace StateElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const reservedNames = (context.parentNode?.children ?? [])
+      const reservedNames = [
+        ...(context.parentNode?.children ?? [])
         .filter((node) => node.id !== context.node.id)
         .map((node) => node.element)
         .filter((element): element is Element => element.kind === 'state')
-        .map((element) => element.id)
+        .map((element) => element.id),
+        ...StateScope.getAncestorStateIds(context.rootNode, context.parentNode?.id ?? context.node.id)
+          .filter((id) => id !== context.element.id),
+      ]
       const referenceOptions = TypeCatalog.getReferenceOptions(
         context.rootNode,
         context.node.id,

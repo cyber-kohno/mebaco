@@ -173,6 +173,38 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(childSource).toContain('i: number;')
   })
 
+  it('injects Component-local States for nodes inside the component', () => {
+    const textNode = node(9, {
+      kind: 'text',
+      source: { type: 'formula', value: '$state.localCount' },
+    })
+    const componentNode = node(3, { kind: 'component', id: 'Main' }, [
+      node(4, { kind: 'props' }),
+      node(5, { kind: 'store' }, [
+        node(6, { kind: 'states' }, [
+          node(7, {
+            kind: 'state',
+            id: 'localCount',
+            valueType: TypeExpression.createPrimitive('number'),
+            nullable: false,
+            initial: { type: 'default' },
+          }),
+        ]),
+      ]),
+      node(8, { kind: 'retention' }),
+      node(10, { kind: 'elements' }, [textNode]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [
+        node(11, { kind: 'app', id: 'main' }, [componentNode]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, textNode.id, 'expression')
+
+    expect(source).toContain('localCount: number;')
+  })
+
   it('infers a Collection item from the project State and Object declarations', () => {
     const textNode = node(5, {
       kind: 'text',

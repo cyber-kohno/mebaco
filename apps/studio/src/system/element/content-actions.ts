@@ -11,6 +11,7 @@ import TextElement from './kind/view/text-element'
 import TreeStore from '../store/tree-store'
 import SwitchElement from './kind/directive/switch-element'
 import LoopElement from './kind/directive/loop-element'
+import SlotUseElement from './kind/component/slot-use-element'
 
 namespace ContentActions {
   export const createAddMenu = (
@@ -19,7 +20,7 @@ namespace ContentActions {
   ): ActionMenuState.ParentItem => {
     const { action, parent } = ActionMenu.createFactory()
 
-    return parent('Add view', [
+    const items: ActionMenuState.Item[] = [
       action('Tag', () => {
         ElementDialog.openCreate(
           parentNodeId,
@@ -40,7 +41,17 @@ namespace ContentActions {
           }),
         )
       }),
-    ])
+    ]
+    const slotOptions = SlotUseElement.getOptions(rootNode, parentNodeId)
+    if (slotOptions.length > 0) {
+      items.push(action('Slot content', () => {
+        ElementDialog.openCreate(
+          parentNodeId,
+          SlotUseElement.createSchema(slotOptions),
+        )
+      }))
+    }
+    return parent('Add view', items)
   }
 
   export const createAddDirectiveMenu = (

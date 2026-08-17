@@ -54,6 +54,11 @@ namespace ElementDefinition {
     kind: TElement['kind']
     treeLabel: TreeLabel<TElement>
     createInitialChildren?: (element: TElement) => TreeNode.Seed[]
+    syncChildren?: (
+      node: TreeNode.Node & { element: TElement },
+      rootNode: TreeNode.Node,
+      createNode: (seed: TreeNode.Seed) => TreeNode.Node,
+    ) => void
     getContextMenu: (context: ContextMenuContext<TElement>) => ActionMenuState.Item[]
     contentHost?: {
       retention: 'optional' | 'required'
