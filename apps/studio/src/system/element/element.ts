@@ -1,6 +1,7 @@
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
 import ComponentElement from './kind/component/component-element'
+import ComponentUseElement from './kind/component/component-use-element'
 import ElementsElement from './kind/component/elements-element'
 import PropsElement from './kind/component/props-element'
 import RetentionElement from './kind/component/retention-element'
@@ -43,6 +44,7 @@ namespace MebacoElement {
     | AppElement.Kind
     | EntryElement.Kind
     | ComponentElement.Kind
+    | ComponentUseElement.Kind
     | ElementsElement.Kind
     | PropsElement.Kind
     | RetentionElement.Kind
@@ -82,6 +84,7 @@ namespace MebacoElement {
     | AppElement.Element
     | EntryElement.Element
     | ComponentElement.Element
+    | ComponentUseElement.Element
     | ElementsElement.Element
     | PropsElement.Element
     | RetentionElement.Element

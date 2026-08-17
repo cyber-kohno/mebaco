@@ -119,6 +119,7 @@ namespace TagElement {
     tabs: [
       { id: 'info', label: 'Info' },
       { id: 'style', label: 'Style' },
+      { id: 'monitor', label: 'Monitor' },
       { id: 'attribute', label: 'Attribute' },
     ],
     fields: [
@@ -129,6 +130,7 @@ namespace TagElement {
         label: 'Tag name',
         required: true,
         defaultValue: 'div',
+        width: 'tagName',
         options: TagCatalog.options,
       },
       {
@@ -152,6 +154,13 @@ namespace TagElement {
               parameters: [],
               issues: [],
             },
+      },
+      {
+        type: 'tagStyleMonitor',
+        tab: 'monitor',
+        key: 'monitor',
+        label: 'Resolved Style',
+        stylesKey: 'styles',
       },
       {
         type: 'tagAttributes',

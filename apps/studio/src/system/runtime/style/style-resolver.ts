@@ -20,6 +20,11 @@ namespace StyleResolver {
     value: string
     state: StyleElement.State | null
     source: DeclarationSource
+    unresolved?: {
+      type: 'formula'
+      source: string
+      message: string
+    }
   }
 
   export type ErrorType =
@@ -46,10 +51,15 @@ namespace StyleResolver {
     errors: Error[]
   }
 
+  export type ResolveOptions = {
+    includeUnresolvedDeclarations?: boolean
+  }
+
   export type Catalog = {
     resolve: (
       applications: readonly TagElement.StyleApplication[],
       context: FormulaContext.Value,
+      options?: ResolveOptions,
     ) => Result
   }
 
@@ -82,7 +92,9 @@ namespace StyleResolver {
   const matchesType = (
     value: unknown,
     valueType: StyleParamElement.ValueType,
-  ): value is string | number | boolean => typeof value === valueType
+  ): value is string | number | boolean => (
+    typeof value === (valueType === 'color' ? 'string' : valueType)
+  )
 
   const createFormulaContext = (
     context: FormulaContext.Value,
@@ -206,6 +218,7 @@ namespace StyleResolver {
       parameters: Readonly<Record<string, unknown>>,
       globalContext: FormulaContext.Value,
       path: readonly string[],
+      options: ResolveOptions,
     ): Result => {
       const nextPath = [...path, styleId]
       const record = records.get(styleId)
@@ -290,6 +303,7 @@ namespace StyleResolver {
           baseParameters,
           globalContext,
           nextPath,
+          options,
         )
         declarations.push(...baseResult.declarations)
         errors.push(...baseResult.errors)
@@ -300,8 +314,14 @@ namespace StyleResolver {
           declaration: StyleElement.DeclarationRule,
           state: StyleElement.State | null,
         ) => {
-          const appendDeclaration = (value: string) => {
-            if (StyleValueSupport.check(declaration.property, value) === 'unsupported') {
+          const appendDeclaration = (
+            value: string,
+            unresolved?: Declaration['unresolved'],
+          ) => {
+            if (
+              unresolved == null
+              && StyleValueSupport.check(declaration.property, value) === 'unsupported'
+            ) {
               errors.push({
                 type: 'css-value',
                 message: `'${value}' is not supported for '${declaration.property}' in style '${styleId}'.`,
@@ -315,6 +335,7 @@ namespace StyleResolver {
               property: declaration.property,
               value,
               state,
+              unresolved,
               source: {
                 styleId,
                 path: [...nextPath],
@@ -330,24 +351,40 @@ namespace StyleResolver {
 
           const result = FormulaEvaluator.evaluateExpression(declaration.value.source, context)
           if (!result.ok) {
-            errors.push({
+            const error = {
               type: 'formula',
               message: `Failed to evaluate '${declaration.property}' in style '${styleId}'.`,
               styleId,
               path: nextPath,
               property: declaration.property,
               scriptError: result.error,
-            })
+            } satisfies Error
+            errors.push(error)
+            if (options.includeUnresolvedDeclarations === true) {
+              appendDeclaration(declaration.value.source, {
+                type: 'formula',
+                source: declaration.value.source,
+                message: error.message,
+              })
+            }
             return
           }
           if (typeof result.value !== 'string') {
-            errors.push({
+            const error = {
               type: 'result-type',
               message: `'${declaration.property}' in style '${styleId}' must return string.`,
               styleId,
               path: nextPath,
               property: declaration.property,
-            })
+            } satisfies Error
+            errors.push(error)
+            if (options.includeUnresolvedDeclarations === true) {
+              appendDeclaration(declaration.value.source, {
+                type: 'formula',
+                source: declaration.value.source,
+                message: error.message,
+              })
+            }
             return
           }
           appendDeclaration(result.value)
@@ -368,6 +405,7 @@ namespace StyleResolver {
     const resolve = (
       applications: readonly TagElement.StyleApplication[],
       globalContext: FormulaContext.Value,
+      options: ResolveOptions = {},
     ): Result => {
       const declarations: Declaration[] = []
       const errors: Error[] = []
@@ -426,6 +464,7 @@ namespace StyleResolver {
           parameters,
           globalContext,
           [],
+          options,
         )
         declarations.push(...result.declarations)
         errors.push(...result.errors)

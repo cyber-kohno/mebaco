@@ -16,6 +16,7 @@ namespace ComponentReference {
   export type Option = {
     componentId: string
     label: string
+    detail?: string
     props: readonly ValuePropElement.Element[]
   }
 

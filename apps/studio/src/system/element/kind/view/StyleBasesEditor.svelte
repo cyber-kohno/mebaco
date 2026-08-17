@@ -1,5 +1,6 @@
 <script lang="ts">
   import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
+  import ColorSwatch from '../../../ui/color/ColorSwatch.svelte'
   import CompactFormulaField from '../../../ui/formula/CompactFormulaField.svelte'
   import FormulaModeToggle from '../../../ui/formula/FormulaModeToggle.svelte'
   import StyleElement from './style-element'
@@ -171,10 +172,17 @@
         return { type: 'literal', value: 0 }
       case 'boolean':
         return { type: 'literal', value: false }
+      case 'color':
       case 'string':
         return { type: 'literal', value: '' }
     }
   }
+
+  const getFormulaExpectedType = (
+    valueType: StyleResolver.Parameter['valueType'],
+  ): 'string' | 'number' | 'boolean' => (
+    valueType === 'color' ? 'string' : valueType
+  )
 
   const updateBinding = (
     base: StyleElement.Base,
@@ -339,7 +347,7 @@
                           value={argument.binding.value.source}
                           ariaLabel={`${parameter.parameterId} formula`}
                           injectionSource={formulaInjectionSource}
-                          expectedType={parameter.valueType}
+                          expectedType={getFormulaExpectedType(parameter.valueType)}
                           onValueChange={(source) => updateArgument(base, parameter.parameterId, {
                             type: 'value',
                             value: { type: 'formula', source },
@@ -362,6 +370,18 @@
                           <option value="false">false</option>
                           <option value="true">true</option>
                         </select>
+                      {:else if parameter.valueType === 'color'}
+                        <div class="color-value-field">
+                          <ColorSwatch
+                            value={String(argument.binding.value.value)}
+                            onValueChange={(value) => updateLiteral(base, parameter, value)}
+                          />
+                          <input
+                            type="text"
+                            value={String(argument.binding.value.value)}
+                            oninput={(event) => updateLiteral(base, parameter, event.currentTarget.value)}
+                          />
+                        </div>
                       {:else}
                         <input
                           type={parameter.valueType === 'number' ? 'number' : 'text'}
@@ -550,6 +570,14 @@
     display: grid;
     grid-template-columns: 28px minmax(0, 1fr);
     gap: var(--mbc-form-control-gap);
+    min-width: 0;
+  }
+
+  .color-value-field {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: var(--mbc-form-control-gap);
+    align-items: center;
     min-width: 0;
   }
 

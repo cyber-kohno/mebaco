@@ -14,6 +14,7 @@
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    componentStack?: readonly number[]
   }
 
   let {
@@ -25,11 +26,12 @@
     invalidateRuntime,
     setActionError,
     setStyleResult,
+    componentStack = [],
   }: Props = $props()
 </script>
 
 {#each node.children as childNode (childNode.id)}
   <ElementDispatcher node={childNode} {projectNode} {styleCatalog}
     {formulaContext} {renderRevision} {invalidateRuntime}
-    {setActionError} {setStyleResult} />
+    {setActionError} {setStyleResult} {componentStack} />
 {/each}

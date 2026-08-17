@@ -1,27 +1,36 @@
 <script lang="ts">
+  import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import ArrowUp from '@lucide/svelte/icons/arrow-up'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
   import ActionField from '../../../ui/action/ActionField.svelte'
+  import IconButton from '../../../ui/button/IconButton.svelte'
   import FormulaField from '../../../ui/formula/FormulaField.svelte'
+  import SuggestTextInput from '../../../ui/input/SuggestTextInput.svelte'
+  import TagEventCatalog from './tag-event-catalog'
   import type TagElement from './tag-element'
 
   type Props = {
     value: string
     formulaInjectionSource?: string
-    actionInjectionSource?: string
+    getActionInjectionSource?: (eventType: string) => string | undefined
     onValueChange: (value: string) => void
   }
 
   let {
     value,
     formulaInjectionSource,
-    actionInjectionSource,
+    getActionInjectionSource,
     onValueChange,
   }: Props = $props()
 
   let attributes = $state<TagElement.Attribute[]>([])
   let lastValue = $state('')
 
-  const eventNames = ['click', 'input', 'change', 'focus', 'blur', 'keydown'] as const
   const valueTypes = ['empty', 'literal', 'formula', 'boolean'] as const
+
+  const getActionInjectionSourceForEvent = (
+    eventName: string,
+  ): string | undefined => getActionInjectionSource?.(TagEventCatalog.getEventType(eventName))
 
   const parseAttributes = (
     source: string,
@@ -226,6 +235,47 @@
                   })
                 }}
               />
+            {:else}
+              <SuggestTextInput
+                value={attribute.name}
+                options={TagEventCatalog.options}
+                onValueChange={(name) => {
+                  updateAttribute(index, {
+                    ...attribute,
+                    name,
+                  })
+                }}
+              />
+            {/if}
+
+            {#if attribute.type === 'event'}
+              {@const eventType = TagEventCatalog.getEventType(attribute.name)}
+              {@const isKnownEvent = TagEventCatalog.isKnown(attribute.name)}
+              <span
+                class="event-type-label"
+                class:unknown={!isKnownEvent}
+                title={isKnownEvent ? `$event is injected as ${eventType}.` : '$event is injected as Event.'}
+              >
+                {isKnownEvent ? eventType : 'Unknown event'}
+              </span>
+            {/if}
+
+            <div class="row-actions">
+              <IconButton label="Move attribute up" disabled={index === 0} onclick={() => moveAttribute(index, -1)}>
+                {#snippet icon()}<ArrowUp size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+              <IconButton label="Move attribute down" disabled={index === attributes.length - 1} onclick={() => moveAttribute(index, 1)}>
+                {#snippet icon()}<ArrowDown size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+              <IconButton label="Delete attribute" onclick={() => deleteAttribute(index)}>
+                {#snippet icon()}<Trash2 size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+            </div>
+          </div>
+
+          {#if attribute.type === 'attribute' || attribute.type === 'property'}
+            <div class="value-type-row">
+              <span class="field-label">Set Value</span>
               <select
                 class="value-kind"
                 value={attribute.value.type}
@@ -240,21 +290,9 @@
                   <option value={valueType}>{valueType}</option>
                 {/each}
               </select>
-            {:else}
-              <select
-                class="name-input"
-                value={attribute.name}
-                onchange={(event) => {
-                  updateAttribute(index, {
-                    ...attribute,
-                    name: event.currentTarget.value,
-                  })
-                }}
-              >
-                {#each eventNames as eventName}
-                  <option value={eventName}>{eventName}</option>
-                {/each}
-              </select>
+            </div>
+          {:else}
+            <div class="event-flags">
               <label class="flag">
                 <input
                   type="checkbox"
@@ -266,7 +304,7 @@
                     })
                   }}
                 />
-                prevent
+                prevent default
               </label>
               <label class="flag">
                 <input
@@ -279,16 +317,10 @@
                     })
                   }}
                 />
-                stop
+                stop propagation
               </label>
-            {/if}
-
-            <div class="row-actions">
-              <button type="button" disabled={index === 0} onclick={() => moveAttribute(index, -1)}>Up</button>
-              <button type="button" disabled={index === attributes.length - 1} onclick={() => moveAttribute(index, 1)}>Down</button>
-              <button type="button" onclick={() => deleteAttribute(index)}>Delete</button>
             </div>
-          </div>
+          {/if}
 
           {#if attribute.type === 'attribute' || attribute.type === 'property'}
             {#if attribute.value.type === 'literal'}
@@ -341,7 +373,7 @@
           {:else}
             <ActionField
               value={attribute.action.source}
-              injectionSource={actionInjectionSource}
+              injectionSource={getActionInjectionSourceForEvent(attribute.name)}
               onValueChange={(source) => {
                 updateAttribute(index, {
                   ...attribute,
@@ -372,8 +404,7 @@
     justify-content: space-between;
   }
 
-  .toolbar-actions,
-  .row-actions {
+  .toolbar-actions {
     display: flex;
     gap: 6px;
   }
@@ -433,7 +464,7 @@
 
   .row-main {
     display: grid;
-    grid-template-columns: 74px minmax(140px, 1fr) 100px auto;
+    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 180px) minmax(0, 1fr) max-content;
     gap: 8px;
     align-items: center;
   }
@@ -479,6 +510,46 @@
   .value-kind,
   .wide-input {
     width: 100%;
+  }
+
+  .row-actions {
+    grid-column: 4;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--mbc-form-action-gap);
+  }
+
+  .event-type-label {
+    min-width: 0;
+    overflow: hidden;
+    color: #234f66;
+    font-size: 12px;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .event-type-label.unknown {
+    color: #b8454f;
+  }
+
+  .value-type-row {
+    display: grid;
+    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 180px);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .field-label {
+    color: #496970;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .event-flags {
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
 
   .flag {

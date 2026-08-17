@@ -22,7 +22,7 @@ namespace ElementEditSchema {
     tab?: string
     visibleWhen?: FieldVisibility
     visibleWhenAll?: readonly FieldVisibility[]
-    width?: 'id' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
+    width?: 'id' | 'tagName' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
   }
 
   export type TextField = {
@@ -163,6 +163,14 @@ namespace ElementEditSchema {
     basesKey: string
   } & FieldBase
 
+  export type TagStyleMonitorField = {
+    type: 'tagStyleMonitor'
+    key: string
+    label: string
+    defaultValue?: string
+    stylesKey: string
+  } & FieldBase
+
   export type TagAttributesField = {
     type: 'tagAttributes'
     key: string
@@ -221,6 +229,7 @@ namespace ElementEditSchema {
     | StyleApplicationsField
     | StyleBasesField
     | StyleMonitorField
+    | TagStyleMonitorField
     | TagAttributesField
     | ObjectShapeField
     | UnionDefinitionField
@@ -313,6 +322,7 @@ namespace ElementEditSchema {
 
     switch (values[field.valueTypeKey]) {
       case 'string':
+      case 'color':
         return null
       case 'number':
         return value.length > 0 && Number.isFinite(Number(value))
@@ -669,7 +679,8 @@ namespace ElementEditSchema {
       return typeof parameterValue.source !== 'string' || parameterValue.source.length === 0
     }
     if (parameterValue.type === 'literal') {
-      return typeof parameterValue.value !== parameter.valueType
+      const expectedType = parameter.valueType === 'color' ? 'string' : parameter.valueType
+      return typeof parameterValue.value !== expectedType
     }
     return true
   }

@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ContentActions from '../../content-actions'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import LoopTreeLabel from './LoopTreeLabel.svelte'
 import TreeStore from '../../../store/tree-store'
 
 namespace LoopElement {
@@ -134,23 +135,11 @@ namespace LoopElement {
       : createCount(values.countSource, values.indexId),
   })
 
-  const getPreview = (element: Element): string => {
-    const source = (
-      element.mode === 'count' ? element.countSource : element.collectionSource
-    ).replace(/\s*\r?\n\s*/g, ' ')
-    const sourcePreview = source.length > 24 ? `${source.slice(0, 24)}...` : source
-    return element.mode === 'count'
-      ? `$var.${element.indexId}: ${sourcePreview}`
-      : `$var.${element.itemId}, $var.${element.indexId}: ${sourcePreview}`
-  }
-
   export const definition = {
     kind: 'loop',
     treeLabel: {
-      type: 'static',
-      kindText: 'Loop',
-      tone: 'iteration',
-      getValueText: getPreview,
+      type: 'component',
+      Component: LoopTreeLabel,
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

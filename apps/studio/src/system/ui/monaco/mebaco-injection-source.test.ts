@@ -11,6 +11,119 @@ const node = (
 ): TreeNode.Node => ({ id, element, isOpen: true, children })
 
 describe('MebacoInjectionSource Loop variables', () => {
+  it('does not inject App State while editing a Common Style', () => {
+    const commonStyleNode = node(8, {
+      kind: 'style',
+      id: 'rect',
+      rules: [],
+      bases: [],
+    }, [
+      node(9, { kind: 'style-params' }, [
+        node(10, {
+          kind: 'style-param',
+          id: 'width',
+          valueType: 'number',
+        }),
+      ]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [
+        node(3, { kind: 'app', id: 'main' }, [
+          node(4, { kind: 'store' }, [
+            node(5, { kind: 'states' }, [
+              node(6, {
+                kind: 'state',
+                id: 'data',
+                valueType: TypeExpression.createReference(['data-type']),
+                nullable: false,
+                initial: { type: 'default' },
+              }),
+            ]),
+          ]),
+          node(7, {
+            kind: 'object-type',
+            typeId: 'data-type',
+            id: 'Data',
+            baseObjectIds: [],
+            properties: [],
+          }),
+        ]),
+      ]),
+      node(11, { kind: 'common' }, [commonStyleNode]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(
+      rootNode,
+      commonStyleNode.id,
+      'expression',
+    )
+
+    expect(source).toContain('declare var $state: Record<string, unknown>;')
+    expect(source).toContain('width: number;')
+    expect(source).not.toContain('data: Data;')
+    expect(source).not.toContain('type Data')
+  })
+
+  it('injects color Style Parameters as strings', () => {
+    const styleNode = node(2, {
+      kind: 'style',
+      id: 'button',
+      rules: [],
+      bases: [],
+    }, [
+      node(3, { kind: 'style-params' }, [
+        node(4, {
+          kind: 'style-param',
+          id: 'accent',
+          valueType: 'color',
+          defaultValue: '#66ccff',
+        }),
+      ]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [styleNode])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, styleNode.id, 'expression')
+
+    expect(source).toContain('accent: string;')
+    expect(source).not.toContain('accent: color;')
+  })
+
+  it('injects a concrete action event type when provided', () => {
+    const tagNode = node(2, {
+      kind: 'tag',
+      tagName: 'button',
+      comment: '',
+      styles: [],
+      attributes: [],
+    })
+    const rootNode = node(1, { kind: 'project' }, [tagNode])
+
+    const source = MebacoInjectionSource.createForNode(
+      rootNode,
+      tagNode.id,
+      'action',
+      false,
+      'MouseEvent',
+    )
+
+    expect(source).toContain('declare var $event: MouseEvent;')
+  })
+
+  it('injects a generic Event for actions by default', () => {
+    const tagNode = node(2, {
+      kind: 'tag',
+      tagName: 'button',
+      comment: '',
+      styles: [],
+      attributes: [],
+    })
+    const rootNode = node(1, { kind: 'project' }, [tagNode])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, tagNode.id, 'action')
+
+    expect(source).toContain('declare var $event: Event;')
+  })
+
   it('adds ancestor Loop bindings to $var', () => {
     const textNode = node(3, {
       kind: 'text',

@@ -2,6 +2,7 @@ import type ActionMenuState from '../action-menu/action-menu-state'
 import type TreeNode from '../tree/tree-node'
 import ActionMenu from '../action-menu/action-menu-state'
 import ActionElement from './kind/variable/action-element'
+import ComponentElement from './kind/component/component-element'
 import ElementDialog from '../element-dialog/element-dialog-controller'
 import ObjectTypeElement from './kind/type/object-type-element'
 import StyleElement from './kind/view/style-element'
@@ -32,12 +33,24 @@ namespace RetentionActions {
     )) ?? []
   )
 
+  const collectSiblingLocalComponentNames = (
+    rootNode: TreeNode.Node,
+    parentNodeId: number,
+  ): string[] => (
+    findNode(rootNode, parentNodeId)?.children.flatMap((child) => (
+      child.element.kind === 'component' && ComponentElement.isLocal(child.element)
+        ? [child.element.id]
+        : []
+    )) ?? []
+  )
+
   export const createAddDeclareMenu = (
     parentNodeId: number,
     rootNode: TreeNode.Node,
   ): ActionMenuState.ParentItem => {
     const { action, parent } = ActionMenu.createFactory()
     const variableNames = collectSiblingVariableNames(rootNode, parentNodeId)
+    const localComponentNames = collectSiblingLocalComponentNames(rootNode, parentNodeId)
     const typeNames = TypeCatalog.collectVisibleNamedTypes(rootNode, parentNodeId)
       .map((entry) => entry.element.id)
     const objectOptions = TypeCatalog.getObjectOptions(rootNode, parentNodeId)
@@ -51,6 +64,13 @@ namespace RetentionActions {
           reservedNames: variableNames,
           referenceOptions: TypeCatalog.getReferenceOptions(rootNode, parentNodeId),
           namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
+        }),
+      )),
+      action('Local Component', () => ElementDialog.openCreate(
+        parentNodeId,
+        ComponentElement.createSchema({
+          reservedNames: localComponentNames,
+          local: true,
         }),
       )),
       action('Style', () => ElementDialog.openCreate(

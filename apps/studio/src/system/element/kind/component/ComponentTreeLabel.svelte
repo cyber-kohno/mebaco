@@ -9,4 +9,4 @@
   let { element }: Props = $props()
 </script>
 
-<NodeLabel tone="master" kindText="Component" valueText={element.id} />
+<NodeLabel tone="master" kindText={element.local === true ? 'Local Component' : 'Component'} valueText={element.id} />

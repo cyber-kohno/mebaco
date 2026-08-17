@@ -7,7 +7,7 @@ import StyleParamTreeLabel from './StyleParamTreeLabel.svelte'
 namespace StyleParamElement {
   export type Kind = 'style-param'
 
-  export const valueTypes = ['string', 'number', 'boolean'] as const
+  export const valueTypes = ['string', 'number', 'boolean', 'color'] as const
   export type ValueType = (typeof valueTypes)[number]
   export type Literal = string | number | boolean
 
@@ -109,6 +109,7 @@ namespace StyleParamElement {
         return Number(values.defaultValue)
       case 'boolean':
         return values.defaultValue === 'true'
+      case 'color':
       case 'string':
         return values.defaultValue
       default:

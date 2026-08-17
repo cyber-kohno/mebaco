@@ -77,6 +77,25 @@ namespace MebacoInjectionSource {
     return null
   }
 
+  const findOwnerCommon = (
+    node: TreeNode.Node,
+    targetNodeId: number,
+    ownerCommonNode: TreeNode.Node | null = null,
+  ): TreeNode.Node | null => {
+    const nextOwnerCommonNode = node.element.kind === 'common'
+      ? node
+      : ownerCommonNode
+
+    if (node.id === targetNodeId) return nextOwnerCommonNode
+
+    for (const child of node.children) {
+      const found = findOwnerCommon(child, targetNodeId, nextOwnerCommonNode)
+      if (found != null) return found
+    }
+
+    return null
+  }
+
   const collectStates = (
     node: TreeNode.Node,
   ): StateElement.Element[] => {
@@ -91,6 +110,19 @@ namespace MebacoInjectionSource {
 
     collect(node)
     return states
+  }
+
+  const collectScopedStates = (
+    targetNode: TreeNode.Node | null,
+    rootNode: TreeNode.Node,
+  ): StateElement.Element[] => {
+    if (targetNode == null) return []
+
+    const ownerAppNode = findOwnerApp(rootNode, targetNode.id)
+    if (ownerAppNode != null) return collectStates(ownerAppNode)
+
+    const ownerCommonNode = findOwnerCommon(rootNode, targetNode.id)
+    return ownerCommonNode == null ? collectStates(rootNode) : collectStates(ownerCommonNode)
   }
 
   const getValueType = (
@@ -173,7 +205,9 @@ namespace MebacoInjectionSource {
     if (parameters.length === 0) return 'declare var $param: Record<string, unknown>;'
 
     const fields = parameters
-      .map((parameter) => `  ${parameter.id}: ${parameter.valueType};`)
+      .map((parameter) => (
+        `  ${parameter.id}: ${parameter.valueType === 'color' ? 'string' : parameter.valueType};`
+      ))
       .join('\n')
 
     return [
@@ -262,12 +296,9 @@ namespace MebacoInjectionSource {
     targetNodeId: number,
     mode: MonacoInjection.Mode,
     includeTargetScope = false,
+    eventType = 'Event',
   ): string => {
     const targetNode = findNode(rootNode, targetNodeId)
-    const ownerAppNode = targetNode == null
-      ? null
-      : findOwnerApp(rootNode, targetNode.id)
-    const searchRoot = ownerAppNode ?? rootNode
     const ownerComponentNode = targetNode == null
       ? null
       : findOwnerComponent(rootNode, targetNode.id)
@@ -275,7 +306,10 @@ namespace MebacoInjectionSource {
       rootNode,
       targetNodeId,
     )
-    const stateDeclaration = createStateDeclaration(collectStates(searchRoot), rootNode)
+    const stateDeclaration = createStateDeclaration(
+      collectScopedStates(targetNode, rootNode),
+      rootNode,
+    )
     const styleParameterDeclaration = createStyleParameterDeclaration(
       collectStyleParameters(rootNode, targetNode),
     )
@@ -297,7 +331,7 @@ namespace MebacoInjectionSource {
     ))
 
     if (mode === 'action') {
-      declarations.push('declare var $event: Event;')
+      declarations.push(`declare var $event: ${eventType};`)
     }
 
     return declarations.join('\n')

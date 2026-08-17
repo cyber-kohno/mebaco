@@ -4,6 +4,7 @@ import type TreeNode from '../../../tree/tree-node'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import EntryTreeLabel from './EntryTreeLabel.svelte'
+import ComponentElement from '../component/component-element'
 import ComponentReference from '../component/component-reference'
 import type ValuePropElement from '../component/value-prop-element'
 
@@ -109,7 +110,7 @@ namespace EntryElement {
 
     const components: ComponentReference.Option[] = []
     const collect = (node: TreeNode.Node) => {
-      if (node.element.kind === 'component') {
+      if (node.element.kind === 'component' && !ComponentElement.isLocal(node.element)) {
         const props = node.children
           .find((child) => child.element.kind === 'props')
           ?.children

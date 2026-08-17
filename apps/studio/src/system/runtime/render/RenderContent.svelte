@@ -18,10 +18,11 @@
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
     evaluateRetention?: boolean
     contentNodes?: readonly TreeNode.Node[]
+    componentStack?: readonly number[]
   }
   let { hostNode, projectNode, styleCatalog, formulaContext, renderRevision,
     invalidateRuntime, setActionError, setStyleResult, evaluateRetention = true,
-    contentNodes }: Props = $props()
+    contentNodes, componentStack = [] }: Props = $props()
   const result = $derived.by(() => {
     renderRevision
     return evaluateRetention
@@ -39,6 +40,6 @@
   {#each children as childNode (childNode.id)}
     <ElementDispatcher node={childNode} {projectNode} {styleCatalog}
       formulaContext={result.context} {renderRevision} {invalidateRuntime}
-      {setActionError} {setStyleResult} />
+      {setActionError} {setStyleResult} {componentStack} />
   {/each}
 {/if}

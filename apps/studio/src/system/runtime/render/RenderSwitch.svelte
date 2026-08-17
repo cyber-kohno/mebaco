@@ -15,6 +15,7 @@
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    componentStack?: readonly number[]
   }
 
   let {
@@ -26,6 +27,7 @@
     invalidateRuntime,
     setActionError,
     setStyleResult,
+    componentStack = [],
   }: Props = $props()
 
   const result = $derived.by(() => {
@@ -42,5 +44,5 @@
 
 {#if result.branchNode != null}
   <RenderContent hostNode={result.branchNode} {projectNode} {styleCatalog} {formulaContext}
-    {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} />
+    {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} {componentStack} />
 {/if}

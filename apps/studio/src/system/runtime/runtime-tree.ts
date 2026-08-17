@@ -1,5 +1,6 @@
 import type AppElement from '../element/kind/app/app-element'
 import type ComponentElement from '../element/kind/component/component-element'
+import type ComponentUseElement from '../element/kind/component/component-use-element'
 import type EntryElement from '../element/kind/app/entry-element'
 import type StateElement from '../element/kind/variable/store/state-element'
 import type StyleElement from '../element/kind/view/style-element'
@@ -34,6 +35,12 @@ namespace RuntimeTree {
     node.element.kind === 'component'
   )
 
+  export const isEntryComponentNode = (
+    node: TreeNode.Node,
+  ): node is TreeNode.Node & { element: ComponentElement.Element } => (
+    isComponentNode(node) && node.element.local !== true
+  )
+
   export const isEntryNode = (
     node: TreeNode.Node,
   ): node is TreeNode.Node & { element: EntryElement.Element } => (
@@ -62,6 +69,12 @@ namespace RuntimeTree {
     node: TreeNode.Node,
   ): node is TreeNode.Node & { element: TextElement.Element } => (
     node.element.kind === 'text'
+  )
+
+  export const isComponentUseNode = (
+    node: TreeNode.Node,
+  ): node is TreeNode.Node & { element: ComponentUseElement.Element } => (
+    node.element.kind === 'component-use'
   )
 
   export const isConditionalNode = (
@@ -94,6 +107,7 @@ namespace RuntimeTree {
     element:
       | TagElement.Element
       | TextElement.Element
+      | ComponentUseElement.Element
       | ConditionalElement.Element
       | SwitchElement.Element
       | LoopElement.Element
@@ -101,6 +115,7 @@ namespace RuntimeTree {
   } => (
     isTagNode(node)
     || isTextNode(node)
+    || isComponentUseNode(node)
     || isConditionalNode(node)
     || isSwitchNode(node)
     || isLoopNode(node)
@@ -126,7 +141,7 @@ namespace RuntimeTree {
     appNode,
     entryNode: collectNodes(appNode, isEntryNode)[0] ?? null,
     stateNodes: collectNodes(appNode, isStateNode),
-    componentNodes: collectNodes(appNode, isComponentNode),
+    componentNodes: collectNodes(appNode, isEntryComponentNode),
     styleNodes: collectNodes(appNode, isStyleNode),
   })
 

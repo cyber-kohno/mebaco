@@ -1,6 +1,7 @@
 import type ActionMenuState from '../action-menu/action-menu-state'
 import type TreeNode from '../tree/tree-node'
 import ActionMenu from '../action-menu/action-menu-state'
+import ComponentUseElement from './kind/component/component-use-element'
 import ConditionalElement from './kind/directive/conditional-element'
 import ContentHost from './content-host'
 import ElementDialog from '../element-dialog/element-dialog-controller'
@@ -30,6 +31,14 @@ namespace ContentActions {
       }),
       action('Text', () => {
         ElementDialog.openCreate(parentNodeId, TextElement.createSchema())
+      }),
+      action('Component', () => {
+        ElementDialog.openCreate(
+          parentNodeId,
+          ComponentUseElement.createSchema({
+            components: ComponentUseElement.getComponents(rootNode, parentNodeId),
+          }),
+        )
       }),
     ])
   }

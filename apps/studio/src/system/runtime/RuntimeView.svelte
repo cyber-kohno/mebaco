@@ -217,7 +217,8 @@
     <RenderContent hostNode={entryComponentNode} contentNodes={rootViewNodes}
       {projectNode} {styleCatalog}
       {formulaContext} {renderRevision} {invalidateRuntime}
-      {setActionError} {setStyleResult} />
+      {setActionError} {setStyleResult}
+      componentStack={[entryComponentNode.id]} />
   {/if}
 </div>
 

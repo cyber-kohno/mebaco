@@ -22,6 +22,7 @@
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptErrorValue.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    componentStack?: readonly number[]
   }
 
   let {
@@ -33,6 +34,7 @@
     invalidateRuntime,
     setActionError,
     setStyleResult,
+    componentStack = [],
   }: Props = $props()
 
   const tag = $derived(RuntimeTree.isTagNode(node) ? node.element : null)
@@ -150,7 +152,7 @@
     <svelte:element this={tag.tagName} {...elementAttributes}>
       <RenderContent hostNode={node} {projectNode} {styleCatalog}
         formulaContext={retentionResult.context} evaluateRetention={false}
-        {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} />
+        {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} {componentStack} />
     </svelte:element>
   {:else}
     <svelte:element this={tag.tagName} {...elementAttributes} />

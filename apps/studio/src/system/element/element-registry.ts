@@ -3,6 +3,7 @@ import type ElementDefinition from './element-definition'
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
 import ComponentElement from './kind/component/component-element'
+import ComponentUseElement from './kind/component/component-use-element'
 import ElementsElement from './kind/component/elements-element'
 import PropsElement from './kind/component/props-element'
 import RetentionElement from './kind/component/retention-element'
@@ -49,6 +50,7 @@ namespace ElementRegistry {
     app: AppElement.definition,
     entry: EntryElement.definition,
     component: ComponentElement.definition,
+    'component-use': ComponentUseElement.definition,
     elements: ElementsElement.definition,
     props: PropsElement.definition,
     retention: RetentionElement.definition,

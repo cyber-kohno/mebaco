@@ -35,6 +35,24 @@ describe('MonacoDiagnostics', () => {
     expect(markers).toEqual([])
   })
 
+  it('drops errors from generated analysis lines', () => {
+    const markers = MonacoDiagnostics.createMarkers(
+      monaco,
+      [{
+        start: 2,
+        length: 1,
+        messageText: "Cannot find name 'Data'.",
+        category: 1,
+      }],
+      analysisModel,
+      'expression',
+      4,
+      2,
+    )
+
+    expect(markers).toEqual([])
+  })
+
   it('keeps diagnostics that belong to user code', () => {
     const markers = MonacoDiagnostics.createMarkers(
       monaco,

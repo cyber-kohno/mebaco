@@ -83,6 +83,29 @@ describe('runtime StyleResolver', () => {
     expect(result.declarations.map((item) => item.value)).toEqual(['2', '"item:true"'])
   })
 
+  it('treats color parameters as strings at runtime', () => {
+    const parameterized = StyleFixture.style('parameterized-color', {
+      parameters: [
+        StyleFixture.parameter('accent', 'color', '#66ccff'),
+      ],
+      rules: [
+        StyleFixture.formula('color', '$param.accent'),
+      ],
+    })
+    const application = StyleFixture.application('parameterized-color', {
+      accent: {
+        type: 'value',
+        value: { type: 'literal', value: '#ff6699' },
+      },
+    })
+    const result = StyleResolver
+      .createCatalog(StyleFixture.project([parameterized]))
+      .resolve([application], FormulaContext.createEmpty())
+
+    expect(result.errors).toEqual([])
+    expect(result.declarations.map((item) => item.value)).toEqual(['#ff6699'])
+  })
+
   it('resolves square tag style declarations used by runtime preview', () => {
     const square = StyleFixture.style('square', {
       rules: [
@@ -146,6 +169,35 @@ describe('runtime StyleResolver', () => {
 
     expect(cssResult.declarations).toEqual([])
     expect(cssResult.errors[0]?.type).toBe('css-value')
+  })
+
+  it('can include unresolved formula declarations for monitor previews only', () => {
+    const stateful = StyleFixture.style('stateful', {
+      rules: [StyleFixture.formula('height', '`${$state.data.count}px`')],
+    })
+    const catalog = StyleResolver.createCatalog(StyleFixture.project([stateful]))
+
+    const runtimeResult = catalog.resolve(
+      [StyleFixture.application('stateful')],
+      FormulaContext.createEmpty(),
+    )
+    const monitorResult = catalog.resolve(
+      [StyleFixture.application('stateful')],
+      FormulaContext.createEmpty(),
+      { includeUnresolvedDeclarations: true },
+    )
+
+    expect(runtimeResult.declarations).toEqual([])
+    expect(runtimeResult.errors[0]?.type).toBe('formula')
+    expect(monitorResult.errors[0]?.type).toBe('formula')
+    expect(monitorResult.declarations).toMatchObject([{
+      property: 'height',
+      value: '`${$state.data.count}px`',
+      unresolved: {
+        type: 'formula',
+        source: '`${$state.data.count}px`',
+      },
+    }])
   })
 
   it('reports unresolved delegated parameters and inheritance cycles', () => {

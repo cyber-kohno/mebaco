@@ -3,7 +3,9 @@
   import StylePropsEditor from '../element/kind/view/StylePropsEditor.svelte'
   import StyleBasesEditor from '../element/kind/view/StyleBasesEditor.svelte'
   import StyleMonitorEditor from '../runtime/style/StyleMonitorEditor.svelte'
+  import TagStyleMonitorEditor from '../runtime/style/TagStyleMonitorEditor.svelte'
   import TagAttributesEditor from '../element/kind/view/TagAttributesEditor.svelte'
+  import ColorSwatch from '../ui/color/ColorSwatch.svelte'
   import FormulaField from '../ui/formula/FormulaField.svelte'
   import ActionField from '../ui/action/ActionField.svelte'
   import ValueSourceField from '../ui/input/ValueSourceField.svelte'
@@ -83,6 +85,7 @@
       case 'styleBases':
         return ElementEditSchema.validateStyleBases(field, value)
       case 'styleMonitor':
+      case 'tagStyleMonitor':
         return null
       case 'tagAttributes':
         return ElementEditSchema.validateTagAttributes(value)
@@ -148,6 +151,7 @@
 
   const getInjectionSource = (
     mode: 'expression' | 'action',
+    eventType?: string,
   ): string | undefined => {
     const targetNodeId = getTargetNodeId()
     if (targetNodeId == null) return undefined
@@ -156,6 +160,7 @@
       targetNodeId,
       mode,
       $elementDialogStore?.mode === 'create',
+      eventType,
     )
   }
 
@@ -208,6 +213,7 @@
         || field.type === 'styleApplications'
         || field.type === 'styleBases'
         || field.type === 'styleMonitor'
+        || field.type === 'tagStyleMonitor'
         || field.type === 'objectShape'
       ))}
     >
@@ -297,6 +303,14 @@
               bases={values[field.basesKey] ?? '[]'}
             />
           </div>
+        {:else if field.type === 'tagStyleMonitor'}
+          <div class="field">
+            <span class="field-label">{field.label}</span>
+            <TagStyleMonitorEditor
+              rootNode={$rootNodeStore}
+              styles={values[field.stylesKey] ?? '[]'}
+            />
+          </div>
         {:else if field.type === 'tagAttributes'}
           <div class="field" data-validation-severity={issue?.severity}>
             <span class="field-label">
@@ -306,7 +320,7 @@
             <TagAttributesEditor
               value={values[field.key] ?? '[]'}
               formulaInjectionSource={getInjectionSource('expression')}
-              actionInjectionSource={getInjectionSource('action')}
+              getActionInjectionSource={(eventType) => getInjectionSource('action', eventType)}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true
@@ -456,6 +470,7 @@
             {#if field.type === 'text'}
               <input
                 class:id-width={field.width === 'id'}
+                class:tag-name-width={field.width === 'tagName'}
                 class:mode-width={field.width === 'mode'}
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
@@ -479,6 +494,7 @@
               <span class:select-with-detail={selectedOption?.detail != null}>
                 <select
                   class:id-width={field.width === 'id'}
+                  class:tag-name-width={field.width === 'tagName'}
                   class:mode-width={field.width === 'mode'}
                   class:value-type-width={field.width === 'valueType'}
                   class:array-depth-width={field.width === 'arrayDepth'}
@@ -516,6 +532,7 @@
             {#if field.type === 'number'}
               <input
                 class:id-width={field.width === 'id'}
+                class:tag-name-width={field.width === 'tagName'}
                 class:mode-width={field.width === 'mode'}
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
@@ -566,6 +583,30 @@
                   <option value="false">false</option>
                   <option value="true">true</option>
                 </select>
+              {:else if values[field.valueTypeKey] === 'color'}
+                <div class="color-literal-field">
+                  <ColorSwatch
+                    value={values[field.key] ?? ''}
+                    onValueChange={(value) => {
+                      values[field.key] = value
+                      touched[field.key] = true
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={values[field.key] ?? ''}
+                    aria-invalid={issue == null ? undefined : true}
+                    data-validation-severity={issue?.severity}
+                    title={issue?.message}
+                    oninput={(event) => {
+                      values[field.key] = event.currentTarget.value
+                      touched[field.key] = true
+                    }}
+                    onblur={() => {
+                      touched[field.key] = true
+                    }}
+                  />
+                </div>
               {:else}
                 <input
                   type={values[field.valueTypeKey] === 'number' ? 'number' : 'text'}
@@ -765,6 +806,10 @@
     width: min(100%, var(--mbc-width-id-field));
   }
 
+  .tag-name-width {
+    width: min(100%, var(--mbc-width-tag-name-field));
+  }
+
   .mode-width {
     width: min(100%, var(--mbc-width-mode-field));
   }
@@ -809,6 +854,15 @@
     background: rgba(232, 242, 244, 0.75);
     color: #6d8990;
     font-size: 13px;
+  }
+
+  .color-literal-field {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: var(--mbc-form-control-gap);
+    align-items: center;
+    width: min(100%, var(--mbc-width-id-field));
+    min-width: 0;
   }
 
   input:focus,

@@ -15,6 +15,7 @@
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    componentStack?: readonly number[]
   }
 
   let {
@@ -26,6 +27,7 @@
     invalidateRuntime,
     setActionError,
     setStyleResult,
+    componentStack = [],
   }: Props = $props()
 
   const result = $derived.by(() => {
@@ -43,5 +45,5 @@
 {#each result.iterations as iteration (iteration.index)}
   <RenderContent hostNode={node} {projectNode} {styleCatalog}
     formulaContext={iteration.context} {renderRevision} {invalidateRuntime}
-    {setActionError} {setStyleResult} />
+    {setActionError} {setStyleResult} {componentStack} />
 {/each}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type FormulaContext from '../formula/formula-context'
   import type StyleResolver from '../style/style-resolver'
+  import RenderComponentUse from './RenderComponentUse.svelte'
   import RenderTag from './RenderTag.svelte'
   import RenderText from './RenderText.svelte'
   import RenderConditional from './RenderConditional.svelte'
@@ -20,6 +21,7 @@
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    componentStack?: readonly number[]
   }
 
   let {
@@ -31,6 +33,7 @@
     invalidateRuntime,
     setActionError,
     setStyleResult,
+    componentStack = [],
   }: Props = $props()
 </script>
 
@@ -44,9 +47,22 @@
     {invalidateRuntime}
     {setActionError}
     {setStyleResult}
+    {componentStack}
   />
 {:else if RuntimeTree.isTextNode(node)}
   <RenderText {node} {formulaContext} {renderRevision} />
+{:else if RuntimeTree.isComponentUseNode(node)}
+  <RenderComponentUse
+    {node}
+    {projectNode}
+    {styleCatalog}
+    {formulaContext}
+    {renderRevision}
+    {invalidateRuntime}
+    {setActionError}
+    {setStyleResult}
+    {componentStack}
+  />
 {:else if RuntimeTree.isConditionalNode(node)}
   <RenderConditional
     {node}
@@ -57,6 +73,7 @@
     {invalidateRuntime}
     {setActionError}
     {setStyleResult}
+    {componentStack}
   />
 {:else if RuntimeTree.isSwitchNode(node)}
   <RenderSwitch
@@ -68,6 +85,7 @@
     {invalidateRuntime}
     {setActionError}
     {setStyleResult}
+    {componentStack}
   />
 {:else if RuntimeTree.isLoopNode(node)}
   <RenderLoop
@@ -79,6 +97,7 @@
     {invalidateRuntime}
     {setActionError}
     {setStyleResult}
+    {componentStack}
   />
 {:else if RuntimeTree.isBlockNode(node)}
   <RenderBlock
@@ -90,5 +109,6 @@
     {invalidateRuntime}
     {setActionError}
     {setStyleResult}
+    {componentStack}
   />
 {/if}

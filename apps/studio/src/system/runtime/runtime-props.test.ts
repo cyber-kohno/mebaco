@@ -83,4 +83,27 @@ describe('RuntimeProps', () => {
     expect(result.errors).toEqual([])
     expect(result.values).toEqual({ title: 'default title', count: 3 })
   })
+
+  it('resolves explicit ComponentUse bindings with the caller context', () => {
+    const projectNode = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    } as TreeNode.Node
+
+    const result = RuntimeProps.resolveBindings(
+      componentNode,
+      [{
+        propId: 'count-id',
+        kind: 'value',
+        source: { type: 'formula', source: '$var.offset + 2' },
+      }],
+      FormulaContext.create({ $var: { offset: 5 } }),
+      projectNode,
+    )
+
+    expect(result.errors).toEqual([])
+    expect(result.values).toEqual({ title: 'default title', count: 7 })
+  })
 })

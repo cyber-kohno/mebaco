@@ -135,9 +135,22 @@ namespace RuntimeProps {
     const entry = runtime.entryNode?.element
     if (entry?.kind !== 'entry') return empty()
 
+    return resolveBindings(
+      componentNode,
+      entry.propBindings ?? [],
+      baseContext,
+      runtime.projectNode,
+    )
+  }
+
+  export const resolveBindings = (
+    componentNode: TreeNode.Node,
+    bindings: readonly ComponentReference.Binding[],
+    baseContext: FormulaContext.Value,
+    projectNode: TreeNode.Node,
+  ): Result => {
     const values: Record<string, unknown> = {}
     const errors: string[] = []
-    const bindings = entry.propBindings ?? []
 
     getProps(componentNode).forEach((prop) => {
       const binding = bindings.find((candidate) => candidate.propId === prop.propId)
@@ -145,13 +158,13 @@ namespace RuntimeProps {
         prop,
         binding?.source ?? prop.defaultValue,
         FormulaContext.create({ ...baseContext, $props: values }),
-        runtime.projectNode,
+        projectNode,
       )
       if (!result.ok) {
         errors.push(result.message)
         return
       }
-      if (!isCompatibleValue(prop, result.value, runtime.projectNode)) {
+      if (!isCompatibleValue(prop, result.value, projectNode)) {
         errors.push(`Prop '${prop.id}' resolved to an incompatible value.`)
         return
       }

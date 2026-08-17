@@ -50,8 +50,6 @@ namespace MonacoDiagnostics {
     return diagnostics
       .filter((diagnostic) => typeof diagnostic.start === 'number')
       .filter((diagnostic) => {
-        if (diagnostic.reportsUnnecessary !== true) return true
-
         const position = analysisModel.getPositionAt(diagnostic.start ?? 0)
         return position.lineNumber > offsetLine
           && position.lineNumber <= offsetLine + userLineCount

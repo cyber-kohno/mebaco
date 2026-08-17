@@ -13,6 +13,7 @@ namespace ComponentElement {
   export type Element = {
     kind: Kind
     id: string
+    local?: boolean
   }
 
   export const create = (id: string): Element => ({
@@ -20,15 +21,24 @@ namespace ComponentElement {
     id,
   })
 
+  export const createLocal = (id: string): Element => ({
+    kind: 'component',
+    id,
+    local: true,
+  })
+
+  export const isLocal = (element: Element): boolean => element.local === true
+
   export type CreateSchemaOptions = {
     reservedNames?: readonly string[]
+    local?: boolean
   }
 
   export const createSchema = (
     options: CreateSchemaOptions = {},
   ): ElementEditSchema.Schema<Element> => ({
-    createTitle: 'Create Component',
-    updateTitle: 'Update Component',
+    createTitle: options.local === true ? 'Create Local Component' : 'Create Component',
+    updateTitle: options.local === true ? 'Update Local Component' : 'Update Component',
     fields: [
       {
         type: 'text',
@@ -42,11 +52,11 @@ namespace ComponentElement {
         reservedNames: options.reservedNames,
       },
     ],
-    createPreview: () => create('...'),
+    createPreview: () => (options.local === true ? createLocal('...') : create('...')),
     getInitialValues: (element) => ({
       id: element.id,
     }),
-    create: (values) => create(values.id),
+    create: (values) => (options.local === true ? createLocal(values.id) : create(values.id)),
     update: (element, values) => ({
       ...element,
       id: values.id,
@@ -83,7 +93,7 @@ namespace ComponentElement {
           ElementDialog.openUpdate(
             context.node.id,
             context.element,
-            createSchema({ reservedNames }),
+            createSchema({ reservedNames, local: isLocal(context.element) }),
           )
         }),
       ]
