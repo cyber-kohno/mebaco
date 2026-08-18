@@ -1,8 +1,8 @@
-import type ElementDefinition from '../../element-definition'
-import ActionMenuState from '../../../action-menu/action-menu-state'
-import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import type ElementDefinition from '../../../../element-definition'
+import ActionMenuState from '../../../../../action-menu/action-menu-state'
+import ElementDialog from '../../../../../element-dialog/element-dialog-controller'
 import SlotElement from './slot-element'
-import TreeStore from '../../../store/tree-store'
+import TreeStore from '../../../../../store/tree-store'
 
 namespace SlotsElement {
   export type Kind = 'slots'

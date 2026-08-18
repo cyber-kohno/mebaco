@@ -1,5 +1,5 @@
 <script lang="ts">
-  import NodeLabel from '../../NodeLabel.svelte'
+  import NodeLabel from '../../../../NodeLabel.svelte'
   import type SlotUseElement from './slot-use-element'
 
   type Props = { element: SlotUseElement.Element }

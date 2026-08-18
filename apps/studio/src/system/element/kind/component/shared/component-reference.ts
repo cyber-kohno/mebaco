@@ -1,4 +1,4 @@
-import type ValuePropElement from './value-prop-element'
+import type ValuePropElement from '../definition/value-prop-element'
 
 namespace ComponentReference {
   export type ValueBindingSource =

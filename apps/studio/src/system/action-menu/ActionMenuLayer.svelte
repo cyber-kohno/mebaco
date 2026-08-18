@@ -203,7 +203,7 @@
   }
 
   .item.parent-sibling-muted {
-    color: rgba(217, 247, 251, 0.4);
+    opacity: 0.4;
   }
 
   .item[data-role='warning'] {

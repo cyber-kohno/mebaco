@@ -8,9 +8,10 @@
   type Props = {
     element: MebacoElement.Element
     parentNode?: TreeNode.Node | null
+    rootNode?: TreeNode.Node
   }
 
-  let { element, parentNode = null }: Props = $props()
+  let { element, parentNode = null, rootNode }: Props = $props()
 
   const treeLabel = $derived(ElementRegistry.get(element.kind).treeLabel)
   const TreeLabelComponent = $derived(
@@ -30,5 +31,5 @@
     valueText={staticValueText}
   />
 {:else if TreeLabelComponent != null}
-  <TreeLabelComponent {element} />
+  <TreeLabelComponent {element} {parentNode} {rootNode} />
 {/if}

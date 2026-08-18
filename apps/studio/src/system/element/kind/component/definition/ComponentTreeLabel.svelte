@@ -1,5 +1,5 @@
 <script lang="ts">
-  import NodeLabel from '../../NodeLabel.svelte'
+  import NodeLabel from '../../../NodeLabel.svelte'
   import type ComponentElement from './component-element'
 
   type Props = {

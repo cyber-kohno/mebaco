@@ -25,6 +25,8 @@ namespace ElementDefinition {
 
   export type TreeLabelProps<TElement extends MebacoElement.Element> = {
     element: TElement
+    parentNode?: TreeNode.Node | null
+    rootNode?: TreeNode.Node
   }
 
   export type StaticTreeLabel<TElement extends MebacoElement.Element> = {

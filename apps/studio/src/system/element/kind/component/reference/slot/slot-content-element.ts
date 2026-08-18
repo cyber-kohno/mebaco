@@ -1,6 +1,6 @@
-import type ElementDefinition from '../../element-definition'
-import ContentActions from '../../content-actions'
-import type TreeNode from '../../../tree/tree-node'
+import type ElementDefinition from '../../../../element-definition'
+import ContentActions from '../../../../content-actions'
+import type TreeNode from '../../../../../tree/tree-node'
 import SlotContentTreeLabel from './SlotContentTreeLabel.svelte'
 
 namespace SlotContentElement {
@@ -18,11 +18,10 @@ namespace SlotContentElement {
     treeLabel: { type: 'component', Component: SlotContentTreeLabel },
     getContextMenu: (context) => {
       return [
-        ContentActions.createAddMenu(context.node.id, context.rootNode),
-        ContentActions.createAddDirectiveMenu(context.node.id),
-        ContentActions.createAddBlockItem(context.node.id),
+        ...ContentActions.createOptionalRetentionItems(context.node, context.rootNode),
       ]
     },
+    contentHost: { retention: 'optional' },
     childSlots: [],
     canDisable: false,
   } satisfies ElementDefinition.Definition<Element>

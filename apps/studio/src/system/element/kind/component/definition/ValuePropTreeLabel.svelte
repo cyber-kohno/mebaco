@@ -1,7 +1,7 @@
 <script lang="ts">
-  import TreeStore from '../../../store/tree-store'
-  import TypeCatalog from '../type/type-catalog'
-  import TypeExpression from '../type/type-expression'
+  import TreeStore from '../../../../store/tree-store'
+import TypeCatalog from '../../type/type-catalog'
+import TypeExpression from '../../type/type-expression'
   import type ValuePropElement from './value-prop-element'
 
   type Props = {

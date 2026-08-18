@@ -1,9 +1,9 @@
 <script lang="ts">
-  import CompactFormulaField from '../../../ui/formula/CompactFormulaField.svelte'
-  import FormulaModeToggle from '../../../ui/formula/FormulaModeToggle.svelte'
-  import TypeCatalog from '../type/type-catalog'
-  import TypeExpression from '../type/type-expression'
-  import TreeStore from '../../../store/tree-store'
+  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
+  import TypeCatalog from '../../type/type-catalog'
+  import TypeExpression from '../../type/type-expression'
+  import TreeStore from '../../../../store/tree-store'
   import ComponentReference from './component-reference'
 
   type Props = {

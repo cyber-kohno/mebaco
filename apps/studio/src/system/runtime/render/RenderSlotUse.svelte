@@ -4,12 +4,11 @@
   import type ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import RuntimeProps from '../runtime-props'
-  import RuntimeTree from '../runtime-tree'
   import ScriptErrorFactory from '../script/script-error'
   import FormulaContextFactory from '../formula/formula-context'
   import RenderContent from './RenderContent.svelte'
-  import type SlotUseElement from '../../element/kind/component/slot-use-element'
-  import type ValuePropElement from '../../element/kind/component/value-prop-element'
+  import type SlotUseElement from '../../element/kind/component/definition/slot/slot-use-element'
+  import type ValuePropElement from '../../element/kind/component/definition/value-prop-element'
 
   type Props = {
     node: TreeNode.Node & { element: SlotUseElement.Element }
@@ -62,10 +61,8 @@
 {#if error == null && content != null}
   <RenderContent
     hostNode={content}
-    contentNodes={content.children.filter(RuntimeTree.isViewNode)}
     {projectNode} {styleCatalog}
     formulaContext={contentContext}
-    evaluateRetention={false}
     {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult}
     {componentStack}
   />

@@ -1,5 +1,5 @@
-import type ElementDefinition from '../../element-definition'
-import ContentActions from '../../content-actions'
+import type ElementDefinition from '../../../element-definition'
+import ContentActions from '../../../content-actions'
 
 namespace ElementsElement {
   export type Kind = 'elements'

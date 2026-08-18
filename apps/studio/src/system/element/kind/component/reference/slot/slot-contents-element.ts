@@ -1,4 +1,4 @@
-import type ElementDefinition from '../../element-definition'
+import type ElementDefinition from '../../../../element-definition'
 
 namespace SlotContentsElement {
   export type Kind = 'slot-contents'

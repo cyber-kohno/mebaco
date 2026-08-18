@@ -1,6 +1,6 @@
-import type ElementDefinition from '../../element-definition'
-import ContentActions from '../../content-actions'
-import RetentionActions from '../../retention-actions'
+import type ElementDefinition from '../../../element-definition'
+import ContentActions from '../../../content-actions'
+import RetentionActions from '../../../retention-actions'
 
 namespace RetentionElement {
   export type Kind = 'retention'

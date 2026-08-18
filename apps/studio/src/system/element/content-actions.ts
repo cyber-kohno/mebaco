@@ -1,7 +1,7 @@
 import type ActionMenuState from '../action-menu/action-menu-state'
 import type TreeNode from '../tree/tree-node'
 import ActionMenu from '../action-menu/action-menu-state'
-import ComponentUseElement from './kind/component/component-use-element'
+import ComponentUseElement from './kind/component/reference/component-use-element'
 import ConditionalElement from './kind/directive/conditional-element'
 import ContentHost from './content-host'
 import ElementDialog from '../element-dialog/element-dialog-controller'
@@ -11,7 +11,7 @@ import TextElement from './kind/view/text-element'
 import TreeStore from '../store/tree-store'
 import SwitchElement from './kind/directive/switch-element'
 import LoopElement from './kind/directive/loop-element'
-import SlotUseElement from './kind/component/slot-use-element'
+import SlotUseElement from './kind/component/definition/slot/slot-use-element'
 
 namespace ContentActions {
   export const createAddMenu = (

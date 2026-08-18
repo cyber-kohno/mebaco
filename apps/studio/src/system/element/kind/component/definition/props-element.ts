@@ -1,7 +1,7 @@
-import type ElementDefinition from '../../element-definition'
-import ActionMenuState from '../../../action-menu/action-menu-state'
-import ElementDialog from '../../../element-dialog/element-dialog-controller'
-import TypeCatalog from '../type/type-catalog'
+import type ElementDefinition from '../../../element-definition'
+import ActionMenuState from '../../../../action-menu/action-menu-state'
+import ElementDialog from '../../../../element-dialog/element-dialog-controller'
+import TypeCatalog from '../../type/type-catalog'
 import ValuePropElement from './value-prop-element'
 
 namespace PropsElement {

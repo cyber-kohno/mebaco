@@ -1,5 +1,5 @@
-import type ComponentReference from '../element/kind/component/component-reference'
-import type ValuePropElement from '../element/kind/component/value-prop-element'
+import type ComponentReference from '../element/kind/component/shared/component-reference'
+import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
 import TypeCatalog from '../element/kind/type/type-catalog'
 import TypeExpression from '../element/kind/type/type-expression'
 import FormulaContext from './formula/formula-context'

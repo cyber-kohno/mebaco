@@ -5,7 +5,7 @@ import StyleResolver from '../../element/kind/view/style-resolver'
 import MonacoInjection from './monaco-injection'
 import TypeCatalog from '../../element/kind/type/type-catalog'
 import TypeExpression from '../../element/kind/type/type-expression'
-import type ValuePropElement from '../../element/kind/component/value-prop-element'
+import type ValuePropElement from '../../element/kind/component/definition/value-prop-element'
 import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
 import ContentHost from '../../element/content-host'
 

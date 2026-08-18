@@ -1,9 +1,9 @@
-import type ElementDefinition from '../../element-definition'
-import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
-import ActionMenuState from '../../../action-menu/action-menu-state'
-import ElementDialog from '../../../element-dialog/element-dialog-controller'
-import TreeStore from '../../../store/tree-store'
-import PropsElement from './props-element'
+import type ElementDefinition from '../../../../element-definition'
+import type ElementEditSchema from '../../../../../element-dialog/element-edit-schema'
+import ActionMenuState from '../../../../../action-menu/action-menu-state'
+import ElementDialog from '../../../../../element-dialog/element-dialog-controller'
+import TreeStore from '../../../../../store/tree-store'
+import PropsElement from '../props-element'
 import SlotTreeLabel from './SlotTreeLabel.svelte'
 
 namespace SlotElement {

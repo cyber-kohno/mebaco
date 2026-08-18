@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ComponentUseElement from '../../element/kind/component/component-use-element'
+  import ComponentUseElement from '../../element/kind/component/reference/component-use-element'
   import FormulaContext from '../formula/formula-context'
   import RuntimeProps from '../runtime-props'
   import RuntimeTree from '../runtime-tree'
@@ -10,8 +10,8 @@
   import RenderContent from './RenderContent.svelte'
   import type FormulaContextType from '../formula/formula-context'
   import type ScriptErrorType from '../script/script-error'
-  import type SlotContentElement from '../../element/kind/component/slot-content-element'
-  import type SlotElement from '../../element/kind/component/slot-element'
+import type SlotContentElement from '../../element/kind/component/reference/slot/slot-content-element'
+import type SlotElement from '../../element/kind/component/definition/slot/slot-element'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
 
   type Props = {

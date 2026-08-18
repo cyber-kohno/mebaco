@@ -4,9 +4,9 @@ import type TreeNode from '../../../tree/tree-node'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import EntryTreeLabel from './EntryTreeLabel.svelte'
-import ComponentElement from '../component/component-element'
-import ComponentReference from '../component/component-reference'
-import type ValuePropElement from '../component/value-prop-element'
+import ComponentElement from '../component/definition/component-element'
+import ComponentReference from '../component/shared/component-reference'
+import type ValuePropElement from '../component/definition/value-prop-element'
 
 namespace EntryElement {
   export type Kind = 'entry'

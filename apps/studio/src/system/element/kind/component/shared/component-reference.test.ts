@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import ComponentReference from './component-reference'
-import type ValuePropElement from './value-prop-element'
+import type ValuePropElement from '../definition/value-prop-element'
 
 const createProp = (
   id: string,

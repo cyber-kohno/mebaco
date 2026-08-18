@@ -1,6 +1,6 @@
 import type ElementDefinition from '../../element-definition'
 import ActionMenuState from '../../../action-menu/action-menu-state'
-import ComponentElement from '../component/component-element'
+import ComponentElement from '../component/definition/component-element'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 
 namespace ComponentsElement {
