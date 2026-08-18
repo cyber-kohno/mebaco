@@ -8,7 +8,7 @@
 
   let { parentNode }: Props = $props()
 
-  const kindText = $derived(parentNode?.element.kind === 'component' ? 'Local store' : 'Global store')
+  const kindText = $derived(parentNode?.element.kind === 'component' ? 'Local store' : 'Store')
 </script>
 
 <NodeLabel tone="manager" {kindText} />

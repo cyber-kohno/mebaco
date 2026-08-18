@@ -9,9 +9,10 @@
   import type TreeNode from '../../tree/tree-node'
   import RenderContent from './RenderContent.svelte'
   import type FormulaContextType from '../formula/formula-context'
-import type ScriptErrorType from '../script/script-error'
-import type SlotContentElement from '../../element/kind/component/slot-content-element'
-import type SlotElement from '../../element/kind/component/slot-element'
+  import type ScriptErrorType from '../script/script-error'
+  import type SlotContentElement from '../../element/kind/component/slot-content-element'
+  import type SlotElement from '../../element/kind/component/slot-element'
+  import RuntimeRefRegistry from '../ref/runtime-ref-registry'
 
   type Props = {
     node: TreeNode.Node
@@ -38,6 +39,12 @@ import type SlotElement from '../../element/kind/component/slot-element'
   }: Props = $props()
 
   const stateFrames = new WeakMap<TreeNode.Node, FormulaContextType.Value['$state']>()
+  const componentSystem = RuntimeRefRegistry.createSystem({
+    requestRender: () => invalidateRuntime(),
+    reportError: (nodeId, error) => setActionError(nodeId, error),
+  })
+
+  $effect(() => () => RuntimeRefRegistry.dispose(componentSystem))
 
   const componentUse = $derived(RuntimeTree.isComponentUseNode(node) ? node.element : null)
   const componentNode = $derived(
@@ -100,6 +107,7 @@ import type SlotElement from '../../element/kind/component/slot-element'
   const componentContext = $derived(FormulaContext.create({
     ...nextContext,
     $state: componentState,
+    $system: componentSystem,
   }))
   const error = $derived.by(() => {
     if (componentUse?.componentId == null) {

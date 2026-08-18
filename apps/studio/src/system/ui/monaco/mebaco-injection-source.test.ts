@@ -107,6 +107,7 @@ describe('MebacoInjectionSource Loop variables', () => {
     )
 
     expect(source).toContain('declare var $event: MouseEvent;')
+    expect(source).toContain('afterRender(callback: () => void): () => void;')
   })
 
   it('injects a generic Event for actions by default', () => {
@@ -122,6 +123,24 @@ describe('MebacoInjectionSource Loop variables', () => {
     const source = MebacoInjectionSource.createForNode(rootNode, tagNode.id, 'action')
 
     expect(source).toContain('declare var $event: Event;')
+    expect(source).toContain('getRef(refKey: string): HTMLElement | null;')
+    expect(source).not.toContain('afterRender(callback: () => void)')
+  })
+
+  it('does not expose imperative Ref access to expressions', () => {
+    const tagNode = node(2, {
+      kind: 'tag',
+      tagName: 'div',
+      comment: '',
+      styles: [],
+      attributes: [],
+    })
+    const rootNode = node(1, { kind: 'project' }, [tagNode])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, tagNode.id, 'expression')
+
+    expect(source).toContain('declare var $system: Record<string, unknown>;')
+    expect(source).not.toContain('getRef(refKey: string)')
   })
 
   it('adds ancestor Loop bindings to $var', () => {

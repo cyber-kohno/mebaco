@@ -307,7 +307,7 @@ namespace MebacoInjectionSource {
     targetNodeId: number,
     mode: MonacoInjection.Mode,
     includeTargetScope = false,
-    eventType = 'Event',
+    eventType?: string,
   ): string => {
     const targetNode = findNode(rootNode, targetNodeId)
     const ownerComponentNode = targetNode == null
@@ -331,7 +331,16 @@ namespace MebacoInjectionSource {
       createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
       'declare var $args: Record<string, unknown>;',
       'declare var $function: Record<string, unknown>;',
-      'declare var $system: Record<string, unknown>;',
+      mode === 'action'
+        ? [
+            'declare var $system: {',
+            '  getRef(refKey: string): HTMLElement | null;',
+            ...(eventType != null
+              ? ['  afterRender(callback: () => void): () => void;']
+              : []),
+            '};',
+          ].join('\n')
+        : 'declare var $system: Record<string, unknown>;',
     ]
 
     declarations.push(createVariableDeclaration(
@@ -342,7 +351,7 @@ namespace MebacoInjectionSource {
     ))
 
     if (mode === 'action') {
-      declarations.push(`declare var $event: ${eventType};`)
+      declarations.push(`declare var $event: ${eventType ?? 'Event'};`)
     }
 
     return declarations.join('\n')

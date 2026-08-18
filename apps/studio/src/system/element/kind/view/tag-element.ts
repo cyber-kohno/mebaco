@@ -20,9 +20,20 @@ namespace TagElement {
     kind: Kind
     tagName: TagName
     comment: string
+    refKey?: RefKey
     styles: StyleApplication[]
     attributes: Attribute[]
   }
+
+  export type RefKey =
+    | {
+      type: 'literal'
+      value: string
+    }
+    | {
+      type: 'formula'
+      source: string
+    }
 
   export type StyleArgumentBinding = Exclude<
     StyleElement.ArgumentBinding,
@@ -93,13 +104,35 @@ namespace TagElement {
     comment: string,
     styles: StyleApplication[] = [],
     attributes: Attribute[] = [],
+    refKey?: RefKey,
   ): Element => ({
     kind: 'tag',
     tagName,
     comment,
+    ...(refKey == null ? {} : { refKey }),
     styles,
     attributes,
   })
+
+  export const parseRefKey = (
+    source: string,
+  ): RefKey | undefined => {
+    if (source.length === 0) return undefined
+
+    try {
+      const parsed = JSON.parse(source) as Partial<RefKey> | null
+      if (parsed == null || typeof parsed !== 'object') return undefined
+      if (parsed.type === 'literal' && typeof parsed.value === 'string') {
+        return { type: 'literal', value: parsed.value }
+      }
+      if (parsed.type === 'formula' && typeof parsed.source === 'string') {
+        return { type: 'formula', source: parsed.source }
+      }
+    } catch {
+      // Invalid editor values are handled by schema validation.
+    }
+    return undefined
+  }
 
   const parseTagName = (value: string): TagName => {
     if (TagCatalog.isTagName(value)) return value
@@ -142,6 +175,13 @@ namespace TagElement {
         maxLength: 80,
       },
       {
+        type: 'tagRefKey',
+        tab: 'info',
+        key: 'refKey',
+        label: 'Ref',
+        defaultValue: '',
+      },
+      {
         type: 'styleApplications',
         tab: 'style',
         key: 'styles',
@@ -174,6 +214,7 @@ namespace TagElement {
     getInitialValues: (element) => ({
       tagName: element.tagName,
       comment: element.comment,
+      refKey: element.refKey == null ? '' : JSON.stringify(element.refKey),
       styles: JSON.stringify(element.styles),
       attributes: JSON.stringify(element.attributes ?? []),
     }),
@@ -182,14 +223,20 @@ namespace TagElement {
       values.comment,
       parseStyleApplications(values.styles),
       parseAttributes(values.attributes),
+      parseRefKey(values.refKey ?? ''),
     ),
-    update: (element, values) => ({
-      ...element,
-      tagName: parseTagName(values.tagName),
-      comment: values.comment,
-      styles: parseStyleApplications(values.styles),
-      attributes: parseAttributes(values.attributes),
-    }),
+    update: (element, values) => {
+      const { refKey: _currentRefKey, ...base } = element
+      const refKey = parseRefKey(values.refKey ?? '')
+      return {
+        ...base,
+        tagName: parseTagName(values.tagName),
+        comment: values.comment,
+        ...(refKey == null ? {} : { refKey }),
+        styles: parseStyleApplications(values.styles),
+        attributes: parseAttributes(values.attributes),
+      }
+    },
   })
 
   const parseStyleApplications = (source: string): StyleApplication[] => {

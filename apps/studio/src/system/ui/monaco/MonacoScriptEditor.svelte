@@ -272,7 +272,12 @@
     lastEditorValue = value
     overflowLayer = MonacoOverflowLayer.create()
 
-    completionProvider = monaco.languages.registerCompletionItemProvider('typescript', {
+    completionProvider = monaco.languages.registerCompletionItemProvider({
+      language: 'typescript',
+      scheme: 'inmemory',
+      pattern: `**/user-${uid}.ts`,
+      exclusive: true,
+    }, {
       triggerCharacters: ['.', '{', '"', "'"],
       provideCompletionItems: async (model, position) => {
         if (

@@ -104,6 +104,33 @@ describe('ElementEditSchema formula field', () => {
   })
 })
 
+describe('ElementEditSchema Tag Ref key', () => {
+  const injectionSource = 'declare var $var: { index: number; };'
+
+  it('accepts disabled, literal, and string formula values', () => {
+    expect(ElementEditSchema.validateTagRefKey('', injectionSource)).toBeNull()
+    expect(ElementEditSchema.validateTagRefKey(
+      JSON.stringify({ type: 'literal', value: 'sidePanel' }),
+      injectionSource,
+    )).toBeNull()
+    expect(ElementEditSchema.validateTagRefKey(
+      JSON.stringify({ type: 'formula', source: '`recordFrame${$var.index}`' }),
+      injectionSource,
+    )).toBeNull()
+  })
+
+  it('requires an enabled key to resolve to a non-empty string', () => {
+    expect(ElementEditSchema.validateTagRefKey(
+      JSON.stringify({ type: 'literal', value: '' }),
+      injectionSource,
+    )).toBe('Enter a Ref key.')
+    expect(ElementEditSchema.validateTagRefKey(
+      JSON.stringify({ type: 'formula', source: '$var.index' }),
+      injectionSource,
+    )).toBe('Expression must return string.')
+  })
+})
+
 describe('ElementEditSchema related text fields', () => {
   it('rejects duplicate local variable names', () => {
     const textField: ElementEditSchema.TextField = {

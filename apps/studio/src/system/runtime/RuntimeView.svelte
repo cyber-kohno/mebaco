@@ -9,6 +9,7 @@
   import StyleElement from '../element/kind/view/style-element'
   import StyleResolver from './style/style-resolver'
   import RuntimeProps from './runtime-props'
+  import RuntimeRefRegistry from './ref/runtime-ref-registry'
 
   type Props = {
     appNode: TreeNode.Node
@@ -25,6 +26,10 @@
   let styleResults = $state<Record<number, StyleResolver.Result>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
   let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
+  const runtimeSystem = RuntimeRefRegistry.createSystem({
+    requestRender: () => invalidateRuntime(),
+    reportError: (nodeId, error) => setActionError(nodeId, error),
+  })
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(runtime))
@@ -41,6 +46,7 @@
   const formulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
     $props: entryProps.values,
+    $system: runtimeSystem,
   }))
   const styleCatalog = $derived(StyleResolver.createCatalog(projectNode))
   const firstStyleError = $derived(Object.entries(styleResults)
@@ -76,6 +82,8 @@
     if (runtimeStyleElement == null) return
     runtimeStyleElement.textContent = runtimeStyleSheet
   })
+
+  $effect(() => () => RuntimeRefRegistry.dispose(runtimeSystem))
 
   const invalidateRuntime = () => {
     renderRevision += 1

@@ -12,6 +12,8 @@
   import type ScriptErrorValue from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import StyleResolver from '../style/style-resolver'
+  import RuntimeRefKey from '../ref/runtime-ref-key'
+  import RuntimeRefRegistry from '../ref/runtime-ref-registry'
 
   type Props = {
     node: TreeNode.Node
@@ -38,15 +40,42 @@
   }: Props = $props()
 
   const tag = $derived(RuntimeTree.isTagNode(node) ? node.element : null)
+  let tagDomElement = $state<HTMLElement | null>(null)
+  let refRegistrationError = $state<ScriptErrorValue.Value | null>(null)
 
   const retentionResult = $derived.by(() => {
     renderRevision
     return RetentionResolver.resolve(node, formulaContext, projectNode)
   })
 
+  const refKeyResult = $derived.by(() => {
+    renderRevision
+    return RuntimeRefKey.resolve(tag?.refKey, retentionResult.context)
+  })
+
+  const runtimeError = $derived(
+    retentionResult.error ?? refKeyResult.error ?? refRegistrationError,
+  )
+
   $effect(() => {
-    setActionError(retentionResult.errorNodeId ?? node.id, retentionResult.error)
+    setActionError(retentionResult.errorNodeId ?? node.id, runtimeError)
     return () => setActionError(node.id, null)
+  })
+
+  $effect(() => {
+    refRegistrationError = null
+    if (tagDomElement == null || refKeyResult.key == null) return
+
+    return RuntimeRefRegistry.register(
+      retentionResult.context.$system,
+      refKeyResult.key,
+      tagDomElement,
+      (message) => {
+        refRegistrationError = message == null
+          ? null
+          : ScriptError.create('runtime', message)
+      },
+    )
   })
 
   const styleResult = $derived.by(() => {
@@ -97,6 +126,7 @@
     if (attribute.preventDefault) event.preventDefault()
     if (attribute.stopPropagation) event.stopPropagation()
 
+    const transaction = RuntimeRefRegistry.beginAction(retentionResult.context.$system, node.id)
     const result = ActionEvaluator.executeScript(
       attribute.action.source,
       FormulaContextValue.create({
@@ -104,6 +134,7 @@
         $event: event,
       }),
     )
+    transaction.complete(result.ok)
 
     if (!result.ok) {
       console.error(
@@ -149,12 +180,12 @@
 
 {#if tag != null && retentionResult.error == null}
   {#if TagCatalog.canHaveChildren(tag.tagName)}
-    <svelte:element this={tag.tagName} {...elementAttributes}>
+    <svelte:element this={tag.tagName} {...elementAttributes} bind:this={tagDomElement}>
       <RenderContent hostNode={node} {projectNode} {styleCatalog}
         formulaContext={retentionResult.context} evaluateRetention={false}
         {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} {componentStack} />
     </svelte:element>
   {:else}
-    <svelte:element this={tag.tagName} {...elementAttributes} />
+    <svelte:element this={tag.tagName} {...elementAttributes} bind:this={tagDomElement} />
   {/if}
 {/if}

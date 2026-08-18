@@ -5,6 +5,7 @@
   import StyleMonitorEditor from '../runtime/style/StyleMonitorEditor.svelte'
   import TagStyleMonitorEditor from '../runtime/style/TagStyleMonitorEditor.svelte'
   import TagAttributesEditor from '../element/kind/view/TagAttributesEditor.svelte'
+  import TagRefKeyEditor from '../element/kind/view/TagRefKeyEditor.svelte'
   import ColorSwatch from '../ui/color/ColorSwatch.svelte'
   import FormulaField from '../ui/formula/FormulaField.svelte'
   import ActionField from '../ui/action/ActionField.svelte'
@@ -89,6 +90,11 @@
         return null
       case 'tagAttributes':
         return ElementEditSchema.validateTagAttributes(value)
+      case 'tagRefKey':
+        return ElementEditSchema.validateTagRefKey(
+          value,
+          getInjectionSource('expression'),
+        )
       case 'objectShape':
         return ElementEditSchema.validateObjectShape(field, value)
       case 'unionDefinition':
@@ -321,6 +327,22 @@
               value={values[field.key] ?? '[]'}
               formulaInjectionSource={getInjectionSource('expression')}
               getActionInjectionSource={(eventType) => getInjectionSource('action', eventType)}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'tagRefKey'}
+          <div class="field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <TagRefKeyEditor
+              value={values[field.key] ?? ''}
+              injectionSource={getInjectionSource('expression')}
+              errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

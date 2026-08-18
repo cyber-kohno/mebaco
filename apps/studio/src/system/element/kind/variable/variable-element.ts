@@ -6,6 +6,7 @@ import TypeExpression from '../type/type-expression'
 import TypeCatalog from '../type/type-catalog'
 import VariableTreeLabel from './VariableTreeLabel.svelte'
 import ValueTypeDefinition from '../type/value-type-definition'
+import TreeStore from '../../../store/tree-store'
 
 namespace VariableElement {
   export type Kind = 'variable'
@@ -141,21 +142,24 @@ namespace VariableElement {
           ? [child.element.id]
           : []
       )) ?? []
-      return [action('Modify', () => ElementDialog.openUpdate(
-        context.node.id,
-        context.element,
-        createSchema({
-          reservedNames,
-          referenceOptions: TypeCatalog.getReferenceOptions(
-            context.rootNode,
-            context.node.id,
-          ),
-          namedTypeOptions: TypeCatalog.getNamedTypeOptions(
-            context.rootNode,
-            context.node.id,
-          ),
-        }),
-      ))]
+      return [
+        action('Modify', () => ElementDialog.openUpdate(
+          context.node.id,
+          context.element,
+          createSchema({
+            reservedNames,
+            referenceOptions: TypeCatalog.getReferenceOptions(
+              context.rootNode,
+              context.node.id,
+            ),
+            namedTypeOptions: TypeCatalog.getNamedTypeOptions(
+              context.rootNode,
+              context.node.id,
+            ),
+          }),
+        )),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+      ]
     },
     childSlots: [],
     canDisable: false,

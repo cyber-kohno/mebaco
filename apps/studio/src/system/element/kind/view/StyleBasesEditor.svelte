@@ -1,5 +1,10 @@
 <script lang="ts">
+  import ArrowDown from '@lucide/svelte/icons/arrow-down'
+  import ArrowUp from '@lucide/svelte/icons/arrow-up'
+  import Copy from '@lucide/svelte/icons/copy'
+  import Trash2 from '@lucide/svelte/icons/trash-2'
   import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
+  import IconButton from '../../../ui/button/IconButton.svelte'
   import ColorSwatch from '../../../ui/color/ColorSwatch.svelte'
   import CompactFormulaField from '../../../ui/formula/CompactFormulaField.svelte'
   import FormulaModeToggle from '../../../ui/formula/FormulaModeToggle.svelte'
@@ -251,10 +256,18 @@
           <div class="base-toolbar">
             <span>{usage === 'inheritance' ? 'Base' : 'Style'} {index + 1}</span>
             <div class="row-actions">
-              <button type="button" disabled={index === 0} onclick={() => moveBase(index, -1)}>Up</button>
-              <button type="button" disabled={index === bases.length - 1} onclick={() => moveBase(index, 1)}>Down</button>
-              <button type="button" onclick={() => cloneBase(index)}>Clone</button>
-              <button type="button" onclick={() => deleteBase(base.referenceId)}>Delete</button>
+              <IconButton label="Move style up" disabled={index === 0} onclick={() => moveBase(index, -1)}>
+                {#snippet icon()}<ArrowUp size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+              <IconButton label="Move style down" disabled={index === bases.length - 1} onclick={() => moveBase(index, 1)}>
+                {#snippet icon()}<ArrowDown size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+              <IconButton label="Clone style" onclick={() => cloneBase(index)}>
+                {#snippet icon()}<Copy size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
+              <IconButton label="Delete style" onclick={() => deleteBase(base.referenceId)}>
+                {#snippet icon()}<Trash2 size={15} strokeWidth={2} />{/snippet}
+              </IconButton>
             </div>
           </div>
 

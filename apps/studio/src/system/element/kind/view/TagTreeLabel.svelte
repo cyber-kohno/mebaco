@@ -10,10 +10,15 @@
 
   const tone = $derived(TagCatalog.getTone(element.tagName))
   const styleIds = $derived(element.styles.map((style) => style.styleId))
+  const refKeyText = $derived(element.refKey == null
+    ? null
+    : element.refKey.type === 'literal'
+      ? element.refKey.value
+      : `ƒ ${element.refKey.source}`)
 </script>
 
 <span class="tag-label">
-  <span class:has-detail={element.comment.length > 0 || styleIds.length > 0} class="tag-kind" data-tone={tone}>
+  <span class:has-detail={element.comment.length > 0 || styleIds.length > 0 || refKeyText != null} class="tag-kind" data-tone={tone}>
     Tag <span class="tag-name">&lt;{element.tagName}&gt;</span>
   </span>
   {#if element.comment.length > 0}
@@ -21,6 +26,9 @@
   {/if}
   {#if styleIds.length > 0}
     <span class="tag-styles">Styles[{styleIds.join(', ')}]</span>
+  {/if}
+  {#if refKeyText != null}
+    <span class="tag-ref">ref: {refKeyText}</span>
   {/if}
 </span>
 
@@ -66,7 +74,8 @@
   }
 
   .tag-comment,
-  .tag-styles {
+  .tag-styles,
+  .tag-ref {
     min-width: 84px;
     padding: 0 12px;
     border-left: 0;
@@ -76,13 +85,23 @@
   }
 
   .tag-comment:last-child,
-  .tag-styles:last-child {
+  .tag-styles:last-child,
+  .tag-ref:last-child {
     border-radius: 0 4px 4px 0;
   }
 
   .tag-styles {
     min-width: 0;
     color: #d1dfa0;
+  }
+
+  .tag-ref {
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    color: #9ed7e1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tag-kind.has-detail {

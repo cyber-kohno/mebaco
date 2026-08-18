@@ -178,6 +178,13 @@ namespace ElementEditSchema {
     defaultValue?: string
   } & FieldBase
 
+  export type TagRefKeyField = {
+    type: 'tagRefKey'
+    key: string
+    label: string
+    defaultValue?: string
+  } & FieldBase
+
   export type ObjectShapeField = {
     type: 'objectShape'
     key: string
@@ -231,6 +238,7 @@ namespace ElementEditSchema {
     | StyleMonitorField
     | TagStyleMonitorField
     | TagAttributesField
+    | TagRefKeyField
     | ObjectShapeField
     | UnionDefinitionField
     | ComponentBindingsField
@@ -368,6 +376,44 @@ namespace ElementEditSchema {
     }
 
     return null
+  }
+
+  export const validateTagRefKey = (
+    value: string,
+    injectionSource?: string,
+  ): string | null => {
+    if (value.length === 0) return null
+
+    try {
+      const parsed = JSON.parse(value) as {
+        type?: unknown
+        value?: unknown
+        source?: unknown
+      } | null
+      if (parsed == null || typeof parsed !== 'object') return 'Select a valid Ref key.'
+      if (parsed.type === 'literal') {
+        return typeof parsed.value === 'string' && parsed.value.length > 0
+          ? null
+          : 'Enter a Ref key.'
+      }
+      if (parsed.type !== 'formula' || typeof parsed.source !== 'string') {
+        return 'Select a valid Ref key.'
+      }
+      if (parsed.source.length === 0) return 'Enter a Ref key formula.'
+      if (injectionSource == null) return null
+
+      const inferred = ExpressionTypeInference.inferType(
+        injectionSource,
+        parsed.source,
+        true,
+      )
+      if (!inferred.ok) return inferred.error
+      return inferred.typeText === 'string'
+        ? null
+        : 'Expression must return string.'
+    } catch {
+      return 'Select a valid Ref key.'
+    }
   }
 
   export const validateScript = (field: ScriptField, value: string): string | null => {
