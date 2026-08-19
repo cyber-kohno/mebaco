@@ -164,8 +164,9 @@ namespace LoopElement {
       retention: 'optional',
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default LoopElement
+

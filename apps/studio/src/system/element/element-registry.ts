@@ -2,6 +2,10 @@ import type MebacoElement from './element'
 import type ElementDefinition from './element-definition'
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
+import LaunchOptionsElement from './kind/app/launch-options-element'
+import LaunchArgumentsElement from './kind/app/launch-arguments-element'
+import LaunchArgumentElement from './kind/app/launch-argument-element'
+import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
 import ElementsElement from './kind/component/definition/elements-element'
@@ -20,6 +24,8 @@ import IfElement from './kind/directive/if-element'
 import CaseElement from './kind/directive/case-element'
 import DefaultElement from './kind/directive/default-element'
 import SwitchElement from './kind/directive/switch-element'
+import ControlConditionalElement from './kind/directive/control-conditional-element'
+import ControlSwitchElement from './kind/directive/control-switch-element'
 import LoopElement from './kind/directive/loop-element'
 import ComponentsElement from './kind/declare/components-element'
 import DeclaresElement from './kind/declare/declares-element'
@@ -59,6 +65,10 @@ namespace ElementRegistry {
   const definitions = {
     app: AppElement.definition,
     entry: EntryElement.definition,
+    'launch-options': LaunchOptionsElement.definition,
+    'launch-arguments': LaunchArgumentsElement.definition,
+    'launch-argument': LaunchArgumentElement.definition,
+    launcher: LauncherElement.definition,
     component: ComponentElement.definition,
     'component-use': ComponentUseElement.definition,
     elements: ElementsElement.definition,
@@ -77,6 +87,8 @@ namespace ElementRegistry {
     case: CaseElement.definition,
     default: DefaultElement.definition,
     switch: SwitchElement.definition,
+    'control-conditional': ControlConditionalElement.definition,
+    'control-switch': ControlSwitchElement.definition,
     loop: LoopElement.definition,
     apps: AppsElement.definition,
     common: CommonElement.definition,

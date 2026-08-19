@@ -4,6 +4,7 @@ import ActionMenuState from '../../../action-menu/action-menu-state'
 import ContentActions from '../../content-actions'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TreeStore from '../../../store/tree-store'
+import FunctionActions from '../../function-actions'
 
 namespace ElseIfElement {
   export type Kind = 'else-if'
@@ -29,6 +30,7 @@ namespace ElseIfElement {
         defaultValue: 'false',
         required: true,
         maxLength: 4000,
+        getExpectedTypeText: () => 'boolean',
       },
     ],
     createPreview: () => create(),
@@ -55,6 +57,7 @@ namespace ElseIfElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
+      const isControlBranch = context.parentNode?.element.kind === 'control-conditional'
       return [
         action('Modify', () => {
           ElementDialog.openUpdate(
@@ -63,10 +66,14 @@ namespace ElseIfElement {
             createSchema(),
           )
         }),
-        ...ContentActions.createOptionalRetentionItems(
-          context.node,
-          context.rootNode,
-        ),
+        ...(isControlBranch
+          ? [
+              FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddStatementMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddBlockItem(context.node.id),
+            ]
+          : ContentActions.createOptionalRetentionItems(context.node, context.rootNode)),
         action('Remove', () => {
           TreeStore.removeNode(context.node.id)
         }, 'danger'),
@@ -76,8 +83,9 @@ namespace ElseIfElement {
       retention: 'optional',
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default ElseIfElement
+

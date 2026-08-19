@@ -7,6 +7,8 @@ import TreeStore from '../../../store/tree-store'
 import SwitchValueType from './switch-value-type'
 import TypeCatalog from '../type/type-catalog'
 import type UnionDefinition from '../type/union-definition'
+import FunctionActions from '../../function-actions'
+import type SwitchElement from './switch-element'
 
 namespace CaseElement {
   export type Kind = 'case'
@@ -116,8 +118,10 @@ namespace CaseElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const switchElement = context.parentNode?.element.kind === 'switch'
-        ? context.parentNode.element
+      const switchElement = context.parentNode != null
+        && (context.parentNode.element.kind === 'switch'
+          || context.parentNode.element.kind === 'control-switch')
+        ? context.parentNode.element as SwitchElement.Element
         : null
       const findLiteralUnion = (
         unionTypeId: string,
@@ -151,6 +155,7 @@ namespace CaseElement {
         .filter((value): value is Value => value != null)
 
       const items: ActionMenuState.Item[] = []
+      const isControlBranch = context.parentNode?.element.kind === 'control-switch'
       if (primitive != null) {
         items.push(action('Modify', () => {
           ElementDialog.openUpdate(
@@ -165,10 +170,14 @@ namespace CaseElement {
         }))
       }
       items.push(
-        ...ContentActions.createOptionalRetentionItems(
-          context.node,
-          context.rootNode,
-        ),
+        ...(isControlBranch
+          ? [
+              FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddStatementMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddBlockItem(context.node.id),
+            ]
+          : ContentActions.createOptionalRetentionItems(context.node, context.rootNode)),
         action('Remove', () => {
           TreeStore.removeNode(context.node.id)
         }, 'danger'),
@@ -179,8 +188,9 @@ namespace CaseElement {
       retention: 'optional',
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default CaseElement
+

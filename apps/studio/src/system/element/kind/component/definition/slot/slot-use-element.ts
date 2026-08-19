@@ -63,7 +63,7 @@ namespace SlotUseElement {
       const { action } = ActionMenuState.createFactory()
       return [
         ContentActions.createAddMenu(context.node.id, context.rootNode),
-        ContentActions.createAddDirectiveMenu(context.node.id),
+        ContentActions.createAddDirectiveMenu(context.node.id, context.rootNode),
         ContentActions.createAddBlockItem(context.node.id),
         action('Modify', () => ElementDialog.openUpdate(
           context.node.id,

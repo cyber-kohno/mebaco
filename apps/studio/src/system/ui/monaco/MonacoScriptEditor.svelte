@@ -160,6 +160,21 @@
       ))
     })
 
+    if (expectedTypeText != null && injectionSource != null) {
+      const typeError = ExpressionTypeInference.validateExpectedType(
+        injectionSource,
+        userModel.getValue(),
+        expectedTypeText,
+      )
+      if (typeError != null) {
+        markers.push(MonacoDiagnostics.createWholeModelErrorMarker(
+          monaco,
+          userModel,
+          typeError,
+        ))
+      }
+    }
+
     monaco.editor.setModelMarkers(userModel, 'mebaco', markers)
     onDiagnosticsChange?.(
       markers

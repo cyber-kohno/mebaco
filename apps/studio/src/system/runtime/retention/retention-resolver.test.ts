@@ -85,6 +85,24 @@ describe('RetentionResolver', () => {
     expect(result.context.$var.color).toBe('#fcc-done')
   })
 
+  it('executes the selected control Conditional branch', () => {
+    const hostNode = host([
+      node({ kind: 'control-conditional' }, [
+        node({ kind: 'if', condition: '$state.focused' }, [
+          node({ kind: 'action', comment: '', source: '$state.result = 1' }),
+        ]),
+        node({ kind: 'else' }, [
+          node({ kind: 'action', comment: '', source: '$state.result = 2' }),
+        ]),
+      ]),
+    ])
+    const context = FormulaContext.create({ $state: { focused: false, result: 0 } })
+    const result = RetentionResolver.resolve(hostNode, context, node({ kind: 'project' }))
+
+    expect(result.error).toBeNull()
+    expect(context.$state.result).toBe(2)
+  })
+
   it('exposes Retention Functions through $function', () => {
     const functionNode = node({
       kind: 'function', id: 'scale', async: false,

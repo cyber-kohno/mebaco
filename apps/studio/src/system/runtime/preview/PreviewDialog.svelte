@@ -1,7 +1,7 @@
 <script lang="ts">
   import RuntimeSessionStore from '../runtime-session-store'
   import PreviewController from './preview-controller'
-  import RuntimeView from '../RuntimeView.svelte'
+  import RuntimeView from '../view/RuntimeView.svelte'
 
   const sessionStore = RuntimeSessionStore.store
 </script>

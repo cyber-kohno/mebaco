@@ -12,6 +12,7 @@
     depth: number
     lines: boolean[]
     isPreview: boolean
+    disabledDescendant: boolean
   }
 
   const rootNodeStore = TreeStore.rootNode
@@ -29,6 +30,16 @@
 
   const selectNode = (node: TreeNode.Node) => {
     TreeStore.selectedNodeId.set(node.id)
+  }
+
+  const toggleDisabled = (node: TreeNode.Node) => {
+    if (!ElementRegistry.get(node.element.kind).canDisable) return
+    TreeStore.rootNode.update((root) => {
+      const next = TreeNode.clone(root)
+      const target = TreeNode.findNode(next, node.id)
+      if (target != null) target.disabled = !target.disabled
+      return next
+    })
   }
 
   const isEditingNode = (row: VisibleNode): boolean => {
@@ -69,8 +80,9 @@
     parentNode: TreeNode.Node | null = null,
     depth = 0,
     lines: boolean[] = [],
+    disabledDescendant = false,
   ): VisibleNode[] => {
-    const rows: VisibleNode[] = [{ node, parentNode, depth, lines, isPreview: node.id < 0 }]
+    const rows: VisibleNode[] = [{ node, parentNode, depth, lines, isPreview: node.id < 0, disabledDescendant }]
 
     if (node.isOpen) {
       const createSession = $elementDialogStore?.mode === 'create' ? $elementDialogStore : null
@@ -100,7 +112,7 @@
           })()
 
       children.forEach((child, index) => {
-        rows.push(...buildVisibleNodes(child, node, depth + 1, [...lines, index < children.length - 1]))
+        rows.push(...buildVisibleNodes(child, node, depth + 1, [...lines, index < children.length - 1], disabledDescendant || node.disabled === true))
       })
     }
 
@@ -116,6 +128,7 @@
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
         class:sibling={selectionRelations.siblingIds.has(row.node.id)}
         class:editing={isEditingNode(row)}
+        class:disabled-descendant={row.disabledDescendant}
         class="tree-row"
         role="treeitem"
         aria-expanded={row.node.children.length > 0 ? row.node.isOpen : undefined}
@@ -131,6 +144,10 @@
         onkeydown={(event) => {
           if (row.isPreview) return
           if (event.key === 'Enter' || event.key === ' ') selectNode(row.node)
+          if (event.key.toLowerCase() === 'd' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            event.preventDefault()
+            toggleDisabled(row.node)
+          }
         }}
       >
         {#each row.lines as hasNextSibling, index (`${row.node.id}-${index}`)}
@@ -158,7 +175,7 @@
           </button>
         {/if}
 
-        <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} rootNode={$rootNodeStore} />
+        <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} rootNode={$rootNodeStore} disabled={row.node.disabled} />
       </div>
     {/each}
   </div>
@@ -187,6 +204,24 @@
     height: 40px;
     white-space: nowrap;
     outline: none;
+  }
+
+  .tree-row.disabled-descendant :global(.element-tree-label) {
+    opacity: 0.6;
+  }
+
+  .disabled-label {
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    margin-right: 6px;
+    padding: 0 8px;
+    border: 1px solid #b86f6f;
+    border-radius: 4px;
+    background: #6d3939;
+    color: #ffe5e5;
+    font-size: 12px;
+    font-weight: 800;
   }
 
   .tree-row:hover .branch-button {

@@ -83,7 +83,7 @@ namespace SwitchElement {
     ?? SwitchValueType.createFromLegacy(valueType)
   )
 
-  const getLiteralUnionOptions = (
+  export const getLiteralUnionOptions = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
   ): SwitchValueType.LiteralUnionOption[] => (
@@ -186,8 +186,9 @@ namespace SwitchElement {
       return items
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default SwitchElement
+

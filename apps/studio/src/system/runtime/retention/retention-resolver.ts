@@ -9,6 +9,8 @@ import TypeValue from '../type-value'
 import VariableFrame from '../variable/variable-frame'
 import ContentHost from '../../element/content-host'
 import FunctionRunner from '../function/function-runner'
+import ConditionalResolver from '../conditional/conditional-resolver'
+import SwitchResolver from '../switch/switch-resolver'
 
 namespace RetentionResolver {
   export type Result = {
@@ -36,6 +38,29 @@ namespace RetentionResolver {
 
     const resolveChildren = (children: readonly TreeNode.Node[]): Result | null => {
       for (const child of children) {
+        if (child.disabled) continue
+        if (child.element.kind === 'control-conditional') {
+          const selected = ConditionalResolver.resolve(child, nextContext)
+          if (selected.error != null) {
+            return { context: nextContext, error: selected.error, errorNodeId: child.id }
+          }
+          if (selected.branchNode != null) {
+            const result = resolveChildren(selected.branchNode.children)
+            if (result != null) return result
+          }
+          continue
+        }
+        if (child.element.kind === 'control-switch') {
+          const selected = SwitchResolver.resolve(child, nextContext, projectNode)
+          if (selected.error != null) {
+            return { context: nextContext, error: selected.error, errorNodeId: child.id }
+          }
+          if (selected.branchNode != null) {
+            const result = resolveChildren(selected.branchNode.children)
+            if (result != null) return result
+          }
+          continue
+        }
         if (child.element.kind === 'block') {
           const result = resolveChildren(child.children)
           if (result != null) return result

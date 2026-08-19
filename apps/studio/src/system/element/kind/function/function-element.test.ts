@@ -46,5 +46,8 @@ describe('FunctionElement', () => {
       kind: 'function-return',
       source: '$args.count',
     })
+    expect(FunctionReturnElement.create()).toEqual({
+      kind: 'function-return',
+    })
   })
 })

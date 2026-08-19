@@ -14,6 +14,7 @@ namespace TreeNode {
     id: number
     element: MebacoElement.Element
     isOpen: boolean
+    disabled?: boolean
     children: Node[]
   }
 
@@ -54,7 +55,7 @@ namespace TreeNode {
       {
         id: 4,
         element: CommonElement.create(),
-        isOpen: true,
+        isOpen: false,
         children: [
           {
             id: 5,
@@ -96,6 +97,15 @@ namespace TreeNode {
     ...node,
     children: node.children.map(clone),
   })
+
+  export const findNode = (node: Node, nodeId: number): Node | null => {
+    if (node.id === nodeId) return node
+    for (const child of node.children) {
+      const found = findNode(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
 
   export const getSelectionRelations = (
     rootNode: Node,

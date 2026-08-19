@@ -33,7 +33,7 @@ namespace ConditionalResolver {
           branchNode: null,
           error: ScriptErrorValue.create(
             'runtime',
-            `${branchNode.element.kind === 'if' ? 'If' : 'Else If'} condition must return a boolean.`,
+        `${branchNode.element.kind === 'if' ? 'If' : 'Else If'} condition must return a boolean.`,
           ),
         }
       }

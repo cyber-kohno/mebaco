@@ -10,6 +10,7 @@ import ExpressionTypeInference from '../../element/kind/type/expression-type-inf
 import ContentHost from '../../element/content-host'
 import FunctionScope from '../../element/kind/function/function-scope'
 import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
+import type LaunchArgumentElement from '../../element/kind/app/launch-argument-element'
 
 namespace MebacoInjectionSource {
   const findNode = (
@@ -115,6 +116,18 @@ namespace MebacoInjectionSource {
     .map((child) => child.element)
     .filter((element): element is StateElement.Element => element.kind === 'state')
 
+  const getLaunchArguments = (
+    ownerAppNode: TreeNode.Node | null,
+  ): LaunchArgumentElement.Element[] => {
+    const argumentsNode = ownerAppNode?.children
+      .find((child) => child.element.kind === 'launch-options')
+      ?.children.find((child) => child.element.kind === 'launch-arguments')
+    return argumentsNode?.children
+      .map((child) => child.element)
+      .filter((element): element is LaunchArgumentElement.Element => element.kind === 'launch-argument')
+      ?? []
+  }
+
   const collectScopedStates = (
     targetNode: TreeNode.Node | null,
     rootNode: TreeNode.Node,
@@ -139,7 +152,7 @@ namespace MebacoInjectionSource {
   }
 
   const getValueType = (
-    state: StateElement.Element,
+    state: Pick<StateElement.Element, 'valueType' | 'nullable'>,
     rootNode: TreeNode.Node,
   ): string => `${TypeExpression.getTypeText(
     state.valueType,
@@ -161,6 +174,15 @@ namespace MebacoInjectionSource {
       fields,
       '};',
     ].join('\n')
+  }
+
+  const createLaunchDeclaration = (
+    argumentsList: readonly LaunchArgumentElement.Element[],
+    rootNode: TreeNode.Node,
+  ): string => {
+    if (argumentsList.length === 0) return 'declare var $launch: Record<string, unknown>;'
+    const fields = argumentsList.map((argument) => `  ${argument.id}: ${getValueType(argument, rootNode)};`)
+    return ['declare var $launch: {', ...fields, '};'].join('\n')
   }
 
   const collectValueProps = (
@@ -388,11 +410,16 @@ namespace MebacoInjectionSource {
       collectScopedStates(targetNode, rootNode),
       rootNode,
     )
+    const launchDeclaration = createLaunchDeclaration(
+      getLaunchArguments(findOwnerApp(rootNode, targetNodeId)),
+      rootNode,
+    )
     const styleParameterDeclaration = createStyleParameterDeclaration(
       collectStyleParameters(rootNode, targetNode),
     )
     const declarations = [
       typeDeclarations,
+      launchDeclaration,
       stateDeclaration,
       styleParameterDeclaration,
       createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),

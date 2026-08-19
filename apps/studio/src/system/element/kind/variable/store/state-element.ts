@@ -9,6 +9,7 @@ import TypeCatalog from '../../type/type-catalog'
 import TypeExpression from '../../type/type-expression'
 import ValueTypeDefinition from '../../type/value-type-definition'
 import StateScope from './state-scope'
+import TreeStore from '../../../../store/tree-store'
 
 namespace StateElement {
   export type Kind = 'state'
@@ -156,6 +157,7 @@ namespace StateElement {
             createSchema({ reservedNames, referenceOptions, namedTypeOptions }),
           )
         }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

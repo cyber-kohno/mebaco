@@ -1,16 +1,18 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import RenderContent from './render/RenderContent.svelte'
-  import FormulaContext from './formula/formula-context'
-  import RuntimeState from './runtime-state'
-  import RuntimeTree from './runtime-tree'
-  import ScriptError from './script/script-error'
-  import type TreeNode from '../tree/tree-node'
-  import StyleElement from '../element/kind/view/style-element'
-  import StyleResolver from './style/style-resolver'
-  import RuntimeProps from './runtime-props'
-  import RuntimeRefRegistry from './ref/runtime-ref-registry'
-  import FunctionRunner from './function/function-runner'
+  import RenderContent from '../render/RenderContent.svelte'
+  import FormulaContext from '../formula/formula-context'
+  import RuntimeState from '../runtime-state'
+  import RuntimeTree from '../runtime-tree'
+  import ScriptError from '../script/script-error'
+  import type TreeNode from '../../tree/tree-node'
+  import StyleElement from '../../element/kind/view/style-element'
+  import StyleResolver from '../style/style-resolver'
+  import RuntimeProps from '../runtime-props'
+  import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import FunctionRunner from '../function/function-runner'
+  import RuntimeErrorScreen from './RuntimeErrorScreen.svelte'
+  import RuntimeError from './runtime-error'
 
   type Props = {
     appNode: TreeNode.Node
@@ -24,6 +26,10 @@
     nodeId: number
     error: ScriptError.Value
   } | null>(null)
+  // Once a runtime failure is observed, keep the failure latched. Rendering the
+  // error screen unmounts renderers, whose cleanup effects report null; clearing
+  // the failure here would remount them and create an update loop.
+  let runtimeFailure = $state<RuntimeError.Failure | null>(null)
   let styleResults = $state<Record<number, StyleResolver.Result>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
   let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
@@ -75,6 +81,20 @@
       if (dismissedStyleErrorNodeIds.includes(numericNodeId)) return []
       return result.errors.map((error) => ({ nodeId: numericNodeId, error }))
     })[0] ?? null)
+  const derivedRuntimeFailure = $derived.by(() => {
+    if (actionError != null) {
+      return RuntimeError.fromScriptError(actionError.error, { nodeId: actionError.nodeId })
+    }
+    if (firstStyleError != null) {
+      return RuntimeError.unexpected(StyleResolver.formatError(firstStyleError.error), {
+        nodeId: firstStyleError.nodeId,
+      })
+    }
+    if (entryProps.errors.length > 0) {
+      return RuntimeError.unexpected(entryProps.errors[0])
+    }
+    return null
+  })
   const runtimeStyleSheet = $derived.by(() => {
     const rules: string[] = []
     Object.entries(styleResults).forEach(([nodeId, result]) => {
@@ -184,6 +204,9 @@
       && scriptErrorsEqual(currentError?.error, nextError?.error)
     ) return
     actionError = nextError
+    if (error != null && runtimeFailure == null) {
+      runtimeFailure = RuntimeError.fromScriptError(error, { nodeId })
+    }
   }
 
   const setStyleResult = (
@@ -203,42 +226,24 @@
       && styleResultsEqual(currentResults[nodeId], result)
     ) return
     styleResults = { ...currentResults, [nodeId]: result }
+    if (result.errors.length > 0 && runtimeFailure == null) {
+      runtimeFailure = RuntimeError.unexpected(StyleResolver.formatError(result.errors[0]), {
+        nodeId,
+      })
+    }
   }
 </script>
 
 <div class="runtime-view">
   <style bind:this={runtimeStyleElement}></style>
-  {#if actionError != null}
-    <div class="runtime-error" role="alert">
-      <span>{ScriptError.format(actionError.error)}</span>
-      <button type="button" aria-label="Dismiss runtime error" onclick={() => actionError = null}>
-        Close
-      </button>
-    </div>
-  {:else if firstStyleError != null}
-    <div class="runtime-error" role="alert">
-      <span>{StyleResolver.formatError(firstStyleError.error)}</span>
-      <button
-        type="button"
-        aria-label="Dismiss runtime error"
-        onclick={() => {
-          dismissedStyleErrorNodeIds = [
-            ...dismissedStyleErrorNodeIds,
-            firstStyleError.nodeId,
-          ]
-        }}
-      >Close</button>
-    </div>
-  {/if}
-
-  {#if runtime.entryNode == null}
+  {#if runtimeFailure ?? derivedRuntimeFailure}
+    <RuntimeErrorScreen failure={runtimeFailure ?? derivedRuntimeFailure} />
+  {:else if runtime.entryNode == null}
     <div class="runtime-message">Entry is missing.</div>
   {:else if runtime.entryNode.element.kind === 'entry' && runtime.entryNode.element.componentId == null}
     <div class="runtime-message">Entry component is not selected.</div>
   {:else if entryComponentNode == null}
     <div class="runtime-message">Entry component was not found.</div>
-  {:else if entryProps.errors.length > 0}
-    <div class="runtime-message runtime-prop-error">{entryProps.errors[0]}</div>
   {:else if rootViewNodes.length === 0}
     <div class="runtime-message">Entry component has no elements.</div>
   {:else}
@@ -281,47 +286,4 @@
     font-weight: 700;
   }
 
-  .runtime-prop-error {
-    border-color: #d58e8e;
-    background: rgba(255, 241, 241, 0.96);
-    color: #833b3b;
-  }
-
-  .runtime-error {
-    position: absolute;
-    z-index: 2;
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 36px;
-    padding: 6px 8px 6px 12px;
-    border: 1px solid #d58e8e;
-    border-radius: 6px;
-    background: rgba(255, 241, 241, 0.96);
-    color: #833b3b;
-    font-size: 12px;
-    line-height: 1.4;
-    box-sizing: border-box;
-  }
-
-  .runtime-error button {
-    flex: 0 0 auto;
-    height: 24px;
-    padding: 0 9px;
-    border: 1px solid #c77d7d;
-    border-radius: 5px;
-    background: #fffafa;
-    color: #783737;
-    font: inherit;
-    font-weight: 700;
-    cursor: default;
-  }
-
-  .runtime-error button:hover {
-    background: #f9dddd;
-  }
 </style>

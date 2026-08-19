@@ -28,7 +28,7 @@ namespace FunctionArgumentsElement {
         child.element.kind === 'function-argument' ? [child.element.id] : []
       ))
       return [
-        action('Add Argument', () => ElementDialog.openCreate(
+        action('Add argument', () => ElementDialog.openCreate(
           context.node.id,
           FunctionArgumentElement.createSchema({
             reservedNames,

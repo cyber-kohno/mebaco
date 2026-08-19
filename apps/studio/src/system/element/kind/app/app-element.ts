@@ -11,6 +11,8 @@ import StoreElement from '../variable/store/store-element'
 import TypesElement from '../declare/types-element'
 import StylesElement from '../declare/styles-element'
 import AppTreeLabel from './AppTreeLabel.svelte'
+import LaunchOptionsElement from './launch-options-element'
+import TreeStore from '../../../store/tree-store'
 
 namespace AppElement {
   export type Kind = 'app'
@@ -65,6 +67,7 @@ namespace AppElement {
       Component: AppTreeLabel,
     },
     createInitialChildren: () => [
+      { element: LaunchOptionsElement.create() },
       {
         element: StoreElement.create(),
         children: [
@@ -110,6 +113,7 @@ namespace AppElement {
             createSchema({ reservedNames }),
           )
         }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

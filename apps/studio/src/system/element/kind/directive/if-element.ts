@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ContentActions from '../../content-actions'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import FunctionActions from '../../function-actions'
 
 namespace IfElement {
   export type Kind = 'if'
@@ -28,6 +29,7 @@ namespace IfElement {
         defaultValue: 'true',
         required: true,
         maxLength: 4000,
+        getExpectedTypeText: () => 'boolean',
       },
     ],
     createPreview: () => create(),
@@ -54,6 +56,7 @@ namespace IfElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
+      const isControlBranch = context.parentNode?.element.kind === 'control-conditional'
       return [
         action('Modify', () => {
           ElementDialog.openUpdate(
@@ -62,18 +65,23 @@ namespace IfElement {
             createSchema(),
           )
         }),
-        ...ContentActions.createOptionalRetentionItems(
-          context.node,
-          context.rootNode,
-        ),
+        ...(isControlBranch
+          ? [
+              FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddStatementMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddBlockItem(context.node.id),
+            ]
+          : ContentActions.createOptionalRetentionItems(context.node, context.rootNode)),
       ]
     },
     contentHost: {
       retention: 'optional',
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default IfElement
+

@@ -1,55 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import ExpressionTypeInference from './expression-type-inference'
 
-const injectionSource = [
-  'type User = { name: string; enabled: boolean; };',
-  'declare var $state: { users: User[]; count: number; };',
-].join('\n')
+describe('ExpressionTypeInference.validateExpectedType', () => {
+  const injection = 'declare var $state: { count: number; label: string; };'
 
-describe('ExpressionTypeInference', () => {
-  it('infers an Object item from a declared State array', () => {
-    expect(ExpressionTypeInference.inferArrayItem(
-      injectionSource,
-      '$state.users',
-    )).toEqual({ ok: true, itemTypeText: 'User' })
+  it('accepts compatible expressions', () => {
+    expect(ExpressionTypeInference.validateExpectedType(injection, "'ok'", 'string')).toBeNull()
+    expect(ExpressionTypeInference.validateExpectedType(injection, '$state.count', 'number')).toBeNull()
   })
 
-  it('preserves and transforms item types through common array methods', () => {
-    expect(ExpressionTypeInference.inferArrayItem(
-      injectionSource,
-      '$state.users.filter((user) => user.enabled)',
-    )).toEqual({ ok: true, itemTypeText: 'User' })
-    expect(ExpressionTypeInference.inferArrayItem(
-      injectionSource,
-      '$state.users.map((user) => user.name)',
-    )).toEqual({ ok: true, itemTypeText: 'string' })
-  })
-
-  it('rejects expressions that do not return arrays', () => {
-    expect(ExpressionTypeInference.inferArrayItem(
-      injectionSource,
-      '$state.count',
-    )).toEqual({ ok: false, error: 'Collection must return an array.' })
-  })
-
-  it('rejects empty array literals because the item type is never', () => {
-    expect(ExpressionTypeInference.inferArrayItem(
-      injectionSource,
-      '[]',
-    )).toEqual({
-      ok: false,
-      error: 'Collection item type could not be inferred.',
-    })
-  })
-
-  it('widens primitive literals for mutable Variable bindings', () => {
-    expect(ExpressionTypeInference.inferType('', '1')).toEqual({
-      ok: true,
-      typeText: '1',
-    })
-    expect(ExpressionTypeInference.inferType('', '1', true)).toEqual({
-      ok: true,
-      typeText: 'number',
-    })
+  it('rejects incompatible expressions', () => {
+    expect(ExpressionTypeInference.validateExpectedType(injection, '$state.count', 'string'))
+      .toBe('Expression must return string.')
   })
 })

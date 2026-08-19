@@ -7,6 +7,7 @@ import TypeCatalog from '../../type/type-catalog'
 import TypeExpression from '../../type/type-expression'
 import ValueTypeDefinition from '../../type/value-type-definition'
 import ValuePropTreeLabel from './ValuePropTreeLabel.svelte'
+import TreeStore from '../../../../store/tree-store'
 
 namespace ValuePropElement {
   export type Kind = 'value-prop'
@@ -153,6 +154,7 @@ namespace ValuePropElement {
             createSchema({ reservedNames, referenceOptions, namedTypeOptions }),
           )
         }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

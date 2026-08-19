@@ -30,7 +30,7 @@ namespace ContentActions {
           }),
         )
       }),
-      action('Text', () => {
+      action('Text content', () => {
         ElementDialog.openCreate(parentNodeId, TextElement.createSchema())
       }),
       action('Component', () => {
@@ -56,6 +56,7 @@ namespace ContentActions {
 
   export const createAddDirectiveMenu = (
     parentNodeId: number,
+    rootNode: TreeNode.Node,
   ): ActionMenuState.ParentItem => {
     const { action, parent } = ActionMenu.createFactory()
 
@@ -66,7 +67,9 @@ namespace ContentActions {
       action('Switch', () => {
         ElementDialog.openCreate(
           parentNodeId,
-          SwitchElement.createSchema(),
+          SwitchElement.createSchema({
+            literalUnionOptions: SwitchElement.getLiteralUnionOptions(rootNode, parentNodeId),
+          }),
         )
       }),
       action('Loop', () => {
@@ -104,7 +107,7 @@ namespace ContentActions {
 
     return [
       createAddMenu(node.id, rootNode),
-      createAddDirectiveMenu(node.id),
+      createAddDirectiveMenu(node.id, rootNode),
       createAddBlockItem(node.id),
       action('Use Retention', () => {
         TreeStore.transformNode(node.id, ContentHost.useRetention)

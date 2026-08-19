@@ -229,6 +229,30 @@ namespace ExpressionTypeInference {
     typeCache.set(cacheKey, inferred)
     return inferred
   }
+
+  export const validateExpectedType = (
+    injectionSource: string,
+    expressionSource: string,
+    expectedTypeText: string,
+  ): string | null => {
+    const source = [
+      collectionLibrary,
+      injectionSource,
+      `const __mebacoExpected: ${expectedTypeText} = (`,
+      expressionSource.length === 0 ? 'undefined' : expressionSource,
+      ');',
+    ].join('\n')
+    const program = createProgram(source)
+    const sourceFile = program.getSourceFile(fileName)
+    if (sourceFile == null) return 'Enter a valid TypeScript expression.'
+    const expressionMarker = `const __mebacoExpected: ${expectedTypeText} = (`
+    const expressionStart = source.indexOf(expressionMarker)
+    const diagnostics = program.getSemanticDiagnostics(sourceFile)
+      .filter((diagnostic) => (diagnostic.start ?? 0) >= expressionStart)
+    return diagnostics.length === 0
+      ? null
+      : `Expression must return ${expectedTypeText}.`
+  }
 }
 
 export default ExpressionTypeInference

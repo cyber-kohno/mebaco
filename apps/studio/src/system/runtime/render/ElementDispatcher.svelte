@@ -44,7 +44,9 @@
   }: Props = $props()
 </script>
 
-{#if RuntimeTree.isTagNode(node)}
+{#if node.disabled}
+  <!-- Disabled nodes and their descendants are excluded from runtime evaluation. -->
+{:else if RuntimeTree.isTagNode(node)}
   <RenderTag
     {node}
     {projectNode}

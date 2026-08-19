@@ -433,6 +433,7 @@ namespace StyleElement {
           )
         }),
         parameterAction,
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

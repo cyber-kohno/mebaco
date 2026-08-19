@@ -21,7 +21,7 @@ namespace ElementsElement {
     },
     getContextMenu: (context) => [
       ContentActions.createAddMenu(context.node.id, context.rootNode),
-      ContentActions.createAddDirectiveMenu(context.node.id),
+      ContentActions.createAddDirectiveMenu(context.node.id, context.rootNode),
       ContentActions.createAddBlockItem(context.node.id),
     ],
     childSlots: [],

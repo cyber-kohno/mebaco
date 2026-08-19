@@ -2,6 +2,7 @@ import { get } from 'svelte/store'
 import { actionMenuStore } from '../action-menu/action-menu-store'
 import ElementRegistry from '../element/element-registry'
 import { elementDialogStore } from '../element-dialog/element-dialog-store'
+import { confirmDialogStore } from '../feedback/confirm/confirm-dialog-state'
 import RuntimeSessionStore from '../runtime/runtime-session-store'
 import { screenStore } from '../store/screen-store'
 import TreeStore from '../store/tree-store'
@@ -27,6 +28,7 @@ namespace AppKeyboardController {
   const hasBlockingLayer = (): boolean => (
     get(elementDialogStore) != null
     || get(actionMenuStore) != null
+    || get(confirmDialogStore) != null
     || get(RuntimeSessionStore.store) != null
   )
 

@@ -30,11 +30,14 @@ namespace FunctionProcedureElement {
           context.rootNode,
           insertIndex,
         ),
-        FunctionActions.createAddActionItem(context.node.id, insertIndex),
+        FunctionActions.createAddStatementMenu(
+          context.node.id,
+          context.rootNode,
+          insertIndex,
+          returnIndex < 0,
+        ),
+        FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
         FunctionActions.createAddBlockItem(context.node.id, insertIndex),
-        ...(returnIndex < 0
-          ? [FunctionActions.createAddReturnItem(context.node.id, context.rootNode)]
-          : []),
       ]
     },
     childSlots: [],

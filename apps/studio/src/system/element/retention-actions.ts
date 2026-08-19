@@ -11,6 +11,10 @@ import TypeCatalog from './kind/type/type-catalog'
 import UnionTypeElement from './kind/type/union-type-element'
 import VariableElement from './kind/variable/variable-element'
 import FunctionActions from './function-actions'
+import ControlConditionalElement from './kind/directive/control-conditional-element'
+import ControlSwitchElement from './kind/directive/control-switch-element'
+import TreeStore from '../store/tree-store'
+import SwitchElement from './kind/directive/switch-element'
 
 namespace RetentionActions {
   const findNode = (
@@ -108,6 +112,22 @@ namespace RetentionActions {
       parentNodeId,
       ActionElement.createSchema(),
     ))
+  }
+
+  export const createAddControlMenu = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+  ): ActionMenuState.ParentItem => {
+    const { action, parent } = ActionMenu.createFactory()
+    return parent('Add directive', [
+      action('Conditional', () => TreeStore.addChild(parentNodeId, ControlConditionalElement.create())),
+      action('Switch', () => ElementDialog.openCreate(
+        parentNodeId,
+        ControlSwitchElement.createSchema({
+          literalUnionOptions: SwitchElement.getLiteralUnionOptions(rootNode, parentNodeId),
+        }),
+      )),
+    ])
   }
 }
 

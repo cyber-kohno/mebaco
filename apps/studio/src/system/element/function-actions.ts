@@ -12,6 +12,9 @@ import UnionTypeElement from './kind/type/union-type-element'
 import ValueTypeDefinition from './kind/type/value-type-definition'
 import VariableElement from './kind/variable/variable-element'
 import FunctionScope from './kind/function/function-scope'
+import ControlConditionalElement from './kind/directive/control-conditional-element'
+import ControlSwitchElement from './kind/directive/control-switch-element'
+import SwitchElement from './kind/directive/switch-element'
 
 namespace FunctionActions {
   const findNode = (
@@ -52,7 +55,7 @@ namespace FunctionActions {
     insertIndex?: number,
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Add Function', () => ElementDialog.openCreate(
+    return action('Function', () => ElementDialog.openCreate(
       parentNodeId,
       FunctionElement.createSchema({
         reservedNames: collectFrameIds(rootNode, parentNodeId, 'function'),
@@ -108,11 +111,26 @@ namespace FunctionActions {
     insertIndex?: number,
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Add Action', () => ElementDialog.openCreate(
+    return action('Action', () => ElementDialog.openCreate(
       parentNodeId,
       ActionElement.createSchema(),
       insertIndex,
     ))
+  }
+
+  export const createAddStatementMenu = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+    insertIndex?: number,
+    includeReturn = true,
+  ): ActionMenuState.ParentItem => {
+    const { parent } = ActionMenu.createFactory()
+    return parent('Add statement', [
+      createAddActionItem(parentNodeId, insertIndex),
+      ...(includeReturn
+        ? [createAddReturnItem(parentNodeId, rootNode)]
+        : []),
+    ])
   }
 
   export const createAddBlockItem = (
@@ -149,10 +167,34 @@ namespace FunctionActions {
     rootNode: TreeNode.Node,
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Add Return', () => ElementDialog.openCreate(
-      parentNodeId,
-      createReturnSchema(rootNode, parentNodeId),
-    ))
+    return action('Return', () => {
+      const returnType = FunctionScope.findOwnerFunction(rootNode, parentNodeId)
+        ?.element.returnType ?? null
+      if (returnType == null) {
+        TreeStore.addChild(parentNodeId, FunctionReturnElement.create())
+        return
+      }
+      ElementDialog.openCreate(
+        parentNodeId,
+        createReturnSchema(rootNode, parentNodeId),
+      )
+    })
+  }
+
+  export const createAddControlMenu = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+  ): ActionMenuState.ParentItem => {
+    const { action, parent } = ActionMenu.createFactory()
+    return parent('Add directive', [
+      action('Conditional', () => TreeStore.addChild(parentNodeId, ControlConditionalElement.create())),
+      action('Switch', () => ElementDialog.openCreate(
+        parentNodeId,
+        ControlSwitchElement.createSchema({
+          literalUnionOptions: SwitchElement.getLiteralUnionOptions(rootNode, parentNodeId),
+        }),
+      )),
+    ])
   }
 }
 

@@ -93,18 +93,20 @@ namespace BlockElement {
         items.push(
           FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
           FunctionActions.createAddActionItem(context.node.id),
+          FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
           FunctionActions.createAddBlockItem(context.node.id),
         )
       } else if (isInRetention(context.rootNode, context.node.id)) {
         items.push(
           RetentionActions.createAddDeclareMenu(context.node.id, context.rootNode),
           RetentionActions.createAddActionItem(context.node.id),
+          RetentionActions.createAddControlMenu(context.node.id, context.rootNode),
           ContentActions.createAddBlockItem(context.node.id),
         )
       } else {
         items.push(
           ContentActions.createAddMenu(context.node.id, context.rootNode),
-          ContentActions.createAddDirectiveMenu(context.node.id),
+          ContentActions.createAddDirectiveMenu(context.node.id, context.rootNode),
           ContentActions.createAddBlockItem(context.node.id),
         )
       }

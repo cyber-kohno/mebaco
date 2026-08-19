@@ -6,4 +6,4 @@
   let { element }: Props = $props()
 </script>
 
-<NodeLabel tone="container" kindText="Slot content" valueText={element.slotId} />
+<NodeLabel tone="container" kindText="Slot content" valueReferenceText={element.slotId} />

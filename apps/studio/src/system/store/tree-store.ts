@@ -21,7 +21,14 @@ namespace TreeStore {
     )
   )
 
-  const createNode = (seed: TreeNode.Seed): TreeNode.Node => {
+  type CreateNodeOptions = {
+    collapseGeneratedChildren?: boolean
+  }
+
+  const createNode = (
+    seed: TreeNode.Seed,
+    options: CreateNodeOptions = {},
+  ): TreeNode.Node => {
     const node: TreeNode.Node = {
       id: nextNodeId,
       element: seed.element,
@@ -32,7 +39,14 @@ namespace TreeStore {
 
     const definition = ElementRegistry.get(seed.element.kind)
     const definitionSeeds = definition.createInitialChildren?.(seed.element) ?? []
-    node.children = [...definitionSeeds, ...(seed.children ?? [])].map(createNode)
+    node.children = [...definitionSeeds, ...(seed.children ?? [])].map((childSeed) => (
+      createNode(
+        options.collapseGeneratedChildren && childSeed.isOpen == null
+          ? { ...childSeed, isOpen: false }
+          : childSeed,
+        options,
+      )
+    ))
     return node
   }
 
@@ -121,7 +135,10 @@ namespace TreeStore {
     element: MebacoElement.Element,
     index?: number,
   ) => {
-    const childNode = createNode({ element })
+    const childNode = createNode(
+      { element },
+      { collapseGeneratedChildren: true },
+    )
 
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)

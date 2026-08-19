@@ -139,10 +139,16 @@ describe('Function editing UI models', () => {
     })
     expect(initialItems.map((item) => item.label)).toEqual([
       'Add declare',
-      'Add Action',
+      'Add statement',
+      'Add directive',
       'Add Block',
-      'Add Return',
     ])
+    const initialStatement = initialItems[1]
+    expect(initialStatement.type).toBe('parent')
+    if (initialStatement.type === 'parent') {
+      expect(initialStatement.children.map((item) => item.label))
+        .toEqual(['Action', 'Return'])
+    }
 
     const withReturn = createTree(true)
     const items = FunctionProcedureElement.definition.getContextMenu({
@@ -153,14 +159,19 @@ describe('Function editing UI models', () => {
     })
     expect(items.map((item) => item.label)).toEqual([
       'Add declare',
-      'Add Action',
+      'Add statement',
+      'Add directive',
       'Add Block',
     ])
 
     const addAction = items[1]
-    expect(addAction.type).toBe('action')
-    if (addAction.type !== 'action') return
-    addAction.callback()
+    expect(addAction.type).toBe('parent')
+    if (addAction.type !== 'parent') return
+    expect(addAction.children.map((item) => item.label)).toEqual(['Action'])
+    const actionItem = addAction.children[0]
+    expect(actionItem.type).toBe('action')
+    if (actionItem.type !== 'action') return
+    actionItem.callback()
     expect(get(elementDialogStore)).toMatchObject({
       mode: 'create',
       parentNodeId: withReturn.procedure.id,

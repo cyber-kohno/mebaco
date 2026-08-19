@@ -57,8 +57,9 @@ namespace ConditionalElement {
       return items
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default ConditionalElement
+

@@ -6,6 +6,7 @@ import TreeStore from '../../../store/tree-store'
 import TypeExpression from '../type/type-expression'
 import TypeCatalog from '../type/type-catalog'
 import ValueTypeDefinition from '../type/value-type-definition'
+import FunctionArgumentTreeLabel from './FunctionArgumentTreeLabel.svelte'
 
 namespace FunctionArgumentElement {
   export type Kind = 'function-argument'
@@ -75,10 +76,8 @@ namespace FunctionArgumentElement {
   export const definition = {
     kind: 'function-argument',
     treeLabel: {
-      type: 'static',
-      kindText: 'Argument',
-      tone: 'variable',
-      getValueText: (element: Element) => element.id,
+      type: 'component',
+      Component: FunctionArgumentTreeLabel,
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

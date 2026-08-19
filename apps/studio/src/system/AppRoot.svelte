@@ -6,6 +6,8 @@
   import PreviewDialog from './runtime/preview/PreviewDialog.svelte'
   import StartScreen from './screen/start/StartScreen.svelte'
   import AppHeader from './shell/AppHeader.svelte'
+  import ToastLayer from './feedback/toast/ToastLayer.svelte'
+  import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
   import { screenStore } from './store/screen-store'
 
   const preventNativeContextMenu = (event: MouseEvent) => {
@@ -27,6 +29,8 @@
   <ActionMenuLayer />
   <ElementDialogLayer />
   <PreviewDialog />
+  <ConfirmDialogLayer />
+  <ToastLayer />
 </main>
 
 <style>

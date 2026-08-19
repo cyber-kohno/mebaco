@@ -8,6 +8,7 @@ import ValueTypeDefinition from '../type/value-type-definition'
 import FunctionArgumentsElement from './function-arguments-element'
 import FunctionProcedureElement from './function-procedure-element'
 import FunctionScope from './function-scope'
+import FunctionTreeLabel from './FunctionTreeLabel.svelte'
 
 namespace FunctionElement {
   export type Kind = 'function'
@@ -97,10 +98,8 @@ namespace FunctionElement {
   export const definition = {
     kind: 'function',
     treeLabel: {
-      type: 'static',
-      kindText: 'Function',
-      tone: 'master',
-      getValueText: (element: Element) => `${element.async ? 'async ' : ''}${element.id}`,
+      type: 'component',
+      Component: FunctionTreeLabel,
     },
     createInitialChildren: () => [
       { element: FunctionArgumentsElement.create() },

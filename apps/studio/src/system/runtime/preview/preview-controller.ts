@@ -1,6 +1,8 @@
 import type AppElement from '../../element/kind/app/app-element'
 import type TreeNode from '../../tree/tree-node'
 import RuntimeSessionStore from '../runtime-session-store'
+import RuntimeTree from '../runtime-tree'
+import ToastController from '../../feedback/toast/toast-controller'
 
 namespace PreviewController {
   const findOwnerApp = (
@@ -28,6 +30,20 @@ namespace PreviewController {
   ): boolean => {
     const appNode = findOwnerApp(rootNode, selectedNodeId)
     if (appNode?.element.kind !== 'app') return false
+
+    const runtime = RuntimeTree.createAppRuntime(appNode, rootNode)
+    if (runtime.entryNode == null) {
+      ToastController.show('Entry is not configured for this App.', { tone: 'warning' })
+      return false
+    }
+    if (runtime.entryNode.element.componentId == null) {
+      ToastController.show('Entry component is not configured.', { tone: 'warning' })
+      return false
+    }
+    if (RuntimeTree.getEntryComponentNode(runtime) == null) {
+      ToastController.show('The configured Entry component was not found.', { tone: 'warning' })
+      return false
+    }
 
     RuntimeSessionStore.open({
       app: appNode.element as AppElement.Element,

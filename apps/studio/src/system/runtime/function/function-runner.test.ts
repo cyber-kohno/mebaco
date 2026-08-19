@@ -148,7 +148,7 @@ describe('FunctionRunner', () => {
       })
   })
 
-  it('rejects an invalid Function structure before executing Actions', () => {
+  it('reports a missing runtime structure without traversing Procedure validation rules', () => {
     nextNodeId = 1
     const invalid = fn('invalid', [], [
       node({ kind: 'action', comment: '', source: '$state.executed = true' }),
@@ -158,7 +158,7 @@ describe('FunctionRunner', () => {
 
     expect(FunctionRunner.run(invalid, [], context, root)).toMatchObject({
       ok: false,
-      error: { message: expect.stringContaining('exactly one Return') },
+      error: { message: 'Function \'invalid\' is not available for runtime execution.' },
     })
     expect(context.$state.executed).toBe(false)
   })
@@ -239,6 +239,57 @@ describe('FunctionRunner', () => {
 
     expect(FunctionRunner.run(calculate, [], context, root)).toEqual({ ok: true, value: 2 })
     expect(outer.values.factor).toBe(10)
+  })
+
+  it('executes only the selected control Conditional branch', () => {
+    nextNodeId = 1
+    const conditional = node({ kind: 'control-conditional' }, [
+      node({ kind: 'if', condition: '$args.enabled' }, [
+        node({ kind: 'action', comment: '', source: '$state.result = 1' }),
+      ]),
+      node({ kind: 'else' }, [
+        node({ kind: 'action', comment: '', source: '$state.result = 2' }),
+      ]),
+    ])
+    const execute = fn('execute', [argument('enabled', { type: 'boolean' })], [
+      conditional,
+      node({ kind: 'function-return', source: '$state.result' }),
+    ])
+    const root = project([execute])
+    const context = FormulaContext.create({ $state: { result: 0 } })
+
+    expect(FunctionRunner.run(execute, [false], context, root))
+      .toEqual({ ok: true, value: 2 })
+    expect(context.$state.result).toBe(2)
+  })
+
+  it('executes the matching control Switch Case and falls back to Default', () => {
+    nextNodeId = 1
+    const switchNode = node({
+      kind: 'control-switch',
+      valueType: { type: 'primitive', primitive: 'number' },
+      source: '$args.value',
+    }, [
+      node({ kind: 'case', value: { type: 'number', value: 1 } }, [
+        node({ kind: 'action', comment: '', source: '$state.result = 10' }),
+      ]),
+      node({ kind: 'default' }, [
+        node({ kind: 'action', comment: '', source: '$state.result = 20' }),
+      ]),
+    ])
+    const execute = fn('execute', [argument('value')], [
+      switchNode,
+      node({ kind: 'function-return', source: '$state.result' }),
+    ])
+    const root = project([execute])
+
+    const firstContext = FormulaContext.create({ $state: { result: 0 } })
+    expect(FunctionRunner.run(execute, [1], firstContext, root))
+      .toEqual({ ok: true, value: 10 })
+
+    const defaultContext = FormulaContext.create({ $state: { result: 0 } })
+    expect(FunctionRunner.run(execute, [2], defaultContext, root))
+      .toEqual({ ok: true, value: 20 })
   })
 
   it('keeps captured const Variables readonly', () => {

@@ -5,15 +5,18 @@
     tone: ElementDefinition.TreeLabelTone
     kindText: string
     valueText?: string
+    valueReferenceText?: string
+    valuePrefix?: string
+    valueSuffix?: string
   }
 
-  let { tone, kindText, valueText }: Props = $props()
+  let { tone, kindText, valueText, valueReferenceText, valuePrefix = '', valueSuffix = '' }: Props = $props()
 </script>
 
 <span class="node-label">
   <span class="node-kind" data-tone={tone}>{kindText}</span>
-  {#if valueText != null}
-    <span class="node-value">{valueText}</span>
+  {#if valueText != null || valueReferenceText != null}
+    <span class="node-value" class:master-value={tone === 'master'} class:reference-value={valueReferenceText != null}>{valuePrefix}{#if valueReferenceText != null}<span class="reference">{valueReferenceText}</span>{:else}{valueText}{/if}{valueSuffix}</span>
   {/if}
 </span>
 
@@ -36,6 +39,14 @@
     height: 30px;
     border: 1px solid #87bac2;
     line-height: 1;
+  }
+
+  .node-value.master-value {
+    color: #ffe184;
+  }
+
+  .node-value .reference {
+    color: #ffb36b;
   }
 
   .node-kind {

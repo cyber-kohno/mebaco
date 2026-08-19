@@ -4,19 +4,19 @@ import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TreeStore from '../../../store/tree-store'
 import FunctionActions from '../../function-actions'
+import FunctionScope from './function-scope'
 
 namespace FunctionReturnElement {
   export type Kind = 'function-return'
 
   export type Element = {
     kind: Kind
-    source: string
+    source?: string
   }
 
-  export const create = (source = ''): Element => ({
-    kind: 'function-return',
-    source,
-  })
+  export const create = (source?: string): Element => source == null
+    ? { kind: 'function-return' }
+    : { kind: 'function-return', source }
 
   export type SchemaOptions = {
     expectedTypeText?: string
@@ -37,9 +37,9 @@ namespace FunctionReturnElement {
       },
     ],
     createPreview: () => create(''),
-    getInitialValues: (element) => ({ source: element.source }),
-    create: (values) => create(values.source),
-    update: (_element, values) => create(values.source),
+    getInitialValues: (element) => ({ source: element.source ?? '' }),
+    create: (values) => create(values.source.length > 0 ? values.source : undefined),
+    update: (_element, values) => create(values.source.length > 0 ? values.source : undefined),
   })
 
   export const definition = {
@@ -52,12 +52,15 @@ namespace FunctionReturnElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
+      const owner = FunctionScope.findOwnerFunction(context.rootNode, context.node.id)
       return [
-        action('Modify', () => ElementDialog.openUpdate(
-          context.node.id,
-          context.element,
-          FunctionActions.createReturnSchema(context.rootNode, context.node.id),
-        )),
+        ...(owner?.element.returnType == null
+          ? []
+          : [action('Modify', () => ElementDialog.openUpdate(
+              context.node.id,
+              context.element,
+              FunctionActions.createReturnSchema(context.rootNode, context.node.id),
+            ))]),
         action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },

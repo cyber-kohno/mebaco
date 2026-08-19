@@ -2,6 +2,7 @@ import type ElementDefinition from '../../element-definition'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ContentActions from '../../content-actions'
 import TreeStore from '../../../store/tree-store'
+import FunctionActions from '../../function-actions'
 
 namespace DefaultElement {
   export type Kind = 'default'
@@ -23,11 +24,16 @@ namespace DefaultElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
+      const isControlBranch = context.parentNode?.element.kind === 'control-switch'
       return [
-        ...ContentActions.createOptionalRetentionItems(
-          context.node,
-          context.rootNode,
-        ),
+        ...(isControlBranch
+          ? [
+              FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddStatementMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
+              FunctionActions.createAddBlockItem(context.node.id),
+            ]
+          : ContentActions.createOptionalRetentionItems(context.node, context.rootNode)),
         action('Remove', () => {
           TreeStore.removeNode(context.node.id)
         }, 'danger'),
@@ -37,8 +43,9 @@ namespace DefaultElement {
       retention: 'optional',
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
   } satisfies ElementDefinition.Definition<Element>
 }
 
 export default DefaultElement
+

@@ -46,7 +46,7 @@ namespace SwitchResolver {
     context: FormulaContext.Value,
     projectNode: TreeNode.Node,
   ): Result => {
-    if (switchNode.element.kind !== 'switch') {
+    if (switchNode.element.kind !== 'switch' && switchNode.element.kind !== 'control-switch') {
       return invalid('Switch element is invalid.')
     }
     const valueType = normalizeValueType(switchNode.element.valueType)

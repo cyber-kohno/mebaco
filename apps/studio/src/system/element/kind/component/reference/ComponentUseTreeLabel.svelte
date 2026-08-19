@@ -10,7 +10,6 @@
 
   let { element, rootNode }: Props = $props()
 
-  const componentText = $derived(`component: [${element.componentId ?? '-'}]`)
   const tone = $derived.by(() => {
     if (rootNode == null || element.componentId == null) return 'item'
     const findUseNode = (node: TreeNode.Node): TreeNode.Node | null => {
@@ -29,4 +28,4 @@
   })
 </script>
 
-<NodeLabel {tone} kindText="Component" valueText={componentText} />
+<NodeLabel {tone} kindText="Component" valuePrefix="component: [" valueReferenceText={element.componentId ?? '-'} valueSuffix="]" />

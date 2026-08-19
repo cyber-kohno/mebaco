@@ -8,7 +8,6 @@
 
   let { element }: Props = $props()
 
-  const componentText = $derived(`component: [${element.componentId ?? '-'}]`)
 </script>
 
-<NodeLabel tone="manager" kindText="Entry" valueText={componentText} />
+<NodeLabel tone="manager" kindText="Entry" valuePrefix="component: [" valueReferenceText={element.componentId ?? '-'} valueSuffix="]" />

@@ -1,5 +1,9 @@
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
+import LaunchOptionsElement from './kind/app/launch-options-element'
+import LaunchArgumentsElement from './kind/app/launch-arguments-element'
+import LaunchArgumentElement from './kind/app/launch-argument-element'
+import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
 import ElementsElement from './kind/component/definition/elements-element'
@@ -18,6 +22,8 @@ import IfElement from './kind/directive/if-element'
 import CaseElement from './kind/directive/case-element'
 import DefaultElement from './kind/directive/default-element'
 import SwitchElement from './kind/directive/switch-element'
+import ControlConditionalElement from './kind/directive/control-conditional-element'
+import ControlSwitchElement from './kind/directive/control-switch-element'
 import LoopElement from './kind/directive/loop-element'
 import ComponentsElement from './kind/declare/components-element'
 import DeclaresElement from './kind/declare/declares-element'
@@ -53,6 +59,10 @@ namespace MebacoElement {
   export type Kind =
     | AppElement.Kind
     | EntryElement.Kind
+    | LaunchOptionsElement.Kind
+    | LaunchArgumentsElement.Kind
+    | LaunchArgumentElement.Kind
+    | LauncherElement.Kind
     | ComponentElement.Kind
     | ComponentUseElement.Kind
     | ElementsElement.Kind
@@ -71,6 +81,8 @@ namespace MebacoElement {
     | CaseElement.Kind
     | DefaultElement.Kind
     | SwitchElement.Kind
+    | ControlConditionalElement.Kind
+    | ControlSwitchElement.Kind
     | LoopElement.Kind
     | ComponentsElement.Kind
     | DeclaresElement.Kind
@@ -103,6 +115,10 @@ namespace MebacoElement {
   export type Element =
     | AppElement.Element
     | EntryElement.Element
+    | LaunchOptionsElement.Element
+    | LaunchArgumentsElement.Element
+    | LaunchArgumentElement.Element
+    | LauncherElement.Element
     | ComponentElement.Element
     | ComponentUseElement.Element
     | ElementsElement.Element
@@ -121,6 +137,8 @@ namespace MebacoElement {
     | CaseElement.Element
     | DefaultElement.Element
     | SwitchElement.Element
+    | ControlConditionalElement.Element
+    | ControlSwitchElement.Element
     | LoopElement.Element
     | ComponentsElement.Element
     | DeclaresElement.Element
