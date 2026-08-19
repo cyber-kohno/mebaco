@@ -7,6 +7,7 @@ import TypeCatalog from '../type/type-catalog'
 import VariableTreeLabel from './VariableTreeLabel.svelte'
 import ValueTypeDefinition from '../type/value-type-definition'
 import TreeStore from '../../../store/tree-store'
+import FunctionScope from '../function/function-scope'
 
 namespace VariableElement {
   export type Kind = 'variable'
@@ -137,11 +138,16 @@ namespace VariableElement {
     treeLabel: { type: 'component', Component: VariableTreeLabel },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const reservedNames = context.parentNode?.children.flatMap((child) => (
-        child.id !== context.node.id && child.element.kind === 'variable'
-          ? [child.element.id]
-          : []
-      )) ?? []
+      const frameNode = FunctionScope.findFrameNode(context.rootNode, context.node.id)
+      const reservedNames = frameNode == null
+        ? context.parentNode?.children.flatMap((child) => (
+            child.id !== context.node.id && child.element.kind === 'variable'
+              ? [child.element.id]
+              : []
+          )) ?? []
+        : FunctionScope.collectFrameVariables(frameNode)
+            .filter((entry) => entry.node.id !== context.node.id)
+            .map((entry) => entry.element.id)
       return [
         action('Modify', () => ElementDialog.openUpdate(
           context.node.id,

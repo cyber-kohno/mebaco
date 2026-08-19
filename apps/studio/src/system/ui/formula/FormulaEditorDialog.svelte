@@ -7,6 +7,7 @@
     injectionSource?: string
     expectedType?: MonacoInjection.ExpectedType
     expectedTypeText?: string
+    allowAwait?: boolean
     onDiagnosticsChange?: (messages: string[]) => void
     onValueChange: (value: string) => void
     onBack: () => void
@@ -17,6 +18,7 @@
     injectionSource,
     expectedType,
     expectedTypeText,
+    allowAwait = false,
     onDiagnosticsChange,
     onValueChange,
     onBack,
@@ -31,6 +33,7 @@
   {injectionSource}
   {expectedType}
   {expectedTypeText}
+  {allowAwait}
   {onDiagnosticsChange}
   {onValueChange}
   {onBack}

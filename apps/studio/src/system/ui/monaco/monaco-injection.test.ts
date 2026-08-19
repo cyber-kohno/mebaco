@@ -18,9 +18,9 @@ describe('MonacoInjection', () => {
   })
 
   it('includes the module boundary in diagnostic line offsets', () => {
-    expect(MonacoInjection.getAnalysisOffsetLine({
+    expect(MonacoInjection.getAnalysisOffsetLine('expression', {
       injectionSource: 'type MyObj = {};\ndeclare var $state: MyObj;',
-    })).toBe(4)
+    })).toBe(5)
   })
 
   it('uses detailed expected type text for expression analysis', () => {
@@ -31,5 +31,14 @@ describe('MonacoInjection', () => {
     )
 
     expect(source).toContain('const __mebacoExpressionResult: User | null = (')
+  })
+
+  it('uses sync and async wrappers to control await', () => {
+    expect(MonacoInjection.wrapForAnalysis('await work()', 'action'))
+      .toContain('function __mebacoAction() {')
+    expect(MonacoInjection.wrapForAnalysis('await work()', 'action', { allowAwait: true }))
+      .toContain('async function __mebacoAction() {')
+    expect(MonacoInjection.wrapForAnalysis('await work()', 'expression', { allowAwait: true }))
+      .toContain('async function __mebacoExpression() {')
   })
 })

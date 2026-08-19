@@ -8,6 +8,8 @@ import TypeExpression from '../../element/kind/type/type-expression'
 import type ValuePropElement from '../../element/kind/component/definition/value-prop-element'
 import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
 import ContentHost from '../../element/content-host'
+import FunctionScope from '../../element/kind/function/function-scope'
+import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
 
 namespace MebacoInjectionSource {
   const findNode = (
@@ -228,6 +230,65 @@ namespace MebacoInjectionSource {
     ].join('\n')
   }
 
+  const getFunctionValueTypeText = (
+    rootNode: TreeNode.Node,
+    valueType: TypeExpression.Expression,
+    nullable: boolean,
+  ): string => `${TypeExpression.getTypeText(
+    valueType,
+    (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+  )}${nullable ? ' | null' : ''}`
+
+  const createArgumentsDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): string => {
+    const owner = FunctionScope.findOwnerFunction(rootNode, targetNodeId)
+    if (owner == null) return 'declare var $args: Record<string, unknown>;'
+    const fields = FunctionScope.getArguments(owner.node).map((argument) => (
+      `  ${argument.id}: ${getFunctionValueTypeText(
+        rootNode,
+        argument.valueType,
+        argument.nullable,
+      )};`
+    ))
+    return [
+      'declare var $args: {',
+      ...fields,
+      '};',
+    ].join('\n')
+  }
+
+  const createFunctionsDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): string => {
+    const fields = FunctionScope.collectVisibleFunctions(rootNode, targetNodeId)
+      .map((entry) => {
+        const parameters = FunctionScope.getArguments(entry.node)
+          .map((argument) => `${argument.id}: ${getFunctionValueTypeText(
+            rootNode,
+            argument.valueType,
+            argument.nullable,
+          )}`)
+          .join(', ')
+        const resolvedReturnType = entry.element.returnType == null
+          ? 'void'
+          : ValueTypeDefinition.getTypeText(
+              entry.element.returnType,
+              (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+            )
+        const returnType = entry.element.async
+          ? `Promise<${resolvedReturnType}>`
+          : resolvedReturnType
+        return `  ${entry.element.id}(${parameters}): ${returnType};`
+      })
+
+    return fields.length === 0
+      ? 'declare var $function: Record<string, unknown>;'
+      : ['declare var $function: {', ...fields, '};'].join('\n')
+  }
+
   const createVariableDeclaration = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
@@ -293,7 +354,13 @@ namespace MebacoInjectionSource {
       if (retentionNode != null && nextNode === elementsNode) {
         retentionNode.children.forEach(addVariable)
       }
-      if (node.element.kind === 'retention' && nextNode != null) {
+      if (
+        (
+          node.element.kind === 'retention'
+          || node.element.kind === 'function-procedure'
+        )
+        && nextNode != null
+      ) {
         const childIndex = node.children.indexOf(nextNode)
         node.children.slice(0, childIndex).forEach(addVariable)
       }
@@ -329,8 +396,8 @@ namespace MebacoInjectionSource {
       stateDeclaration,
       styleParameterDeclaration,
       createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
-      'declare var $args: Record<string, unknown>;',
-      'declare var $function: Record<string, unknown>;',
+      createArgumentsDeclaration(rootNode, targetNodeId),
+      createFunctionsDeclaration(rootNode, targetNodeId),
       mode === 'action'
         ? [
             'declare var $system: {',

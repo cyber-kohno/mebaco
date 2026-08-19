@@ -319,3 +319,109 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(source).not.toContain('readonly second:')
   })
 })
+
+describe('MebacoInjectionSource Function scope', () => {
+  it('injects typed Arguments and visible Function signatures', () => {
+    const actionNode = node(11, { kind: 'action', comment: '', source: '' })
+    const calculateNode = node(7, {
+      kind: 'function',
+      id: 'calculate',
+      async: false,
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }, [
+      node(8, { kind: 'function-arguments' }, [
+        node(9, {
+          kind: 'function-argument',
+          id: 'count',
+          valueType: { type: 'number' },
+          nullable: false,
+        }),
+      ]),
+      node(10, { kind: 'function-procedure' }, [actionNode]),
+    ])
+    const loadNode = node(12, {
+      kind: 'function',
+      id: 'loadUser',
+      async: true,
+      returnType: {
+        valueType: TypeExpression.createReference(['user-type']),
+        nullable: true,
+      },
+    }, [
+      node(13, { kind: 'function-arguments' }, [
+        node(14, {
+          kind: 'function-argument',
+          id: 'id',
+          valueType: { type: 'string' },
+          nullable: false,
+        }),
+      ]),
+      node(15, { kind: 'function-procedure' }),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }),
+      node(3, { kind: 'apps' }, [
+        node(4, { kind: 'app', id: 'app' }, [
+          node(5, { kind: 'declares' }, [
+            node(6, { kind: 'types' }, [
+              node(16, {
+                kind: 'object-type',
+                typeId: 'user-type',
+                id: 'User',
+                baseObjectIds: [],
+                properties: [],
+              }),
+            ]),
+            node(17, { kind: 'functions' }, [calculateNode, loadNode]),
+          ]),
+        ]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(
+      rootNode,
+      actionNode.id,
+      'action',
+    )
+
+    expect(source).toContain('declare var $args: {\n  count: number;\n};')
+    expect(source).toContain('calculate(count: number): number;')
+    expect(source).toContain('loadUser(id: string): Promise<User | null>;')
+  })
+
+  it('injects preceding outer and local Procedure Variables', () => {
+    const target = node(8, { kind: 'action', comment: '', source: '' })
+    const inner = node(5, {
+      kind: 'function', id: 'inner', async: false, returnType: null,
+    }, [
+      node(6, { kind: 'function-arguments' }),
+      node(7, { kind: 'function-procedure' }, [
+        node(9, {
+          kind: 'variable', id: 'local', binding: 'const',
+          typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+          source: '1',
+        }),
+        target,
+      ]),
+    ])
+    const outer = node(2, {
+      kind: 'function', id: 'outer', async: false, returnType: null,
+    }, [
+      node(3, { kind: 'function-arguments' }),
+      node(4, { kind: 'function-procedure' }, [
+        node(10, {
+          kind: 'variable', id: 'captured', binding: 'let',
+          typeSetting: { type: 'explicit', valueType: { type: 'string' }, nullable: false },
+          source: "''",
+        }),
+        inner,
+      ]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [outer])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
+
+    expect(source).toContain('captured: string;')
+    expect(source).toContain('readonly local: number;')
+  })
+})

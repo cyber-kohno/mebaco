@@ -8,6 +8,7 @@ import ScriptErrorValue from '../script/script-error'
 import TypeValue from '../type-value'
 import VariableFrame from '../variable/variable-frame'
 import ContentHost from '../../element/content-host'
+import FunctionRunner from '../function/function-runner'
 
 namespace RetentionResolver {
   export type Result = {
@@ -24,6 +25,11 @@ namespace RetentionResolver {
     const frame = VariableFrame.create(context.$var)
     const nextContext = FormulaContextValue.create({ ...context, $var: frame.values })
     const retentionNode = ContentHost.getRetentionNode(hostNode)
+    nextContext.$function = FunctionRunner.createNamespace(
+      projectNode,
+      retentionNode?.id ?? hostNode.id,
+      nextContext,
+    )
     if (retentionNode == null) {
       return { context: nextContext, error: null, errorNodeId: null }
     }

@@ -39,9 +39,13 @@ namespace ScriptCompiler {
     mode: ScriptCache.Mode,
     source: string,
   ): WrappedSource => {
-    const lines = mode === 'expression'
+    const expression = mode === 'expression' || mode === 'async-expression'
+    const asyncPrefix = mode === 'async-expression' || mode === 'async-action'
+      ? 'async '
+      : ''
+    const lines = expression
       ? [
-          'const __mebacoScript = (context: Record<string, unknown>) => {',
+          `const __mebacoScript = ${asyncPrefix}(context: Record<string, unknown>) => {`,
           `  const { ${contextNames} } = context;`,
           '  return (',
           source,
@@ -49,7 +53,7 @@ namespace ScriptCompiler {
           '};',
         ]
       : [
-          'const __mebacoScript = (context: Record<string, unknown>) => {',
+          `const __mebacoScript = ${asyncPrefix}(context: Record<string, unknown>) => {`,
           `  const { ${contextNames} } = context;`,
           source,
           '};',
@@ -57,7 +61,7 @@ namespace ScriptCompiler {
 
     return {
       value: lines.join('\n'),
-      sourceStartLine: mode === 'expression' ? 4 : 3,
+      sourceStartLine: expression ? 4 : 3,
       sourceLineCount: source.split('\n').length,
     }
   }

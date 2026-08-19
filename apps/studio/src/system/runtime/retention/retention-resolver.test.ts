@@ -84,4 +84,67 @@ describe('RetentionResolver', () => {
     expect(result.error).toBeNull()
     expect(result.context.$var.color).toBe('#fcc-done')
   })
+
+  it('exposes Retention Functions through $function', () => {
+    const functionNode = node({
+      kind: 'function', id: 'scale', async: false,
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }, [
+      node({ kind: 'function-arguments' }, [
+        node({
+          kind: 'function-argument', id: 'value',
+          valueType: { type: 'number' }, nullable: false,
+        }),
+      ]),
+      node({ kind: 'function-procedure' }, [
+        node({ kind: 'function-return', source: '$args.value * $var.factor' }),
+      ]),
+    ])
+    const hostNode = host([
+      node({
+        kind: 'variable', id: 'factor', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '3',
+      }),
+      functionNode,
+      node({
+        kind: 'action', comment: '', source: '$state.result = $function.scale(4)',
+      }),
+    ])
+    const projectNode = node({ kind: 'project' }, [hostNode])
+    const context = FormulaContext.create({ $state: { result: 0 } })
+    const result = RetentionResolver.resolve(hostNode, context, projectNode)
+
+    expect(result.error).toBeNull()
+    expect(context.$state.result).toBe(12)
+  })
+
+  it('lets a Retention Function update a captured let Variable', () => {
+    const functionNode = node({
+      kind: 'function', id: 'increment', async: false,
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }, [
+      node({ kind: 'function-arguments' }),
+      node({ kind: 'function-procedure' }, [
+        node({ kind: 'action', comment: '', source: '$var.count += 1' }),
+        node({ kind: 'function-return', source: '$var.count' }),
+      ]),
+    ])
+    const hostNode = host([
+      node({
+        kind: 'variable', id: 'count', binding: 'let',
+        typeSetting: { type: 'inferred' }, source: '1',
+      }),
+      functionNode,
+      node({
+        kind: 'action', comment: '', source: '$state.result = $function.increment()',
+      }),
+    ])
+    const projectNode = node({ kind: 'project' }, [hostNode])
+    const context = FormulaContext.create({ $state: { result: 0 } })
+    const result = RetentionResolver.resolve(hostNode, context, projectNode)
+
+    expect(result.error).toBeNull()
+    expect(result.context.$var.count).toBe(2)
+    expect(context.$state.result).toBe(2)
+  })
 })

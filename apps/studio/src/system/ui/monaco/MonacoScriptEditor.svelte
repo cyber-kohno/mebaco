@@ -6,6 +6,7 @@
   import MonacoInjection from './monaco-injection'
   import MonacoOverflowLayer from './monaco-overflow-layer'
   import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
+  import ScriptPolicy from '../../runtime/script/script-policy'
 
   type Props = {
     value: string
@@ -15,6 +16,7 @@
     injectionSource?: string
     expectedType?: MonacoInjection.ExpectedType
     expectedTypeText?: string
+    allowAwait?: boolean
     onDiagnosticsChange?: (messages: string[]) => void
   }
 
@@ -26,6 +28,7 @@
     injectionSource,
     expectedType,
     expectedTypeText,
+    allowAwait = false,
     onDiagnosticsChange,
   }: Props = $props()
 
@@ -55,6 +58,7 @@
     scopeId: uid,
     expectedType,
     expectedTypeText,
+    allowAwait,
   })
 
   const getAnalysisSource = (
@@ -129,7 +133,7 @@
       diagnostics as Parameters<typeof MonacoDiagnostics.createMarkers>[1],
       analysisModel,
       mode,
-      MonacoInjection.getAnalysisOffsetLine(getAnalysisOptions()),
+      MonacoInjection.getAnalysisOffsetLine(mode, getAnalysisOptions()),
       userModel.getLineCount(),
     )
     if (mode === 'expression' && expectedType === 'array') {
@@ -145,6 +149,16 @@
         ))
       }
     }
+    ScriptPolicy.validate(userModel.getValue(), {
+      allowAwait,
+      forbidReturn: mode === 'action',
+    }).forEach((message) => {
+      markers.push(MonacoDiagnostics.createWholeModelErrorMarker(
+        monaco!,
+        userModel!,
+        message,
+      ))
+    })
 
     monaco.editor.setModelMarkers(userModel, 'mebaco', markers)
     onDiagnosticsChange?.(
@@ -159,7 +173,7 @@
   ): Monaco.Position | null => {
     if (monaco == null) return null
     return new monaco.Position(
-      position.lineNumber + MonacoInjection.getAnalysisOffsetLine(getAnalysisOptions()),
+      position.lineNumber + MonacoInjection.getAnalysisOffsetLine(mode, getAnalysisOptions()),
       position.column,
     )
   }
@@ -225,6 +239,7 @@
   $effect(() => {
     expectedType
     expectedTypeText
+    allowAwait
     if (analysisModel == null) return
 
     analysisModel.setValue(getAnalysisSource(lastEditorValue))

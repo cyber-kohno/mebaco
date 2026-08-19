@@ -41,6 +41,11 @@ import UnionTypeElement from './kind/type/union-type-element'
 import VariableElement from './kind/variable/variable-element'
 import ActionElement from './kind/variable/action-element'
 import BlockElement from './kind/block/block-element'
+import FunctionElement from './kind/function/function-element'
+import FunctionArgumentsElement from './kind/function/function-arguments-element'
+import FunctionArgumentElement from './kind/function/function-argument-element'
+import FunctionProcedureElement from './kind/function/function-procedure-element'
+import FunctionReturnElement from './kind/function/function-return-element'
 
 const MebacoElement = {}
 
@@ -89,6 +94,11 @@ namespace MebacoElement {
     | VariableElement.Kind
     | ActionElement.Kind
     | BlockElement.Kind
+    | FunctionElement.Kind
+    | FunctionArgumentsElement.Kind
+    | FunctionArgumentElement.Kind
+    | FunctionProcedureElement.Kind
+    | FunctionReturnElement.Kind
 
   export type Element =
     | AppElement.Element
@@ -134,6 +144,11 @@ namespace MebacoElement {
     | VariableElement.Element
     | ActionElement.Element
     | BlockElement.Element
+    | FunctionElement.Element
+    | FunctionArgumentsElement.Element
+    | FunctionArgumentElement.Element
+    | FunctionProcedureElement.Element
+    | FunctionReturnElement.Element
 }
 
 export default MebacoElement

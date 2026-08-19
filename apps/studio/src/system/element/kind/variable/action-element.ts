@@ -14,7 +14,10 @@ namespace ActionElement {
     createTitle: 'Create Action', updateTitle: 'Update Action',
     fields: [
       { type: 'text', key: 'comment', label: 'Comment', width: 'id', maxLength: 64 },
-      { type: 'script', key: 'source', label: 'Action', maxLength: 8000 },
+      {
+        type: 'script', key: 'source', label: 'Action', maxLength: 8000,
+        allowAwaitInAsyncFunction: true,
+      },
     ],
     createPreview: () => create('...', ''),
     getInitialValues: (element) => ({ comment: element.comment, source: element.source }),

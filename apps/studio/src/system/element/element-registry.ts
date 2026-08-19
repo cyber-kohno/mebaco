@@ -43,6 +43,11 @@ import UnionTypeElement from './kind/type/union-type-element'
 import VariableElement from './kind/variable/variable-element'
 import ActionElement from './kind/variable/action-element'
 import BlockElement from './kind/block/block-element'
+import FunctionElement from './kind/function/function-element'
+import FunctionArgumentsElement from './kind/function/function-arguments-element'
+import FunctionArgumentElement from './kind/function/function-argument-element'
+import FunctionProcedureElement from './kind/function/function-procedure-element'
+import FunctionReturnElement from './kind/function/function-return-element'
 
 namespace ElementRegistry {
   type DefinitionMap = {
@@ -95,6 +100,11 @@ namespace ElementRegistry {
     variable: VariableElement.definition,
     action: ActionElement.definition,
     block: BlockElement.definition,
+    function: FunctionElement.definition,
+    'function-arguments': FunctionArgumentsElement.definition,
+    'function-argument': FunctionArgumentElement.definition,
+    'function-procedure': FunctionProcedureElement.definition,
+    'function-return': FunctionReturnElement.definition,
   } satisfies DefinitionMap
 
   export const get = <TElement extends MebacoElement.Element>(

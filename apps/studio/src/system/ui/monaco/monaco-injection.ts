@@ -7,6 +7,7 @@ namespace MonacoInjection {
     scopeId?: string
     expectedType?: ExpectedType
     expectedTypeText?: string
+    allowAwait?: boolean
   }
 
   export const createDefaultInjectionSource = (
@@ -46,7 +47,7 @@ namespace MonacoInjection {
       return [
         'export {};',
         ...declarations,
-        `function __mebacoAction${scopeSuffix}() {`,
+        `${options.allowAwait === true ? 'async ' : ''}function __mebacoAction${scopeSuffix}() {`,
         analysisCode,
         '}',
       ].join('\n')
@@ -59,19 +60,22 @@ namespace MonacoInjection {
     return [
       'export {};',
       ...declarations,
+      `${options.allowAwait === true ? 'async ' : ''}function __mebacoExpression${scopeSuffix}() {`,
       `const __mebacoExpressionResult${scopeSuffix}${expectedTypeText == null ? '' : `: ${expectedTypeText}`} = (`,
       analysisCode,
       ');',
+      '}',
     ].join('\n')
   }
 
   export const getAnalysisOffsetLine = (
+    mode: Mode,
     options: AnalysisOptions = {},
   ): number => {
     const declarationLineCount = options.injectionSource == null
       ? 0
       : options.injectionSource.split('\n').length
-    const moduleAndWrapperLineCount = 2
+    const moduleAndWrapperLineCount = mode === 'expression' ? 3 : 2
 
     return declarationLineCount + moduleAndWrapperLineCount
   }

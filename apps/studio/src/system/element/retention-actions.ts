@@ -10,6 +10,7 @@ import StyleResolver from './kind/view/style-resolver'
 import TypeCatalog from './kind/type/type-catalog'
 import UnionTypeElement from './kind/type/union-type-element'
 import VariableElement from './kind/variable/variable-element'
+import FunctionActions from './function-actions'
 
 namespace RetentionActions {
   const findNode = (
@@ -66,6 +67,7 @@ namespace RetentionActions {
           namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
         }),
       )),
+      FunctionActions.createAddFunctionItem(parentNodeId, rootNode),
       action('Local Component', () => ElementDialog.openCreate(
         parentNodeId,
         ComponentElement.createSchema({

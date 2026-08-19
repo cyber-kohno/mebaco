@@ -1,0 +1,45 @@
+import type ElementDefinition from '../../element-definition'
+import FunctionActions from '../../function-actions'
+
+namespace FunctionProcedureElement {
+  export type Kind = 'function-procedure'
+
+  export type Element = {
+    kind: Kind
+  }
+
+  export const create = (): Element => ({
+    kind: 'function-procedure',
+  })
+
+  export const definition = {
+    kind: 'function-procedure',
+    treeLabel: {
+      type: 'static',
+      kindText: 'Procedure',
+      tone: 'manager',
+    },
+    getContextMenu: (context) => {
+      const returnIndex = context.node.children.findIndex(
+        (child) => child.element.kind === 'function-return',
+      )
+      const insertIndex = returnIndex < 0 ? undefined : returnIndex
+      return [
+        FunctionActions.createAddDeclareMenu(
+          context.node.id,
+          context.rootNode,
+          insertIndex,
+        ),
+        FunctionActions.createAddActionItem(context.node.id, insertIndex),
+        FunctionActions.createAddBlockItem(context.node.id, insertIndex),
+        ...(returnIndex < 0
+          ? [FunctionActions.createAddReturnItem(context.node.id, context.rootNode)]
+          : []),
+      ]
+    },
+    childSlots: [],
+    canDisable: false,
+  } satisfies ElementDefinition.Definition<Element>
+}
+
+export default FunctionProcedureElement

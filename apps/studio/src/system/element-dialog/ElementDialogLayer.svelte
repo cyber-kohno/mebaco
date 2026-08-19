@@ -23,6 +23,7 @@
   import ElementDialog from './element-dialog-controller'
   import { elementDialogStore } from './element-dialog-store'
   import ElementEditSchema from './element-edit-schema'
+  import FunctionScope from '../element/kind/function/function-scope'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -64,6 +65,7 @@
       case 'number':
         return ElementEditSchema.validateNumber(field, value)
       case 'checkbox':
+      case 'heading':
         return null
       case 'literal':
         return ElementEditSchema.validateLiteral(field, value, values)
@@ -170,6 +172,15 @@
     )
   }
 
+  const getAllowAwait = (
+    field: ElementEditSchema.FormulaField | ElementEditSchema.ScriptField,
+  ): boolean => {
+    if (field.allowAwaitInAsyncFunction !== true) return false
+    const targetNodeId = getTargetNodeId()
+    return targetNodeId != null
+      && FunctionScope.findOwnerFunction($rootNodeStore, targetNodeId)?.element.async === true
+  }
+
   const submit = () => {
     const session = $elementDialogStore
     if (session == null || !canSubmit()) return
@@ -246,7 +257,9 @@
       {#each visibleFields() as field}
         {@const error = getError(field)}
         {@const issue = touched[field.key] === true && error != null ? ValidationIssue.fromMessage(error) : null}
-        {#if field.type === 'styleProps'}
+        {#if field.type === 'heading'}
+          <div class="field-heading">{field.label}</div>
+        {:else if field.type === 'styleProps'}
           <div class="field" data-validation-severity={issue?.severity}>
             <span class="field-label">
               {field.label}
@@ -437,6 +450,7 @@
               injectionSource={getInjectionSource('expression')}
               expectedType={field.expectedType}
               expectedTypeText={field.getExpectedTypeText?.(values)}
+              allowAwait={getAllowAwait(field)}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true
@@ -452,6 +466,7 @@
             <ActionField
               value={values[field.key] ?? ''}
               injectionSource={getInjectionSource('action')}
+              allowAwait={getAllowAwait(field)}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true
@@ -753,6 +768,14 @@
   .field {
     display: grid;
     gap: 7px;
+  }
+
+  .field-heading {
+    margin: 2px 0 -9px;
+    color: #496970;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
   }
 
   .checkbox-field {

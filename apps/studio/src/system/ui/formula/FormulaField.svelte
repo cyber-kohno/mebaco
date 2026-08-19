@@ -8,6 +8,7 @@
     injectionSource?: string
     expectedType?: MonacoInjection.ExpectedType
     expectedTypeText?: string
+    allowAwait?: boolean
   }
 
   let {
@@ -16,6 +17,7 @@
     injectionSource,
     expectedType,
     expectedTypeText,
+    allowAwait = false,
   }: Props = $props()
 </script>
 
@@ -27,5 +29,6 @@
   {injectionSource}
   {expectedType}
   {expectedTypeText}
+  {allowAwait}
   {onValueChange}
 />

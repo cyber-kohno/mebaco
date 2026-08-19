@@ -6,6 +6,7 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import RetentionActions from '../../retention-actions'
 import TreeStore from '../../../store/tree-store'
 import type TreeNode from '../../../tree/tree-node'
+import FunctionActions from '../../function-actions'
 
 namespace BlockElement {
   export type Kind = 'block'
@@ -59,6 +60,15 @@ namespace BlockElement {
     findPath(rootNode, nodeId)?.some((node) => node.element.kind === 'retention') ?? false
   )
 
+  const isInFunctionProcedure = (
+    rootNode: TreeNode.Node,
+    nodeId: number,
+  ): boolean => (
+    findPath(rootNode, nodeId)?.some(
+      (node) => node.element.kind === 'function-procedure',
+    ) ?? false
+  )
+
   export const definition = {
     kind: 'block',
     treeLabel: {
@@ -79,7 +89,13 @@ namespace BlockElement {
         )),
       ]
 
-      if (isInRetention(context.rootNode, context.node.id)) {
+      if (isInFunctionProcedure(context.rootNode, context.node.id)) {
+        items.push(
+          FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
+          FunctionActions.createAddActionItem(context.node.id),
+          FunctionActions.createAddBlockItem(context.node.id),
+        )
+      } else if (isInRetention(context.rootNode, context.node.id)) {
         items.push(
           RetentionActions.createAddDeclareMenu(context.node.id, context.rootNode),
           RetentionActions.createAddActionItem(context.node.id),

@@ -4,6 +4,7 @@ import type UnionTypeElement from './union-type-element'
 import type ObjectShape from './object-shape'
 import TypeExpression from './type-expression'
 import UnionDefinition from './union-definition'
+import ContentHost from '../../content-host'
 
 namespace TypeCatalog {
   export type ObjectEntry = {
@@ -74,59 +75,103 @@ namespace TypeCatalog {
     rootNode.children.find((node) => node.element.kind === 'common') ?? null
   )
 
-  export const collectVisibleObjects = (
-    rootNode: TreeNode.Node,
-    targetNodeId: number,
-  ): ObjectEntry[] => {
-    const path = findPath(rootNode, targetNodeId) ?? []
-    const ownerApp = [...path].reverse().find((node) => node.element.kind === 'app')
-    const ownerCommon = [...path].reverse().find((node) => node.element.kind === 'common')
+  const findDirectChild = (
+    node: TreeNode.Node,
+    kind: TreeNode.Node['element']['kind'],
+  ): TreeNode.Node | null => (
+    node.children.find((child) => child.element.kind === kind) ?? null
+  )
 
-    const entries = ownerApp == null
-      ? collectObjects(ownerCommon ?? rootNode)
-      : [
-          ...collectObjects(ownerApp),
-          ...(findCommonNode(rootNode) == null ? [] : collectObjects(findCommonNode(rootNode)!)),
-        ]
-
-    return [...new Map(entries.map((entry) => [entry.element.typeId, entry])).values()]
+  const collectGlobalNamedTypes = (
+    ownerNode: TreeNode.Node | null,
+  ): NamedTypeEntry[] => {
+    if (ownerNode == null) return []
+    const declaresNode = findDirectChild(ownerNode, 'declares')
+    const typesNode = declaresNode == null ? null : findDirectChild(declaresNode, 'types')
+    const source = typesNode?.children ?? ownerNode.children
+    const entries: NamedTypeEntry[] = []
+    source.forEach((node) => {
+      if (node.element.kind === 'object-type') {
+        entries.push({ node, element: node.element })
+      } else if (node.element.kind === 'union-type') {
+        entries.push({ node, element: node.element })
+      }
+    })
+    return entries
   }
 
-  export const collectVisibleUnions = (
-    rootNode: TreeNode.Node,
-    targetNodeId: number,
-  ): UnionEntry[] => {
-    const path = findPath(rootNode, targetNodeId) ?? []
-    const ownerApp = [...path].reverse().find((node) => node.element.kind === 'app')
-    const ownerCommon = [...path].reverse().find((node) => node.element.kind === 'common')
-
-    const entries = ownerApp == null
-      ? collectUnions(ownerCommon ?? rootNode)
-      : [
-          ...collectUnions(ownerApp),
-          ...(findCommonNode(rootNode) == null ? [] : collectUnions(findCommonNode(rootNode)!)),
-        ]
-
-    return [...new Map(entries.map((entry) => [entry.element.typeId, entry])).values()]
+  const collectFrameNamedTypes = (
+    frameNode: TreeNode.Node,
+  ): NamedTypeEntry[] => {
+    const entries: NamedTypeEntry[] = []
+    const collect = (children: readonly TreeNode.Node[]) => {
+      children.forEach((child) => {
+        if (child.element.kind === 'object-type') {
+          entries.push({ node: child, element: child.element })
+        } else if (child.element.kind === 'union-type') {
+          entries.push({ node: child, element: child.element })
+        } else if (child.element.kind === 'block') {
+          collect(child.children)
+        }
+      })
+    }
+    collect(frameNode.children)
+    return entries
   }
 
-  export const collectVisibleNamedTypes = (
+  const collectVisibleNamedTypesInternal = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
   ): NamedTypeEntry[] => {
     const path = findPath(rootNode, targetNodeId) ?? []
     const ownerApp = [...path].reverse().find((node) => node.element.kind === 'app')
     const ownerCommon = [...path].reverse().find((node) => node.element.kind === 'common')
+    const entries = new Map<string, NamedTypeEntry>()
+    const add = (items: readonly NamedTypeEntry[]) => {
+      items.forEach((entry) => entries.set(entry.element.typeId, entry))
+    }
 
-    const entries = ownerApp == null
-      ? collectNamedTypes(ownerCommon ?? rootNode)
-      : [
-          ...collectNamedTypes(ownerApp),
-          ...(findCommonNode(rootNode) == null ? [] : collectNamedTypes(findCommonNode(rootNode)!)),
-        ]
+    add(collectGlobalNamedTypes(ownerCommon ?? findCommonNode(rootNode)))
+    if (ownerApp != null) add(collectGlobalNamedTypes(ownerApp))
+    if (ownerCommon == null && ownerApp == null && findCommonNode(rootNode) == null) {
+      add(collectGlobalNamedTypes(rootNode))
+    }
 
-    return [...new Map(entries.map((entry) => [entry.element.typeId, entry])).values()]
+    path.forEach((node, index) => {
+      if (
+        node.element.kind === 'retention'
+        || node.element.kind === 'function-procedure'
+      ) {
+        add(collectFrameNamedTypes(node))
+      }
+
+      const nextNode = path[index + 1]
+      const retentionNode = ContentHost.getRetentionNode(node)
+      const elementsNode = ContentHost.getElementsNode(node)
+      if (retentionNode != null && nextNode === elementsNode) {
+        add(collectFrameNamedTypes(retentionNode))
+      }
+    })
+
+    return [...entries.values()]
   }
+
+  export const collectVisibleObjects = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): ObjectEntry[] => collectVisibleNamedTypesInternal(rootNode, targetNodeId)
+    .filter((entry): entry is ObjectEntry => entry.element.kind === 'object-type')
+
+  export const collectVisibleUnions = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): UnionEntry[] => collectVisibleNamedTypesInternal(rootNode, targetNodeId)
+    .filter((entry): entry is UnionEntry => entry.element.kind === 'union-type')
+
+  export const collectVisibleNamedTypes = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): NamedTypeEntry[] => collectVisibleNamedTypesInternal(rootNode, targetNodeId)
 
   export const findObject = (
     rootNode: TreeNode.Node,
@@ -289,6 +334,14 @@ namespace TypeCatalog {
       if (node.element.kind === 'state') {
         referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
       }
+      if (node.element.kind === 'function-argument') {
+        referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
+      }
+      if (node.element.kind === 'function' && node.element.returnType != null) {
+        referenced ||= TypeExpression.getReferenceIds(
+          node.element.returnType.valueType,
+        ).includes(objectTypeId)
+      }
       if (
         node.element.kind === 'variable'
         && node.element.typeSetting.type === 'explicit'
@@ -319,6 +372,14 @@ namespace TypeCatalog {
       }
       if (node.element.kind === 'value-prop') {
         referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(unionTypeId)
+      }
+      if (node.element.kind === 'function-argument') {
+        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(unionTypeId)
+      }
+      if (node.element.kind === 'function' && node.element.returnType != null) {
+        referenced ||= TypeExpression.getNamedTypeIds(
+          node.element.returnType.valueType,
+        ).includes(unionTypeId)
       }
       if (
         node.element.kind === 'variable'

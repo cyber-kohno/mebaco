@@ -5,9 +5,10 @@
     value: string
     onValueChange: (value: string) => void
     injectionSource?: string
+    allowAwait?: boolean
   }
 
-  let { value, onValueChange, injectionSource }: Props = $props()
+  let { value, onValueChange, injectionSource, allowAwait = false }: Props = $props()
 </script>
 
 <ScriptEditorField
@@ -16,5 +17,6 @@
   title="TypeScript Action"
   dialogLabel="Action editor"
   {injectionSource}
+  {allowAwait}
   {onValueChange}
 />

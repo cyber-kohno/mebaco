@@ -76,6 +76,13 @@ namespace ElementEditSchema {
     defaultValue?: 'true' | 'false'
   } & FieldBase
 
+  export type HeadingField = {
+    type: 'heading'
+    key: string
+    label: string
+    defaultValue?: never
+  } & FieldBase
+
   export type LiteralField = {
     type: 'literal'
     key: string
@@ -94,6 +101,7 @@ namespace ElementEditSchema {
     maxLength?: number
     expectedType?: 'string' | 'number' | 'boolean' | 'array'
     getExpectedTypeText?: (values: Readonly<Record<string, string>>) => string | undefined
+    allowAwaitInAsyncFunction?: boolean
   } & FieldBase
 
   export type ScriptField = {
@@ -103,6 +111,7 @@ namespace ElementEditSchema {
     defaultValue?: string
     required?: boolean
     maxLength?: number
+    allowAwaitInAsyncFunction?: boolean
   } & FieldBase
 
   export type ValueSourceField = {
@@ -227,6 +236,7 @@ namespace ElementEditSchema {
     | SelectField
     | NumberField
     | CheckboxField
+    | HeadingField
     | LiteralField
     | FormulaField
     | ScriptField

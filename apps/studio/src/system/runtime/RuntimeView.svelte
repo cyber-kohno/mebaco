@@ -10,6 +10,7 @@
   import StyleResolver from './style/style-resolver'
   import RuntimeProps from './runtime-props'
   import RuntimeRefRegistry from './ref/runtime-ref-registry'
+  import FunctionRunner from './function/function-runner'
 
   type Props = {
     appNode: TreeNode.Node
@@ -34,20 +35,39 @@
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(runtime))
   const entryComponentNode = $derived(RuntimeTree.getEntryComponentNode(runtime))
+  const appFormulaContext = $derived.by(() => {
+    const context = FormulaContext.create({
+      $state: runtimeState,
+      $system: runtimeSystem,
+    })
+    context.$function = FunctionRunner.createNamespace(
+      projectNode,
+      appNode.id,
+      context,
+    )
+    return context
+  })
   const entryProps = $derived(
     entryComponentNode == null
       ? RuntimeProps.empty()
       : RuntimeProps.resolveEntry(
           runtime,
           entryComponentNode,
-          FormulaContext.create({ $state: runtimeState }),
+          appFormulaContext,
         ),
   )
-  const formulaContext = $derived(FormulaContext.create({
-    $state: runtimeState,
-    $props: entryProps.values,
-    $system: runtimeSystem,
-  }))
+  const formulaContext = $derived.by(() => {
+    const context = FormulaContext.create({
+      ...appFormulaContext,
+      $props: entryProps.values,
+    })
+    context.$function = FunctionRunner.createNamespace(
+      projectNode,
+      entryComponentNode?.id ?? appNode.id,
+      context,
+    )
+    return context
+  })
   const styleCatalog = $derived(StyleResolver.createCatalog(projectNode))
   const firstStyleError = $derived(Object.entries(styleResults)
     .flatMap(([nodeId, result]) => {

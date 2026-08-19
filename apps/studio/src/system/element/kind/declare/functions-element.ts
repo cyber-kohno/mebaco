@@ -1,4 +1,5 @@
 import type ElementDefinition from '../../element-definition'
+import FunctionActions from '../../function-actions'
 
 namespace FunctionsElement {
   export type Kind = 'functions'
@@ -18,7 +19,9 @@ namespace FunctionsElement {
       kindText: 'Functions',
       tone: 'folder',
     },
-    getContextMenu: () => [],
+    getContextMenu: (context) => [
+      FunctionActions.createAddFunctionItem(context.node.id, context.rootNode),
+    ],
     childSlots: [],
     canDisable: false,
   } satisfies ElementDefinition.Definition<Element>

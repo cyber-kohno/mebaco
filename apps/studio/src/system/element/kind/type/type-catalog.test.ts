@@ -270,4 +270,35 @@ describe('TypeCatalog', () => {
       properties: [property('id', { type: 'number' })],
     }, options)).toBe('Local property "id" conflicts with a Base Object.')
   })
+
+  it('keeps Function-local types inside their lexical Procedure scope', () => {
+    const globalType = objectType('global-type', 'GlobalType')
+    const ownType = objectType('own-type', 'OwnType')
+    const otherType = objectType('other-type', 'OtherType')
+    const target = node({ kind: 'action', comment: '', source: '' })
+    const otherTarget = node({ kind: 'action', comment: '', source: '' })
+    const root = node({ kind: 'project' }, [
+      node({ kind: 'common' }, [
+        node({ kind: 'declares' }, [node({ kind: 'types' })]),
+      ]),
+      node({ kind: 'apps' }, [
+        node({ kind: 'app', id: 'app' }, [
+          node({ kind: 'declares' }, [node({ kind: 'types' }, [globalType])]),
+          node({ kind: 'function', id: 'first', async: false, returnType: null }, [
+            node({ kind: 'function-arguments' }),
+            node({ kind: 'function-procedure' }, [ownType, target]),
+          ]),
+          node({ kind: 'function', id: 'second', async: false, returnType: null }, [
+            node({ kind: 'function-arguments' }),
+            node({ kind: 'function-procedure' }, [otherType, otherTarget]),
+          ]),
+        ]),
+      ]),
+    ])
+
+    expect(TypeCatalog.collectVisibleNamedTypes(root, target.id)
+      .map((entry) => entry.element.id)).toEqual(['GlobalType', 'OwnType'])
+    expect(TypeCatalog.collectVisibleNamedTypes(root, otherTarget.id)
+      .map((entry) => entry.element.id)).toEqual(['GlobalType', 'OtherType'])
+  })
 })
