@@ -46,6 +46,7 @@ import TagElement from './kind/view/tag-element'
 import TextElement from './kind/view/text-element'
 import ObjectTypeElement from './kind/type/object-type-element'
 import UnionTypeElement from './kind/type/union-type-element'
+import SignatureTypeElement from './kind/type/signature-type-element'
 import VariableElement from './kind/variable/variable-element'
 import ActionElement from './kind/variable/action-element'
 import BlockElement from './kind/block/block-element'
@@ -108,6 +109,7 @@ namespace ElementRegistry {
     types: TypesElement.definition,
     'object-type': ObjectTypeElement.definition,
     'union-type': UnionTypeElement.definition,
+    'signature-type': SignatureTypeElement.definition,
     styles: StylesElement.definition,
     variable: VariableElement.definition,
     action: ActionElement.definition,

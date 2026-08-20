@@ -105,7 +105,7 @@ describe('RetentionResolver', () => {
 
   it('exposes Retention Functions through $function', () => {
     const functionNode = node({
-      kind: 'function', id: 'scale', async: false,
+      kind: 'function', id: 'scale', mode: 'inline', async: false,
       returnType: { valueType: { type: 'number' }, nullable: false },
     }, [
       node({ kind: 'function-arguments' }, [
@@ -138,7 +138,7 @@ describe('RetentionResolver', () => {
 
   it('lets a Retention Function update a captured let Variable', () => {
     const functionNode = node({
-      kind: 'function', id: 'increment', async: false,
+      kind: 'function', id: 'increment', mode: 'inline', async: false,
       returnType: { valueType: { type: 'number' }, nullable: false },
     }, [
       node({ kind: 'function-arguments' }),

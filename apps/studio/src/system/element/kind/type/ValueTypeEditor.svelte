@@ -3,11 +3,12 @@
   import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
   import TypeExpression from './type-expression'
   import ValueTypeDefinition from './value-type-definition'
+  import SignatureReferencePreview from './SignatureReferencePreview.svelte'
 
   type Props = {
     value: string
     objectOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string }[]
-    namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string }[]
+    namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string; preview?: string; kind?: 'union' | 'signature' }[]
     errorMessage?: string | null
     onValueChange: (value: string) => void
   }
@@ -26,6 +27,34 @@
   const unwrapped = $derived(TypeExpression.unwrapArray(definition.valueType))
   const base = $derived(unwrapped.base)
   const arrayDepth = $derived(unwrapped.depth)
+  const unionTypeOptions = $derived(
+    namedTypeOptions.filter((option) => option.kind !== 'signature'),
+  )
+  const signatureTypeOptions = $derived(
+    namedTypeOptions.filter((option) => option.kind === 'signature'),
+  )
+  const selectedNamedTypeKind = $derived(
+    base.type === 'named'
+    && (
+      base.namedTypeKind === 'signature'
+      || signatureTypeOptions.some((option) => option.value === base.namedTypeId)
+    )
+      ? 'signature'
+      : 'union',
+  )
+  const selectedBaseType = $derived(
+    base.type === 'named' && selectedNamedTypeKind === 'signature'
+      ? 'signature'
+      : base.type,
+  )
+  const selectedSignaturePreview = $derived(
+    selectedNamedTypeKind === 'signature' && base.type === 'named'
+      ? signatureTypeOptions.find((option) => option.value === base.namedTypeId)?.preview
+        ?? signatureTypeOptions.find((option) => option.value === base.namedTypeId)?.title
+      : undefined,
+  )
+
+  type EditorBaseType = TypeExpression.BaseType | 'signature'
 
   const emit = (
     next: ValueTypeDefinition.Definition,
@@ -40,7 +69,7 @@
   })
 
   const setBaseType = (
-    baseType: TypeExpression.BaseType,
+    baseType: EditorBaseType,
   ) => {
     if (baseType === 'reference') {
       emitBase(TypeExpression.createReference(['']), false)
@@ -48,6 +77,10 @@
     }
     if (baseType === 'named') {
       emitBase(TypeExpression.createNamed(''), false)
+      return
+    }
+    if (baseType === 'signature') {
+      emitBase(TypeExpression.createNamed('', 'signature'), false)
       return
     }
     if (baseType === 'object') {
@@ -77,7 +110,12 @@
     namedTypeId: string,
   ) => {
     if (base.type !== 'named') return
-    emitBase(TypeExpression.createNamed(namedTypeId), false)
+    emitBase(TypeExpression.createNamed(
+      namedTypeId,
+      selectedNamedTypeKind === 'signature' && namedTypeId.length === 0
+        ? 'signature'
+        : 'union',
+    ), false)
   }
 
   const setReference = (
@@ -160,14 +198,15 @@
   <label>
     <span>Value Type</span>
     <select
-      value={base.type}
-      onchange={(event) => setBaseType(event.currentTarget.value as TypeExpression.BaseType)}
+      value={selectedBaseType}
+      onchange={(event) => setBaseType(event.currentTarget.value as EditorBaseType)}
     >
       {#each TypeExpression.primitiveTypes as type}
         <option value={type}>{type}</option>
       {/each}
       <option value="reference">{TypeExpression.getBaseTypeLabel('reference')}</option>
       <option value="named">{TypeExpression.getBaseTypeLabel('named')}</option>
+      <option value="signature">Signature</option>
     </select>
   </label>
 
@@ -214,16 +253,21 @@
 
   {#if base.type === 'named'}
     <label>
-      <span>Union</span>
-      <select
-        value={base.namedTypeId}
-        onchange={(event) => setNamedType(event.currentTarget.value)}
-      >
-        <option value=""></option>
-        {#each namedTypeOptions as option}
-          <option value={option.value}>{option.name ?? option.label ?? option.value}</option>
-        {/each}
-      </select>
+      <span>{selectedNamedTypeKind === 'signature' ? 'Signature' : 'Union'}</span>
+      <span class="type-selection-control">
+        <select
+          value={base.namedTypeId}
+          onchange={(event) => setNamedType(event.currentTarget.value)}
+        >
+          <option value=""></option>
+          {#each selectedNamedTypeKind === 'signature' ? signatureTypeOptions : unionTypeOptions as option}
+            <option value={option.value}>{option.name ?? option.label ?? option.value}</option>
+          {/each}
+        </select>
+        {#if selectedNamedTypeKind === 'signature'}
+          <SignatureReferencePreview text={selectedSignaturePreview} />
+        {/if}
+      </span>
     </label>
   {/if}
 
@@ -304,6 +348,12 @@
   }
 
   .reference-list {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .type-selection-control {
     display: grid;
     gap: 7px;
     min-width: 0;

@@ -5,6 +5,7 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TreeStore from '../../../store/tree-store'
 import FunctionActions from '../../function-actions'
 import FunctionScope from './function-scope'
+import FunctionElement from './function-element'
 
 namespace FunctionReturnElement {
   export type Kind = 'function-return'
@@ -54,7 +55,7 @@ namespace FunctionReturnElement {
       const { action } = ActionMenuState.createFactory()
       const owner = FunctionScope.findOwnerFunction(context.rootNode, context.node.id)
       return [
-        ...(owner?.element.returnType == null
+        ...(owner == null || FunctionElement.getReturnType(context.rootNode, owner.element) == null
           ? []
           : [action('Modify', () => ElementDialog.openUpdate(
               context.node.id,

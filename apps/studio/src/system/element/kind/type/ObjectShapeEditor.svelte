@@ -3,12 +3,13 @@
   import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
   import TypeExpression from './type-expression'
   import ObjectShape from './object-shape'
+  import SignatureReferencePreview from './SignatureReferencePreview.svelte'
 
   type Props = {
     objectId: string
     value: string
     objectOptions: readonly ObjectShape.ObjectOption[]
-    namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string }[]
+    namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string; preview?: string; kind?: 'union' | 'signature' }[]
     errorMessage?: string | null
     onValueChange: (value: string) => void
   }
@@ -29,7 +30,7 @@
   }
 
   type Row = PropertyRow | CloseRow
-  type ObjectShapeBaseType = TypeExpression.BaseType
+  type ObjectShapeBaseType = TypeExpression.BaseType | 'signature'
 
   let {
     objectId,
@@ -106,6 +107,26 @@
       ? null
       : TypeExpression.unwrapArray(selectedProperty.valueType).base,
   )
+  const unionTypeOptions = $derived(
+    namedTypeOptions.filter((option) => option.kind !== 'signature'),
+  )
+  const signatureTypeOptions = $derived(
+    namedTypeOptions.filter((option) => option.kind === 'signature'),
+  )
+  const selectedNamedTypeKind = $derived(
+    selectedBase?.type === 'named'
+    && (
+      selectedBase.namedTypeKind === 'signature'
+      || signatureTypeOptions.some((option) => option.value === selectedBase.namedTypeId)
+    )
+      ? 'signature'
+      : 'union',
+  )
+  const selectedEditorBaseType = $derived(
+    selectedBase?.type === 'named' && selectedNamedTypeKind === 'signature'
+      ? 'signature'
+      : selectedBase?.type ?? 'string',
+  )
   const selectedArrayDepth = $derived(
     selectedProperty == null
       ? 0
@@ -173,6 +194,8 @@
           ? TypeExpression.createReference([objectOptions[0]?.value ?? ''])
           : type === 'named'
             ? TypeExpression.createNamed('')
+            : type === 'signature'
+              ? TypeExpression.createNamed('', 'signature')
             : TypeExpression.createPrimitive(type)
       property.valueType = TypeExpression.wrapArray(nextBase, depth)
     })
@@ -183,6 +206,9 @@
       const { base } = TypeExpression.unwrapArray(property.valueType)
       if (base.type !== 'named') return
       base.namedTypeId = namedTypeId
+      if (selectedNamedTypeKind === 'signature' && namedTypeId.length === 0) {
+        base.namedTypeKind = 'signature'
+      } else delete base.namedTypeKind
     })
   }
 
@@ -278,7 +304,7 @@
   const getNamedTypeText = (namedTypeId: string): string => (
     namedTypeOptions.find((option) => option.value === namedTypeId)?.name
       ?? namedTypeOptions.find((option) => option.value === namedTypeId)?.label
-      ?? 'MissingUnion'
+      ?? 'MissingType'
   )
 
   const getNamedTypeDetail = (namedTypeId: string): string | undefined => (
@@ -287,6 +313,11 @@
 
   const getNamedTypeTitle = (namedTypeId: string): string | undefined => (
     namedTypeOptions.find((option) => option.value === namedTypeId)?.title
+  )
+
+  const getNamedTypePreview = (namedTypeId: string): string | undefined => (
+    namedTypeOptions.find((option) => option.value === namedTypeId)?.preview
+      ?? getNamedTypeTitle(namedTypeId)
   )
 
   const setBaseObject = (index: number, objectTypeId: string) => {
@@ -490,7 +521,7 @@
         <label>
           <span>Value Type</span>
           <select
-            value={selectedBase?.type ?? 'string'}
+            value={selectedEditorBaseType}
             onchange={(event) => setBaseType(event.currentTarget.value as ObjectShapeBaseType)}
           >
             {#each TypeExpression.primitiveTypes as type}
@@ -508,6 +539,10 @@
               value="named"
               disabled={selectedBase?.type === 'object' && selectedBase.properties.length > 0}
             >{TypeExpression.getBaseTypeLabel('named')}</option>
+            <option
+              value="signature"
+              disabled={selectedBase?.type === 'object' && selectedBase.properties.length > 0}
+            >Signature</option>
           </select>
         </label>
 
@@ -554,18 +589,23 @@
 
         {#if selectedBase?.type === 'named'}
           <label class="select-with-detail-row">
-            <span>Union</span>
-            <span class="select-with-detail">
+            <span>{selectedNamedTypeKind === 'signature' ? 'Signature' : 'Union'}</span>
+            <span
+              class="select-with-detail"
+              class:signature-selection={selectedNamedTypeKind === 'signature'}
+            >
               <select
                 value={selectedBase.namedTypeId}
                 onchange={(event) => setNamedType(event.currentTarget.value)}
               >
                 <option value=""></option>
-                {#each namedTypeOptions as option}
+                {#each selectedNamedTypeKind === 'signature' ? signatureTypeOptions : unionTypeOptions as option}
                   <option value={option.value}>{option.name ?? option.label ?? option.value}</option>
                 {/each}
               </select>
-              {#if getNamedTypeDetail(selectedBase.namedTypeId) != null}
+              {#if selectedNamedTypeKind === 'signature'}
+                <SignatureReferencePreview text={getNamedTypePreview(selectedBase.namedTypeId)} />
+              {:else if getNamedTypeDetail(selectedBase.namedTypeId) != null}
                 <span
                   class="select-detail"
                   title={getNamedTypeTitle(selectedBase.namedTypeId) ?? getNamedTypeDetail(selectedBase.namedTypeId)}
@@ -824,6 +864,11 @@
     font-size: 12px;
     font-weight: 800;
     white-space: nowrap;
+  }
+
+  .select-with-detail.signature-selection {
+    display: grid;
+    gap: 7px;
   }
 
   .modifier-fields {

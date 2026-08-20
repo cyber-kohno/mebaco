@@ -4,6 +4,7 @@ import type TreeNode from '../../tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import FunctionRunner from './function-runner'
 import VariableFrame from '../variable/variable-frame'
+import type FunctionElement from '../../element/kind/function/function-element'
 
 let nextNodeId = 1
 const node = (
@@ -24,14 +25,11 @@ const fn = (
   id: string,
   argumentNodes: TreeNode.Node[],
   procedureChildren: TreeNode.Node[],
-  returnType: Extract<
-    MebacoElement.Element,
-    { kind: 'function' }
-  >['returnType'] = {
+  returnType: FunctionElement.InlineElement['returnType'] = {
     valueType: { type: 'number' }, nullable: false,
   },
   async = false,
-) => node({ kind: 'function', id, async, returnType }, [
+) => node({ kind: 'function', id, mode: 'inline', async, returnType }, [
   node({ kind: 'function-arguments' }, argumentNodes),
   node({ kind: 'function-procedure' }, procedureChildren),
 ])
@@ -54,6 +52,31 @@ const project = (functions: TreeNode.Node[]) => node({ kind: 'project' }, [
 ])
 
 describe('FunctionRunner', () => {
+  it('executes a Refer Function with its Signature arguments and return type', () => {
+    nextNodeId = 1
+    const save = node({
+      kind: 'function', id: 'save', mode: 'refer', signatureTypeId: 'save-signature',
+    }, [
+      node({ kind: 'function-procedure' }, [
+        node({ kind: 'function-return', source: '$args.value * 2' }),
+      ]),
+    ])
+    const root = project([save])
+    const typesNode = root.children[1]?.children[0]?.children[0]?.children
+      .find((child) => child.element.kind === 'types')
+    typesNode?.children.push(node({
+      kind: 'signature-type', typeId: 'save-signature', id: 'SaveSignature',
+      async: false,
+      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }))
+
+    expect(FunctionRunner.run(save, [3], FormulaContext.createEmpty(), root))
+      .toEqual({ ok: true, value: 6 })
+    expect(FunctionRunner.run(save, ['3'], FormulaContext.createEmpty(), root))
+      .toMatchObject({ ok: false, error: { message: expect.stringContaining("Argument 'value'") } })
+  })
+
   it('executes Variables and Actions in order and evaluates Return', () => {
     nextNodeId = 1
     const calculate = fn('calculate', [argument('count')], [
@@ -84,6 +107,63 @@ describe('FunctionRunner', () => {
       .toMatchObject({ ok: false, error: { message: expect.stringContaining("Argument 'count'") } })
     expect(FunctionRunner.run(calculate, [3], FormulaContext.createEmpty(), root))
       .toMatchObject({ ok: false, error: { message: expect.stringContaining('incompatible') } })
+  })
+
+  it('accepts a callback through a Signature Value Type argument', () => {
+    nextNodeId = 1
+    const execute = fn('execute', [
+      argument('handler', { type: 'named', namedTypeId: 'handler-type' }),
+    ], [
+      node({ kind: 'function-return', source: '$args.handler(3)' }),
+    ])
+    const root = project([execute])
+    const typesNode = root.children[1]?.children[0]?.children[0]?.children
+      .find((child) => child.element.kind === 'types')
+    typesNode?.children.push(node({
+      kind: 'signature-type',
+      typeId: 'handler-type',
+      id: 'Handler',
+      async: false,
+      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }))
+
+    expect(FunctionRunner.run(execute, [(value: number) => value * 2], FormulaContext.createEmpty(), root))
+      .toEqual({ ok: true, value: 6 })
+    expect(FunctionRunner.run(execute, ['not a function'], FormulaContext.createEmpty(), root))
+      .toMatchObject({ ok: false, error: { message: expect.stringContaining("Argument 'handler'") } })
+  })
+
+  it('stores a local function in a Signature-typed Variable', () => {
+    nextNodeId = 1
+    const execute = fn('execute', [], [
+      node({
+        kind: 'variable',
+        id: 'handler',
+        binding: 'const',
+        typeSetting: {
+          type: 'explicit',
+          valueType: { type: 'named', namedTypeId: 'handler-type' },
+          nullable: false,
+        },
+        source: '(value) => value * 2',
+      }),
+      node({ kind: 'function-return', source: '$var.handler(4)' }),
+    ])
+    const root = project([execute])
+    const typesNode = root.children[1]?.children[0]?.children[0]?.children
+      .find((child) => child.element.kind === 'types')
+    typesNode?.children.push(node({
+      kind: 'signature-type',
+      typeId: 'handler-type',
+      id: 'Handler',
+      async: false,
+      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      returnType: { valueType: { type: 'number' }, nullable: false },
+    }))
+
+    expect(FunctionRunner.run(execute, [], FormulaContext.createEmpty(), root))
+      .toEqual({ ok: true, value: 8 })
   })
 
   it('supports calls through the typed Function namespace', () => {

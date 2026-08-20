@@ -30,7 +30,7 @@ const createTree = (withReturn = false) => {
   }
   const owner: TreeNode.Node = {
     id: 2,
-    element: FunctionElement.create('calculate'),
+    element: FunctionElement.createInline('calculate'),
     isOpen: true,
     children: [
       { id: 3, element: { kind: 'function-arguments' }, isOpen: true, children: [] },
@@ -58,12 +58,14 @@ describe('Function editing UI models', () => {
 
     expect(schema.create({
       id: 'loadCount',
+      mode: 'inline',
       async: 'true',
       voidReturn: 'false',
       returnType,
     })).toEqual({
       kind: 'function',
       id: 'loadCount',
+      mode: 'inline',
       async: true,
       returnType: {
         valueType: { type: 'number' },
@@ -72,45 +74,71 @@ describe('Function editing UI models', () => {
     })
   })
 
-  it('shows Void by default and reuses Value Type fields only for non-void Functions', () => {
+  it('shows Inline fields by default and switches to a Signature for Refer mode', () => {
     const schema = FunctionElement.createSchema()
 
-    expect(schema.fields.map((field) => ({
-      type: field.type,
-      key: field.key,
-      label: field.label,
-      defaultValue: 'defaultValue' in field ? field.defaultValue : undefined,
-      visibleWhen: field.visibleWhen,
-    }))).toEqual([
-      expect.objectContaining({ type: 'text', key: 'id', label: 'Id' }),
-      expect.objectContaining({
-        type: 'checkbox', key: 'async', label: 'Async', defaultValue: 'false',
-      }),
-      expect.objectContaining({
-        type: 'heading', key: 'returnTypeHeading', label: 'Return Type',
-      }),
-      expect.objectContaining({
-        type: 'checkbox', key: 'voidReturn', label: 'Void', defaultValue: 'true',
-      }),
-      expect.objectContaining({
-        type: 'valueType',
-        key: 'returnType',
-        visibleWhen: { key: 'voidReturn', value: 'false' },
-      }),
+    expect(schema.fields.map((field) => field.key)).toEqual([
+      'id', 'mode', 'async', 'returnTypeHeading', 'voidReturn', 'returnType',
+      'signatureTypeId',
     ])
+    expect(schema.fields.find((field) => field.key === 'mode')).toMatchObject({
+      type: 'select', defaultValue: 'inline',
+      options: [
+        { value: 'inline', label: 'Inline' },
+        { value: 'refer', label: 'Refer' },
+      ],
+    })
+    expect(schema.fields.find((field) => field.key === 'async')).toMatchObject({
+      visibleWhen: { key: 'mode', value: 'inline' },
+    })
+    expect(schema.fields.find((field) => field.key === 'returnType')).toMatchObject({
+      visibleWhenAll: [
+        { key: 'mode', value: 'inline' },
+        { key: 'voidReturn', value: 'false' },
+      ],
+    })
+    expect(schema.fields.find((field) => field.key === 'signatureTypeId')).toMatchObject({
+      width: 'id',
+      visibleWhen: { key: 'mode', value: 'refer' },
+    })
 
     expect(schema.create({
       id: 'notify',
+      mode: 'inline',
       async: 'false',
       voidReturn: 'true',
       returnType: ValueTypeDefinition.stringify(ValueTypeDefinition.create(
         TypeExpression.createPrimitive('number'),
       )),
-    }).returnType).toBeNull()
+    })).toEqual(FunctionElement.createInline('notify'))
 
-    expect(schema.getInitialValues(FunctionElement.create('notify'))).toMatchObject({
+    expect(schema.getInitialValues(FunctionElement.createInline('notify'))).toMatchObject({
+      mode: 'inline',
       async: 'false',
       voidReturn: 'true',
+    })
+  })
+
+  it('creates Refer Functions and locks their mode after creation', () => {
+    const option = {
+      value: 'save-signature', label: 'SaveHandler', kind: 'signature' as const,
+      preview: '(payload: string) => void',
+    }
+    const createSchema = FunctionElement.createSchema({ namedTypeOptions: [option] })
+    expect(createSchema.fields.find((field) => field.key === 'signatureTypeId'))
+      .toMatchObject({ options: [option] })
+    expect(createSchema.create({
+      id: 'save',
+      mode: 'refer',
+      signatureTypeId: option.value,
+    })).toEqual(FunctionElement.createRefer('save', option.value))
+
+    const updateSchema = FunctionElement.createSchema({
+      namedTypeOptions: [option],
+      lockedMode: 'refer',
+    })
+    expect(updateSchema.fields.find((field) => field.key === 'mode')).toMatchObject({
+      options: [{ value: 'refer', label: 'Refer' }],
     })
   })
 

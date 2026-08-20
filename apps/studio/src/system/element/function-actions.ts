@@ -9,6 +9,7 @@ import ObjectTypeElement from './kind/type/object-type-element'
 import TreeStore from '../store/tree-store'
 import TypeCatalog from './kind/type/type-catalog'
 import UnionTypeElement from './kind/type/union-type-element'
+import SignatureTypeElement from './kind/type/signature-type-element'
 import ValueTypeDefinition from './kind/type/value-type-definition'
 import VariableElement from './kind/variable/variable-element'
 import FunctionScope from './kind/function/function-scope'
@@ -103,6 +104,15 @@ namespace FunctionActions {
         UnionTypeElement.createSchema({ reservedNames: typeNames, objectOptions }),
         insertIndex,
       )),
+      action('Signature', () => ElementDialog.openCreate(
+        parentNodeId,
+        SignatureTypeElement.createSchema({
+          reservedNames: typeNames,
+          objectOptions,
+          namedTypeOptions,
+        }),
+        insertIndex,
+      )),
     ])
   }
 
@@ -149,8 +159,10 @@ namespace FunctionActions {
     rootNode: TreeNode.Node,
     targetNodeId: number,
   ) => {
-    const returnType = FunctionScope.findOwnerFunction(rootNode, targetNodeId)
-      ?.element.returnType ?? null
+    const owner = FunctionScope.findOwnerFunction(rootNode, targetNodeId)
+    const returnType = owner == null
+      ? null
+      : FunctionElement.getReturnType(rootNode, owner.element)
     return FunctionReturnElement.createSchema({
       required: returnType != null,
       expectedTypeText: returnType == null
@@ -168,8 +180,10 @@ namespace FunctionActions {
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
     return action('Return', () => {
-      const returnType = FunctionScope.findOwnerFunction(rootNode, parentNodeId)
-        ?.element.returnType ?? null
+      const owner = FunctionScope.findOwnerFunction(rootNode, parentNodeId)
+      const returnType = owner == null
+        ? null
+        : FunctionElement.getReturnType(rootNode, owner.element)
       if (returnType == null) {
         TreeStore.addChild(parentNodeId, FunctionReturnElement.create())
         return

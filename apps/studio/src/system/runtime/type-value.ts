@@ -48,8 +48,10 @@ namespace TypeValue {
         })
       case 'named': {
         if (rootNode == null) return true
-        const entry = TypeCatalog.findUnion(rootNode, base.namedTypeId)
+        const entry = TypeCatalog.findNamedType(rootNode, base.namedTypeId)
         if (entry == null) return false
+        if (entry.element.kind === 'signature-type') return typeof value === 'function'
+        if (entry.element.kind !== 'union-type') return false
         if (entry.element.definition.type === 'literal') {
           return entry.element.definition.values.includes(value as string | number)
         }

@@ -52,6 +52,8 @@ namespace AppKeyboardController {
       refreshTree: () => {
         TreeStore.rootNode.set(TreeNode.clone(rootNode))
       },
+      canDisable: (node) => ElementRegistry.get(node.element.kind).canDisable,
+      toggleDisabled: TreeStore.toggleDisabled,
       getContextMenu: (node, parentNode) => (
         ElementRegistry.get(node.element.kind).getContextMenu({
           element: node.element,

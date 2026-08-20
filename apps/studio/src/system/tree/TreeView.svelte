@@ -1,5 +1,6 @@
 <script lang="ts">
   import ActionMenu from '../action-menu/action-menu-controller'
+  import DisabledActionMenu from '../element/disabled-action-menu'
   import ElementTreeLabel from '../element/ElementTreeLabel.svelte'
   import ElementRegistry from '../element/element-registry'
   import { elementDialogStore } from '../element-dialog/element-dialog-store'
@@ -32,16 +33,6 @@
     TreeStore.selectedNodeId.set(node.id)
   }
 
-  const toggleDisabled = (node: TreeNode.Node) => {
-    if (!ElementRegistry.get(node.element.kind).canDisable) return
-    TreeStore.rootNode.update((root) => {
-      const next = TreeNode.clone(root)
-      const target = TreeNode.findNode(next, node.id)
-      if (target != null) target.disabled = !target.disabled
-      return next
-    })
-  }
-
   const isEditingNode = (row: VisibleNode): boolean => {
     const session = $elementDialogStore
     if (session == null) return false
@@ -53,12 +44,19 @@
     node: TreeNode.Node,
     parentNode: TreeNode.Node | null,
   ) => {
-    return ElementRegistry.get(node.element.kind).getContextMenu({
+    const definition = ElementRegistry.get(node.element.kind)
+    const items = definition.getContextMenu({
       element: node.element,
       node,
       parentNode,
       rootNode: $rootNodeStore,
     })
+
+    return definition.canDisable
+      ? DisabledActionMenu.add(items, node.disabled === true, () => {
+          TreeStore.toggleDisabled(node.id)
+        })
+      : items
   }
 
   const openContextMenu = (
@@ -144,10 +142,6 @@
         onkeydown={(event) => {
           if (row.isPreview) return
           if (event.key === 'Enter' || event.key === ' ') selectNode(row.node)
-          if (event.key.toLowerCase() === 'd' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-            event.preventDefault()
-            toggleDisabled(row.node)
-          }
         }}
       >
         {#each row.lines as hasNextSibling, index (`${row.node.id}-${index}`)}

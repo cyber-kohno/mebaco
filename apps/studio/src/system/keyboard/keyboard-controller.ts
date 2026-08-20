@@ -10,6 +10,7 @@ namespace KeyboardController {
     && event.ctrlKey === (key.ctrl ?? false)
     && event.shiftKey === (key.shift ?? false)
     && event.altKey === (key.alt ?? false)
+    && event.metaKey === (key.meta ?? false)
   )
 
   export const handleKeydown = (

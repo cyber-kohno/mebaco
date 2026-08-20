@@ -11,6 +11,7 @@ import VariableFrame from '../variable/variable-frame'
 import ScriptPolicy from '../script/script-policy'
 import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
+import FunctionDefinition from '../../element/kind/function/function-definition'
 
 namespace FunctionRunner {
   export type Success = {
@@ -51,6 +52,7 @@ namespace FunctionRunner {
 
   const inspectStructure = (
     functionNode: TreeNode.Node,
+    projectNode: TreeNode.Node,
   ): Structure | Failure => {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
@@ -64,7 +66,9 @@ namespace FunctionRunner {
     const procedureNode = procedureNodes[0]
     const returnNode = procedureNode?.children.at(-1)
     if (
-      argumentsNodes[0] == null
+      (functionNode.element.mode === 'inline' && argumentsNodes[0] == null)
+      || (functionNode.element.mode === 'refer'
+        && FunctionDefinition.resolveSignature(projectNode, functionNode.element) == null)
       || procedureNode == null
       || returnNode?.element.kind !== 'function-return'
     ) {
@@ -81,7 +85,7 @@ namespace FunctionRunner {
     values: readonly unknown[],
     projectNode: TreeNode.Node,
   ): Failure | null => {
-    const parameters = FunctionScope.getArguments(functionNode)
+    const parameters = FunctionScope.getArguments(projectNode, functionNode)
     if (parameters.length !== values.length) {
       return failure(
         functionNode.id,
@@ -242,13 +246,14 @@ namespace FunctionRunner {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
     }
-    if (functionNode.element.returnType == null) {
+    const returnType = FunctionDefinition.getReturnType(projectNode, functionNode.element)
+    if (returnType == null) {
       return { ok: true, value: undefined }
     }
     if (
-      !(functionNode.element.returnType.nullable && value === null)
+      !(returnType.nullable && value === null)
       && !TypeValue.isCompatible(
-        functionNode.element.returnType.valueType,
+        returnType.valueType,
         value,
         projectNode,
       )
@@ -267,7 +272,7 @@ namespace FunctionRunner {
       ...definitionContext.$function as Record<string, (...args: unknown[]) => unknown>,
     }
     FunctionScope.collectDefinedFunctions(projectNode, targetNodeId).forEach((entry) => {
-      namespace[entry.element.id] = entry.element.async
+      namespace[entry.element.id] = FunctionDefinition.getAsync(projectNode, entry.element)
         ? async (...args: unknown[]) => {
             const result = await runAsync(entry.node, args, definitionContext, projectNode)
             if (!result.ok) throw new Error(result.error.message)
@@ -291,17 +296,17 @@ namespace FunctionRunner {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
     }
-    if (functionNode.element.async) {
+    if (FunctionDefinition.getAsync(projectNode, functionNode.element)) {
       return failure(functionNode.id, `Async Function '${functionNode.element.id}' is not available yet.`)
     }
 
-    const structure = inspectStructure(functionNode)
+    const structure = inspectStructure(functionNode, projectNode)
     if ('ok' in structure) return structure
     const { procedureNode, returnNode } = structure
     const argumentFailure = validateArguments(functionNode, argumentValues, projectNode)
     if (argumentFailure != null) return argumentFailure
 
-    const parameters = FunctionScope.getArguments(functionNode)
+    const parameters = FunctionScope.getArguments(projectNode, functionNode)
     const args = Object.fromEntries(parameters.map((parameter, index) => (
       [parameter.id, argumentValues[index]]
     )))
@@ -346,17 +351,17 @@ namespace FunctionRunner {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
     }
-    if (!functionNode.element.async) {
+    if (!FunctionDefinition.getAsync(projectNode, functionNode.element)) {
       return run(functionNode, argumentValues, definitionContext, projectNode)
     }
 
-    const structure = inspectStructure(functionNode)
+    const structure = inspectStructure(functionNode, projectNode)
     if ('ok' in structure) return structure
     const { procedureNode, returnNode } = structure
     const argumentFailure = validateArguments(functionNode, argumentValues, projectNode)
     if (argumentFailure != null) return argumentFailure
 
-    const parameters = FunctionScope.getArguments(functionNode)
+    const parameters = FunctionScope.getArguments(projectNode, functionNode)
     const args = Object.fromEntries(parameters.map((parameter, index) => (
       [parameter.id, argumentValues[index]]
     )))

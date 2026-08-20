@@ -9,32 +9,42 @@ import FunctionArgumentsElement from './function-arguments-element'
 import FunctionProcedureElement from './function-procedure-element'
 import FunctionScope from './function-scope'
 import FunctionTreeLabel from './FunctionTreeLabel.svelte'
+import FunctionDefinition from './function-definition'
 
 namespace FunctionElement {
   export type Kind = 'function'
+  export type Mode = FunctionDefinition.Mode
+  export type InlineElement = FunctionDefinition.Inline
+  export type ReferElement = FunctionDefinition.Refer
+  export type Element = FunctionDefinition.Element
 
-  export type Element = {
-    kind: Kind
-    id: string
-    async: boolean
-    returnType: ValueTypeDefinition.Definition | null
-  }
-
-  export const create = (
+  export const createInline = (
     id: string,
     async = false,
     returnType: ValueTypeDefinition.Definition | null = null,
-  ): Element => ({
+  ): InlineElement => ({
     kind: 'function',
     id,
+    mode: 'inline',
     async,
     returnType,
+  })
+
+  export const createRefer = (
+    id: string,
+    signatureTypeId = '',
+  ): ReferElement => ({
+    kind: 'function',
+    id,
+    mode: 'refer',
+    signatureTypeId,
   })
 
   export type SchemaOptions = {
     reservedNames?: readonly string[]
     referenceOptions?: readonly TypeCatalog.Option[]
     namedTypeOptions?: readonly TypeCatalog.Option[]
+    lockedMode?: Mode
   }
 
   const parseReturnType = (
@@ -57,43 +67,73 @@ namespace FunctionElement {
         reservedNames: options.reservedNames,
       },
       {
+        type: 'select', key: 'mode', label: 'Mode', width: 'mode', required: true,
+        defaultValue: options.lockedMode ?? 'inline',
+        options: options.lockedMode == null
+          ? [
+              { value: 'inline', label: 'Inline' },
+              { value: 'refer', label: 'Refer' },
+            ]
+          : [{
+              value: options.lockedMode,
+              label: options.lockedMode === 'inline' ? 'Inline' : 'Refer',
+            }],
+      },
+      {
         type: 'checkbox', key: 'async', label: 'Async', defaultValue: 'false',
+        visibleWhen: { key: 'mode', value: 'inline' },
       },
       {
         type: 'heading', key: 'returnTypeHeading', label: 'Return Type',
+        visibleWhen: { key: 'mode', value: 'inline' },
       },
       {
         type: 'checkbox', key: 'voidReturn', label: 'Void',
         defaultValue: 'true',
+        visibleWhen: { key: 'mode', value: 'inline' },
       },
       {
         type: 'valueType', key: 'returnType', label: 'Return Type', required: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
         namedTypeOptions: options.namedTypeOptions ?? [],
-        visibleWhen: { key: 'voidReturn', value: 'false' },
+        visibleWhenAll: [
+          { key: 'mode', value: 'inline' },
+          { key: 'voidReturn', value: 'false' },
+        ],
+      },
+      {
+        type: 'select', key: 'signatureTypeId', label: 'Signature',
+        width: 'id', required: true,
+        options: (options.namedTypeOptions ?? [])
+          .filter((option) => option.kind === 'signature'),
+        visibleWhen: { key: 'mode', value: 'refer' },
       },
     ],
-    createPreview: () => create('...'),
+    createPreview: () => createInline('...'),
     getInitialValues: (element) => ({
       id: element.id,
-      async: String(element.async),
-      voidReturn: String(element.returnType == null),
+      mode: element.mode,
+      async: String(element.mode === 'inline' && element.async),
+      voidReturn: String(element.mode === 'inline' && element.returnType == null),
       returnType: ValueTypeDefinition.stringify(
-        element.returnType ?? ValueTypeDefinition.create(),
+        element.mode === 'inline' && element.returnType != null
+          ? element.returnType
+          : ValueTypeDefinition.create(),
       ),
+      signatureTypeId: element.mode === 'refer' ? element.signatureTypeId : '',
     }),
-    create: (values) => create(
-      values.id,
-      values.async === 'true',
-      parseReturnType(values),
-    ),
-    update: (_element, values) => create(
-      values.id,
-      values.async === 'true',
-      parseReturnType(values),
-    ),
+    create: (values) => values.mode === 'refer'
+      ? createRefer(values.id, values.signatureTypeId)
+      : createInline(values.id, values.async === 'true', parseReturnType(values)),
+    update: (element, values) => element.mode === 'refer'
+      ? createRefer(values.id, values.signatureTypeId)
+      : createInline(values.id, values.async === 'true', parseReturnType(values)),
   })
+
+  export const resolveSignature = FunctionDefinition.resolveSignature
+  export const getAsync = FunctionDefinition.getAsync
+  export const getReturnType = FunctionDefinition.getReturnType
 
   export const definition = {
     kind: 'function',
@@ -101,8 +141,10 @@ namespace FunctionElement {
       type: 'component',
       Component: FunctionTreeLabel,
     },
-    createInitialChildren: () => [
-      { element: FunctionArgumentsElement.create() },
+    createInitialChildren: (element) => [
+      ...(element.mode === 'inline'
+        ? [{ element: FunctionArgumentsElement.create() }]
+        : []),
       { element: FunctionProcedureElement.create() },
     ],
     getContextMenu: (context) => {
@@ -119,6 +161,7 @@ namespace FunctionElement {
           context.element,
           createSchema({
             reservedNames,
+            lockedMode: context.element.mode,
             referenceOptions: TypeCatalog.getReferenceOptions(
               context.rootNode,
               context.node.id,

@@ -4,6 +4,7 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import ObjectTypeElement from '../type/object-type-element'
 import TypeCatalog from '../type/type-catalog'
 import UnionTypeElement from '../type/union-type-element'
+import SignatureTypeElement from '../type/signature-type-element'
 
 namespace TypesElement {
   export type Kind = 'types'
@@ -31,6 +32,10 @@ namespace TypesElement {
         context.rootNode,
         context.node.id,
       )
+      const namedTypeOptions = TypeCatalog.getNamedTypeOptions(
+        context.rootNode,
+        context.node.id,
+      )
 
       return [
         action('Add Object', () => {
@@ -43,6 +48,16 @@ namespace TypesElement {
           ElementDialog.openCreate(
             context.node.id,
             UnionTypeElement.createSchema({ reservedNames, objectOptions }),
+          )
+        }),
+        action('Add Signature', () => {
+          ElementDialog.openCreate(
+            context.node.id,
+            SignatureTypeElement.createSchema({
+              reservedNames,
+              objectOptions,
+              namedTypeOptions,
+            }),
           )
         }),
       ]

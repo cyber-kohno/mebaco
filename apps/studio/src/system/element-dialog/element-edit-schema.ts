@@ -5,6 +5,7 @@ import ValueSource from '../ui/input/value-source'
 import TypeExpression from '../element/kind/type/type-expression'
 import ObjectShape from '../element/kind/type/object-shape'
 import UnionDefinition from '../element/kind/type/union-definition'
+import SignatureDefinition from '../element/kind/type/signature-definition'
 import type ComponentReference from '../element/kind/component/shared/component-reference'
 import ExpressionTypeInference from '../element/kind/type/expression-type-inference'
 import SwitchValueType from '../element/kind/directive/switch-value-type'
@@ -44,6 +45,7 @@ namespace ElementEditSchema {
     label?: string
     detail?: string
     title?: string
+    preview?: string
   }
 
   export type SelectField = {
@@ -212,6 +214,16 @@ namespace ElementEditSchema {
     objectOptions: readonly ObjectShape.ObjectOption[]
   } & FieldBase
 
+  export type SignatureDefinitionField = {
+    type: 'signatureDefinition'
+    key: string
+    label: string
+    defaultValue?: string
+    idKey: string
+    objectOptions: readonly ObjectShape.ObjectOption[]
+    namedTypeOptions: readonly SelectOption[]
+  } & FieldBase
+
   export type ComponentBindingsField = {
     type: 'componentBindings'
     key: string
@@ -251,6 +263,7 @@ namespace ElementEditSchema {
     | TagRefKeyField
     | ObjectShapeField
     | UnionDefinitionField
+    | SignatureDefinitionField
     | ComponentBindingsField
     | SwitchValueTypeField
 
@@ -769,6 +782,19 @@ namespace ElementEditSchema {
     const definition = UnionDefinition.parse(value)
     if (definition == null) return 'Invalid Union definition.'
     return UnionDefinition.validate(definition, field.objectOptions)
+  }
+
+  export const validateSignatureDefinition = (
+    field: SignatureDefinitionField,
+    value: string,
+  ): string | null => {
+    const definition = SignatureDefinition.parse(value)
+    if (definition == null) return 'Invalid Signature definition.'
+    return SignatureDefinition.validate(
+      definition,
+      field.objectOptions,
+      field.namedTypeOptions,
+    )
   }
 
   export const validateSwitchValueType = (

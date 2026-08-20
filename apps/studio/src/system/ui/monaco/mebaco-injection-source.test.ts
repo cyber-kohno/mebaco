@@ -321,11 +321,44 @@ describe('MebacoInjectionSource Loop variables', () => {
 })
 
 describe('MebacoInjectionSource Function scope', () => {
+  it('injects arguments, async, and return type from a Refer Function Signature', () => {
+    const actionNode = node(8, { kind: 'action', comment: '', source: '' })
+    const referNode = node(6, {
+      kind: 'function', id: 'load', mode: 'refer', signatureTypeId: 'load-signature',
+    }, [
+      node(7, { kind: 'function-procedure' }, [actionNode]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }),
+      node(3, { kind: 'apps' }, [
+        node(4, { kind: 'app', id: 'app' }, [
+          node(5, { kind: 'declares' }, [
+            node(9, { kind: 'types' }, [
+              node(10, {
+                kind: 'signature-type', typeId: 'load-signature', id: 'LoadSignature',
+                async: true,
+                parameters: [{ id: 'id', valueType: { type: 'string' }, nullable: false }],
+                returnType: { valueType: { type: 'number' }, nullable: false },
+              }),
+            ]),
+            node(11, { kind: 'functions' }, [referNode]),
+          ]),
+        ]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, actionNode.id, 'action')
+
+    expect(source).toContain('declare var $args: {\n  id: string;\n};')
+    expect(source).toContain('load(id: string): Promise<number>;')
+  })
+
   it('injects typed Arguments and visible Function signatures', () => {
     const actionNode = node(11, { kind: 'action', comment: '', source: '' })
     const calculateNode = node(7, {
       kind: 'function',
       id: 'calculate',
+      mode: 'inline',
       async: false,
       returnType: { valueType: { type: 'number' }, nullable: false },
     }, [
@@ -342,6 +375,7 @@ describe('MebacoInjectionSource Function scope', () => {
     const loadNode = node(12, {
       kind: 'function',
       id: 'loadUser',
+      mode: 'inline',
       async: true,
       returnType: {
         valueType: TypeExpression.createReference(['user-type']),
@@ -392,7 +426,7 @@ describe('MebacoInjectionSource Function scope', () => {
   it('injects preceding outer and local Procedure Variables', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
     const inner = node(5, {
-      kind: 'function', id: 'inner', async: false, returnType: null,
+      kind: 'function', id: 'inner', mode: 'inline', async: false, returnType: null,
     }, [
       node(6, { kind: 'function-arguments' }),
       node(7, { kind: 'function-procedure' }, [
@@ -405,7 +439,7 @@ describe('MebacoInjectionSource Function scope', () => {
       ]),
     ])
     const outer = node(2, {
-      kind: 'function', id: 'outer', async: false, returnType: null,
+      kind: 'function', id: 'outer', mode: 'inline', async: false, returnType: null,
     }, [
       node(3, { kind: 'function-arguments' }),
       node(4, { kind: 'function-procedure' }, [

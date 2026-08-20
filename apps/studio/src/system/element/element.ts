@@ -44,6 +44,7 @@ import TagElement from './kind/view/tag-element'
 import TextElement from './kind/view/text-element'
 import ObjectTypeElement from './kind/type/object-type-element'
 import UnionTypeElement from './kind/type/union-type-element'
+import SignatureTypeElement from './kind/type/signature-type-element'
 import VariableElement from './kind/variable/variable-element'
 import ActionElement from './kind/variable/action-element'
 import BlockElement from './kind/block/block-element'
@@ -102,6 +103,7 @@ namespace MebacoElement {
     | TypesElement.Kind
     | ObjectTypeElement.Kind
     | UnionTypeElement.Kind
+    | SignatureTypeElement.Kind
     | StylesElement.Kind
     | VariableElement.Kind
     | ActionElement.Kind
@@ -158,6 +160,7 @@ namespace MebacoElement {
     | TypesElement.Element
     | ObjectTypeElement.Element
     | UnionTypeElement.Element
+    | SignatureTypeElement.Element
     | StylesElement.Element
     | VariableElement.Element
     | ActionElement.Element

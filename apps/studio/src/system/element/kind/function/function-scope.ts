@@ -1,10 +1,17 @@
-import type FunctionArgumentElement from './function-argument-element'
 import type FunctionElement from './function-element'
+import type TypeExpression from '../type/type-expression'
+import TypeCatalog from '../type/type-catalog'
 import type TreeNode from '../../../tree/tree-node'
 import type VariableElement from '../variable/variable-element'
 import ContentHost from '../../content-host'
 
 namespace FunctionScope {
+  export type Parameter = {
+    id: string
+    valueType: TypeExpression.Expression
+    nullable: boolean
+  }
+
   export type Entry = {
     node: TreeNode.Node
     element: FunctionElement.Element
@@ -59,7 +66,7 @@ namespace FunctionScope {
 
   const collectFrameNodes = (
     frameNode: TreeNode.Node,
-    kind: 'function' | 'variable' | 'object-type' | 'union-type',
+    kind: 'function' | 'variable' | 'object-type' | 'union-type' | 'signature-type',
   ): TreeNode.Node[] => {
     const result: TreeNode.Node[] = []
     const collect = (children: readonly TreeNode.Node[]) => {
@@ -114,8 +121,11 @@ namespace FunctionScope {
   ): string[] => [
     ...collectFrameNodes(frameNode, 'object-type'),
     ...collectFrameNodes(frameNode, 'union-type'),
+    ...collectFrameNodes(frameNode, 'signature-type'),
   ].flatMap((node) => (
-    node.element.kind === 'object-type' || node.element.kind === 'union-type'
+    node.element.kind === 'object-type'
+      || node.element.kind === 'union-type'
+      || node.element.kind === 'signature-type'
       ? [node.element.id]
       : []
   ))
@@ -188,12 +198,20 @@ namespace FunctionScope {
   }
 
   export const getArguments = (
+    rootNode: TreeNode.Node,
     functionNode: TreeNode.Node,
-  ): FunctionArgumentElement.Element[] => (
-    findDirectChild(functionNode, 'function-arguments')?.children.flatMap((child) => (
+  ): Parameter[] => {
+    if (functionNode.element.kind !== 'function') return []
+    if (functionNode.element.mode === 'refer') {
+      return TypeCatalog.findSignature(
+        rootNode,
+        functionNode.element.signatureTypeId,
+      )?.element.parameters ?? []
+    }
+    return findDirectChild(functionNode, 'function-arguments')?.children.flatMap((child) => (
       child.element.kind === 'function-argument' ? [child.element] : []
     )) ?? []
-  )
+  }
 
   const addDuplicateIssues = (
     entries: readonly { node: TreeNode.Node; element: { id: string } }[],

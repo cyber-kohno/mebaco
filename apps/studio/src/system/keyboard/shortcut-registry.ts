@@ -43,6 +43,19 @@ namespace ShortcutRegistry {
     modifyAction?.callback()
   }
 
+  const canToggleDisabled = (context: ShortcutCommand.Context): boolean => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    return selectedRow != null
+      && context.canDisable(selectedRow.node)
+  }
+
+  const toggleDisabled = (context: ShortcutCommand.Context) => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    if (selectedRow == null) return
+
+    context.toggleDisabled(selectedRow.node.id)
+  }
+
   const moveSelection = (
     context: ShortcutCommand.Context,
     offset: -1 | 1,
@@ -126,6 +139,12 @@ namespace ShortcutRegistry {
       key: { key: 'e' },
       when: canModifySelectedNode,
       run: modifySelectedNode,
+    },
+    {
+      id: 'toggle-disabled',
+      key: { key: 'd' },
+      when: canToggleDisabled,
+      run: toggleDisabled,
     },
     {
       id: 'move-selection-up',

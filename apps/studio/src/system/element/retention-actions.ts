@@ -9,6 +9,7 @@ import StyleElement from './kind/view/style-element'
 import StyleResolver from './kind/view/style-resolver'
 import TypeCatalog from './kind/type/type-catalog'
 import UnionTypeElement from './kind/type/union-type-element'
+import SignatureTypeElement from './kind/type/signature-type-element'
 import VariableElement from './kind/variable/variable-element'
 import FunctionActions from './function-actions'
 import ControlConditionalElement from './kind/directive/control-conditional-element'
@@ -59,6 +60,7 @@ namespace RetentionActions {
     const typeNames = TypeCatalog.collectVisibleNamedTypes(rootNode, parentNodeId)
       .map((entry) => entry.element.id)
     const objectOptions = TypeCatalog.getObjectOptions(rootNode, parentNodeId)
+    const namedTypeOptions = TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId)
     const styleNames = StyleElement.getStyleOptions(rootNode)
       .map((option) => option.value)
 
@@ -99,6 +101,14 @@ namespace RetentionActions {
         UnionTypeElement.createSchema({
           reservedNames: typeNames,
           objectOptions,
+        }),
+      )),
+      action('Signature', () => ElementDialog.openCreate(
+        parentNodeId,
+        SignatureTypeElement.createSchema({
+          reservedNames: typeNames,
+          objectOptions,
+          namedTypeOptions,
         }),
       )),
     ])

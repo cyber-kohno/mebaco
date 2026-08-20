@@ -7,6 +7,7 @@ namespace ShortcutCommand {
     ctrl?: boolean
     shift?: boolean
     alt?: boolean
+    meta?: boolean
   }
 
   export type VisibleNode = {
@@ -21,6 +22,8 @@ namespace ShortcutCommand {
     selectedNodeId: number
     selectNode: (nodeId: number) => void
     refreshTree: () => void
+    canDisable: (node: TreeNode.Node) => boolean
+    toggleDisabled: (nodeId: number) => void
     getContextMenu: (node: TreeNode.Node, parentNode: TreeNode.Node | null) => ActionMenuState.Item[]
   }
 

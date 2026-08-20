@@ -1,9 +1,11 @@
 import type TreeNode from '../../../tree/tree-node'
 import type ObjectTypeElement from './object-type-element'
 import type UnionTypeElement from './union-type-element'
+import type SignatureTypeElement from './signature-type-element'
 import type ObjectShape from './object-shape'
 import TypeExpression from './type-expression'
 import UnionDefinition from './union-definition'
+import SignatureDefinition from './signature-definition'
 import ContentHost from '../../content-host'
 
 namespace TypeCatalog {
@@ -17,13 +19,21 @@ namespace TypeCatalog {
     element: UnionTypeElement.Element
   }
 
-  export type NamedTypeEntry = ObjectEntry | UnionEntry
+  export type SignatureEntry = {
+    node: TreeNode.Node
+    element: SignatureTypeElement.Element
+  }
+
+  export type NamedTypeEntry = ObjectEntry | UnionEntry | SignatureEntry
 
   export type Option = {
     value: string
     label: string
     name?: string
     detail?: string
+    title?: string
+    preview?: string
+    kind?: 'union' | 'signature'
   }
 
   export type ObjectOption = ObjectShape.ObjectOption
@@ -66,9 +76,22 @@ namespace TypeCatalog {
     return entries
   }
 
+  const collectSignatures = (node: TreeNode.Node): SignatureEntry[] => {
+    const entries: SignatureEntry[] = []
+    const collect = (current: TreeNode.Node) => {
+      if (current.element.kind === 'signature-type') {
+        entries.push({ node: current, element: current.element })
+      }
+      current.children.forEach(collect)
+    }
+    collect(node)
+    return entries
+  }
+
   const collectNamedTypes = (node: TreeNode.Node): NamedTypeEntry[] => [
     ...collectObjects(node),
     ...collectUnions(node),
+    ...collectSignatures(node),
   ]
 
   const findCommonNode = (rootNode: TreeNode.Node): TreeNode.Node | null => (
@@ -95,6 +118,8 @@ namespace TypeCatalog {
         entries.push({ node, element: node.element })
       } else if (node.element.kind === 'union-type') {
         entries.push({ node, element: node.element })
+      } else if (node.element.kind === 'signature-type') {
+        entries.push({ node, element: node.element })
       }
     })
     return entries
@@ -109,6 +134,8 @@ namespace TypeCatalog {
         if (child.element.kind === 'object-type') {
           entries.push({ node: child, element: child.element })
         } else if (child.element.kind === 'union-type') {
+          entries.push({ node: child, element: child.element })
+        } else if (child.element.kind === 'signature-type') {
           entries.push({ node: child, element: child.element })
         } else if (child.element.kind === 'block') {
           collect(child.children)
@@ -168,6 +195,12 @@ namespace TypeCatalog {
   ): UnionEntry[] => collectVisibleNamedTypesInternal(rootNode, targetNodeId)
     .filter((entry): entry is UnionEntry => entry.element.kind === 'union-type')
 
+  export const collectVisibleSignatures = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): SignatureEntry[] => collectVisibleNamedTypesInternal(rootNode, targetNodeId)
+    .filter((entry): entry is SignatureEntry => entry.element.kind === 'signature-type')
+
   export const collectVisibleNamedTypes = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
@@ -185,6 +218,14 @@ namespace TypeCatalog {
     unionTypeId: string,
   ): UnionEntry | null => (
     collectUnions(rootNode).find((entry) => entry.element.typeId === unionTypeId) ?? null
+  )
+
+  export const findSignature = (
+    rootNode: TreeNode.Node,
+    signatureTypeId: string,
+  ): SignatureEntry | null => (
+    collectSignatures(rootNode)
+      .find((entry) => entry.element.typeId === signatureTypeId) ?? null
   )
 
   export const findNamedType = (
@@ -295,8 +336,8 @@ namespace TypeCatalog {
   export const getNamedTypeOptions = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
-  ): Option[] => collectVisibleUnions(rootNode, targetNodeId)
-    .map((entry) => {
+  ): Option[] => [
+    ...collectVisibleUnions(rootNode, targetNodeId).map((entry): Option => {
       const detail = entry.element.definition.type === 'literal'
         ? `Literal Union (${entry.element.definition.valueType})`
         : 'Object Union'
@@ -309,8 +350,25 @@ namespace TypeCatalog {
           (objectTypeId) => findObject(rootNode, objectTypeId)?.element.id,
         ).replaceAll('"', "'"),
         label: entry.element.id,
+        kind: 'union',
       }
-    })
+    }),
+    ...collectVisibleSignatures(rootNode, targetNodeId).map((entry): Option => {
+      const preview = SignatureDefinition.getTypeText({
+        async: entry.element.async,
+        parameters: entry.element.parameters,
+        returnType: entry.element.returnType,
+      }, (typeId) => resolveTypeName(rootNode, typeId))
+      return {
+        value: entry.element.typeId,
+        name: entry.element.id,
+        title: preview,
+        preview,
+        label: entry.element.id,
+        kind: 'signature',
+      }
+    }),
+  ]
     .sort((left, right) => (left.name ?? left.label).localeCompare(right.name ?? right.label))
 
   export const isObjectReferenced = (
@@ -331,13 +389,27 @@ namespace TypeCatalog {
       ) {
         referenced ||= node.element.definition.objectTypeIds.includes(objectTypeId)
       }
+      if (node.element.kind === 'signature-type') {
+        referenced ||= node.element.parameters.some((parameter) => (
+          TypeExpression.getReferenceIds(parameter.valueType).includes(objectTypeId)
+        ))
+        if (node.element.returnType != null) {
+          referenced ||= TypeExpression.getReferenceIds(
+            node.element.returnType.valueType,
+          ).includes(objectTypeId)
+        }
+      }
       if (node.element.kind === 'state') {
         referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
       }
       if (node.element.kind === 'function-argument') {
         referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
       }
-      if (node.element.kind === 'function' && node.element.returnType != null) {
+      if (
+        node.element.kind === 'function'
+        && node.element.mode === 'inline'
+        && node.element.returnType != null
+      ) {
         referenced ||= TypeExpression.getReferenceIds(
           node.element.returnType.valueType,
         ).includes(objectTypeId)
@@ -356,30 +428,50 @@ namespace TypeCatalog {
     return referenced
   }
 
-  export const isUnionReferenced = (
+  const isNamedTypeReferenced = (
     rootNode: TreeNode.Node,
-    unionTypeId: string,
+    namedTypeId: string,
   ): boolean => {
     let referenced = false
     const visit = (node: TreeNode.Node) => {
       if (node.element.kind === 'object-type') {
         referenced ||= node.element.properties.some((property) => (
-          TypeExpression.getNamedTypeIds(property.valueType).includes(unionTypeId)
+          TypeExpression.getNamedTypeIds(property.valueType).includes(namedTypeId)
         ))
       }
       if (node.element.kind === 'state') {
-        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(unionTypeId)
+        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
       }
       if (node.element.kind === 'value-prop') {
-        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(unionTypeId)
+        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
+      }
+      if (node.element.kind === 'signature-type') {
+        referenced ||= node.element.parameters.some((parameter) => (
+          TypeExpression.getNamedTypeIds(parameter.valueType).includes(namedTypeId)
+        ))
+        if (node.element.returnType != null) {
+          referenced ||= TypeExpression.getNamedTypeIds(
+            node.element.returnType.valueType,
+          ).includes(namedTypeId)
+        }
       }
       if (node.element.kind === 'function-argument') {
-        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(unionTypeId)
+        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
       }
-      if (node.element.kind === 'function' && node.element.returnType != null) {
+      if (node.element.kind === 'launch-argument') {
+        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
+      }
+      if (node.element.kind === 'function' && node.element.mode === 'refer') {
+        referenced ||= node.element.signatureTypeId === namedTypeId
+      }
+      if (
+        node.element.kind === 'function'
+        && node.element.mode === 'inline'
+        && node.element.returnType != null
+      ) {
         referenced ||= TypeExpression.getNamedTypeIds(
           node.element.returnType.valueType,
-        ).includes(unionTypeId)
+        ).includes(namedTypeId)
       }
       if (
         node.element.kind === 'variable'
@@ -387,13 +479,23 @@ namespace TypeCatalog {
       ) {
         referenced ||= TypeExpression.getNamedTypeIds(
           node.element.typeSetting.valueType,
-        ).includes(unionTypeId)
+        ).includes(namedTypeId)
       }
       if (!referenced) node.children.forEach(visit)
     }
     visit(rootNode)
     return referenced
   }
+
+  export const isUnionReferenced = (
+    rootNode: TreeNode.Node,
+    unionTypeId: string,
+  ): boolean => isNamedTypeReferenced(rootNode, unionTypeId)
+
+  export const isSignatureReferenced = (
+    rootNode: TreeNode.Node,
+    signatureTypeId: string,
+  ): boolean => isNamedTypeReferenced(rootNode, signatureTypeId)
 
   const createDefaultValue = (
     rootNode: TreeNode.Node,
@@ -532,6 +634,17 @@ namespace TypeCatalog {
         return `type ${entry.element.id} = ${UnionDefinition.getTypeScriptType(
           entry.element.definition,
           (objectTypeId) => findObject(rootNode, objectTypeId)?.element.id,
+        )}`
+      }
+
+      if (entry.element.kind === 'signature-type') {
+        return `type ${entry.element.id} = ${SignatureDefinition.getTypeText(
+          {
+            async: entry.element.async,
+            parameters: entry.element.parameters,
+            returnType: entry.element.returnType,
+          },
+          (typeId) => resolveTypeName(rootNode, typeId),
         )}`
       }
 

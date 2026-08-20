@@ -11,6 +11,7 @@ import ContentHost from '../../element/content-host'
 import FunctionScope from '../../element/kind/function/function-scope'
 import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
 import type LaunchArgumentElement from '../../element/kind/app/launch-argument-element'
+import FunctionDefinition from '../../element/kind/function/function-definition'
 
 namespace MebacoInjectionSource {
   const findNode = (
@@ -267,7 +268,7 @@ namespace MebacoInjectionSource {
   ): string => {
     const owner = FunctionScope.findOwnerFunction(rootNode, targetNodeId)
     if (owner == null) return 'declare var $args: Record<string, unknown>;'
-    const fields = FunctionScope.getArguments(owner.node).map((argument) => (
+    const fields = FunctionScope.getArguments(rootNode, owner.node).map((argument) => (
       `  ${argument.id}: ${getFunctionValueTypeText(
         rootNode,
         argument.valueType,
@@ -287,20 +288,21 @@ namespace MebacoInjectionSource {
   ): string => {
     const fields = FunctionScope.collectVisibleFunctions(rootNode, targetNodeId)
       .map((entry) => {
-        const parameters = FunctionScope.getArguments(entry.node)
+        const parameters = FunctionScope.getArguments(rootNode, entry.node)
           .map((argument) => `${argument.id}: ${getFunctionValueTypeText(
             rootNode,
             argument.valueType,
             argument.nullable,
           )}`)
           .join(', ')
-        const resolvedReturnType = entry.element.returnType == null
+        const resolvedReturnTypeDefinition = FunctionDefinition.getReturnType(rootNode, entry.element)
+        const resolvedReturnType = resolvedReturnTypeDefinition == null
           ? 'void'
           : ValueTypeDefinition.getTypeText(
-              entry.element.returnType,
+              resolvedReturnTypeDefinition,
               (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
             )
-        const returnType = entry.element.async
+        const returnType = FunctionDefinition.getAsync(rootNode, entry.element)
           ? `Promise<${resolvedReturnType}>`
           : resolvedReturnType
         return `  ${entry.element.id}(${parameters}): ${returnType};`

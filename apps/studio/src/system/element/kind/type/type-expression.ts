@@ -33,6 +33,7 @@ namespace TypeExpression {
   export type Named = {
     type: 'named'
     namedTypeId: string
+    namedTypeKind?: 'union' | 'signature'
   }
 
   export type Array = {
@@ -74,10 +75,12 @@ namespace TypeExpression {
     objectTypeIds,
   })
 
-  export const createNamed = (namedTypeId = ''): Named => ({
-    type: 'named',
-    namedTypeId,
-  })
+  export const createNamed = (
+    namedTypeId = '',
+    namedTypeKind: NonNullable<Named['namedTypeKind']> = 'union',
+  ): Named => namedTypeKind === 'signature'
+    ? { type: 'named', namedTypeId, namedTypeKind }
+    : { type: 'named', namedTypeId }
 
   export const createObject = (properties: Property[] = []): Object => ({
     type: 'object',
@@ -207,6 +210,7 @@ namespace TypeExpression {
       properties?: unknown
       objectTypeIds?: unknown
       namedTypeId?: unknown
+      namedTypeKind?: unknown
       item?: unknown
       literals?: unknown
     }
@@ -229,7 +233,14 @@ namespace TypeExpression {
       return Array.isArray(expression.objectTypeIds)
         && expression.objectTypeIds.every((objectTypeId) => typeof objectTypeId === 'string')
     }
-    if (expression.type === 'named') return typeof expression.namedTypeId === 'string'
+    if (expression.type === 'named') {
+      return typeof expression.namedTypeId === 'string'
+        && (
+          expression.namedTypeKind == null
+          || expression.namedTypeKind === 'union'
+          || expression.namedTypeKind === 'signature'
+        )
+    }
     if (expression.type === 'array') return isExpression(expression.item)
     return expression.type === 'object'
       && Array.isArray(expression.properties)
@@ -262,11 +273,11 @@ namespace TypeExpression {
           ) return 'Select a valid Object reference.'
         }
         if (base.type === 'named') {
-          if (base.namedTypeId.length === 0) return 'Select a valid Union.'
+          if (base.namedTypeId.length === 0) return 'Select a valid named type.'
           if (
             validNamedTypeIds != null
             && !validNamedTypeIds.has(base.namedTypeId)
-          ) return 'Select a valid Union.'
+          ) return 'Select a valid named type.'
         }
         if (base.type === 'string' && base.literals != null) {
           if (base.literals.length === 0) return 'Add at least one string literal.'

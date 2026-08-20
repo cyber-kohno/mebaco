@@ -182,6 +182,20 @@ namespace TreeStore {
     if (parentNodeId != null) selectedNodeId.set(parentNodeId)
   }
 
+  export const toggleDisabled = (nodeId: number) => {
+    rootNode.update((root) => {
+      const nextRoot = TreeNode.clone(root)
+      const target = TreeNode.findNode(nextRoot, nodeId)
+      if (
+        target == null
+        || !ElementRegistry.get(target.element.kind).canDisable
+      ) return root
+
+      target.disabled = !target.disabled
+      return nextRoot
+    })
+  }
+
   export const transformNode = (
     nodeId: number,
     transformer: NodeTransformer,

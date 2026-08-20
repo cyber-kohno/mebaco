@@ -151,6 +151,7 @@
                   ariaLabel={`${prop.id} formula`}
                   {injectionSource}
                   expectedType={getExpectedType(prop)}
+                  expectedTypeText={getTypeText(prop)}
                   onValueChange={(formulaSource) => updateBinding(
                     prop.propId,
                     { type: 'formula', source: formulaSource },

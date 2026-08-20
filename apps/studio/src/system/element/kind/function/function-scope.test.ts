@@ -16,7 +16,7 @@ const node = (
 })
 
 const fn = (id: string, children: TreeNode.Node[] = []) => node({
-  kind: 'function', id, async: false, returnType: null,
+  kind: 'function', id, mode: 'inline', async: false, returnType: null,
 }, children)
 
 const args = (...ids: string[]) => node({ kind: 'function-arguments' }, ids.map((id) => (
@@ -91,8 +91,26 @@ describe('FunctionScope', () => {
     const root = project([owner], [])
 
     expect(FunctionScope.findOwnerFunction(root, action.id)?.element.id).toBe('save')
-    expect(FunctionScope.getArguments(owner).map((argument) => argument.id))
+    expect(FunctionScope.getArguments(root, owner).map((argument) => argument.id))
       .toEqual(['user', 'notify'])
+  })
+
+  it('gets Refer Function arguments from its Signature', () => {
+    nextNodeId = 1
+    const refer = node({
+      kind: 'function', id: 'save', mode: 'refer', signatureTypeId: 'save-handler',
+    }, [procedure()])
+    const root = project([refer], [])
+    root.children[1]?.children[0]?.children
+      .find((child) => child.element.kind === 'declares')
+      ?.children.push(node({ kind: 'types' }, [node({
+        kind: 'signature-type', typeId: 'save-handler', id: 'SaveHandler', async: false,
+        parameters: [{ id: 'value', valueType: { type: 'string' }, nullable: false }],
+        returnType: null,
+      })]))
+
+    expect(FunctionScope.getArguments(root, refer).map((parameter) => parameter.id))
+      .toEqual(['value'])
   })
 
   it('reports duplicate Function, Argument, and Variable ids in one frame', () => {

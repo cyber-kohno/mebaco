@@ -12,6 +12,7 @@
   import ValueSourceField from '../ui/input/ValueSourceField.svelte'
   import ObjectShapeEditor from '../element/kind/type/ObjectShapeEditor.svelte'
   import UnionDefinitionEditor from '../element/kind/type/UnionDefinitionEditor.svelte'
+  import SignatureDefinitionEditor from '../element/kind/type/SignatureDefinitionEditor.svelte'
   import ComponentBindingsEditor from '../element/kind/component/shared/ComponentBindingsEditor.svelte'
   import SwitchValueTypeEditor from '../element/kind/directive/SwitchValueTypeEditor.svelte'
   import ValueTypeEditor from '../element/kind/type/ValueTypeEditor.svelte'
@@ -24,6 +25,8 @@
   import { elementDialogStore } from './element-dialog-store'
   import ElementEditSchema from './element-edit-schema'
   import FunctionScope from '../element/kind/function/function-scope'
+  import FunctionElement from '../element/kind/function/function-element'
+  import SignatureReferencePreview from '../element/kind/type/SignatureReferencePreview.svelte'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -101,6 +104,8 @@
         return ElementEditSchema.validateObjectShape(field, value)
       case 'unionDefinition':
         return ElementEditSchema.validateUnionDefinition(field, value)
+      case 'signatureDefinition':
+        return ElementEditSchema.validateSignatureDefinition(field, value)
       case 'componentBindings': {
         const component = field.components.find(
           (candidate) => candidate.componentId === values[field.componentIdKey],
@@ -177,8 +182,10 @@
   ): boolean => {
     if (field.allowAwaitInAsyncFunction !== true) return false
     const targetNodeId = getTargetNodeId()
-    return targetNodeId != null
-      && FunctionScope.findOwnerFunction($rootNodeStore, targetNodeId)?.element.async === true
+    if (targetNodeId == null) return false
+    const owner = FunctionScope.findOwnerFunction($rootNodeStore, targetNodeId)
+    return owner != null
+      && FunctionElement.getAsync($rootNodeStore, owner.element)
   }
 
   const submit = () => {
@@ -213,7 +220,9 @@
   {@const title = $elementDialogStore.mode === 'create' ? $elementDialogStore.schema.createTitle : $elementDialogStore.schema.updateTitle}
   <section
     class="dialog"
-    class:wide-dialog={$elementDialogStore.schema.fields.some((field) => field.type === 'objectShape')}
+    class:wide-dialog={$elementDialogStore.schema.fields.some((field) => (
+      field.type === 'objectShape' || field.type === 'signatureDefinition'
+    ))}
     aria-label={title}
   >
     <header class="dialog-header">
@@ -232,6 +241,7 @@
         || field.type === 'styleMonitor'
         || field.type === 'tagStyleMonitor'
         || field.type === 'objectShape'
+        || field.type === 'signatureDefinition'
       ))}
     >
       <h2>{title}</h2>
@@ -389,6 +399,20 @@
             <UnionDefinitionEditor
               value={values[field.key] ?? field.defaultValue ?? ''}
               objectOptions={field.objectOptions}
+              errorMessage={touched[field.key] === true ? error : null}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'signatureDefinition'}
+          <div class="field signature-definition-field" data-validation-severity={issue?.severity}>
+            <SignatureDefinitionEditor
+              signatureId={values[field.idKey] ?? ''}
+              value={values[field.key] ?? field.defaultValue ?? ''}
+              objectOptions={field.objectOptions}
+              namedTypeOptions={field.namedTypeOptions}
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -565,6 +589,7 @@
                   </span>
                 {/if}
               </span>
+              <SignatureReferencePreview text={selectedOption?.preview} />
             {/if}
             {#if field.type === 'number'}
               <input
@@ -755,6 +780,11 @@
   }
 
   .object-shape-field {
+    min-height: 0;
+  }
+
+  .dialog-body.contained-scroll .signature-definition-field {
+    grid-template-rows: minmax(0, 1fr);
     min-height: 0;
   }
 

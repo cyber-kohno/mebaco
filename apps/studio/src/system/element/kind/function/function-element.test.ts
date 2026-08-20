@@ -14,19 +14,28 @@ vi.mock('../../../store/tree-store', () => ({
 
 describe('FunctionElement', () => {
   it('creates a synchronous void function by default', () => {
-    expect(FunctionElement.create('calculate')).toEqual({
+    expect(FunctionElement.createInline('calculate')).toEqual({
       kind: 'function',
       id: 'calculate',
+      mode: 'inline',
       async: false,
       returnType: null,
     })
   })
 
-  it('creates Arguments and Procedure as fixed initial children', () => {
-    const children = FunctionElement.definition.createInitialChildren?.()
+  it('creates Arguments only for Inline Functions', () => {
+    const inlineChildren = FunctionElement.definition.createInitialChildren?.(
+      FunctionElement.createInline('inline'),
+    )
+    const referChildren = FunctionElement.definition.createInitialChildren?.(
+      FunctionElement.createRefer('refer', 'signature-id'),
+    )
 
-    expect(children?.map((seed) => seed.element.kind)).toEqual([
+    expect(inlineChildren?.map((seed) => seed.element.kind)).toEqual([
       'function-arguments',
+      'function-procedure',
+    ])
+    expect(referChildren?.map((seed) => seed.element.kind)).toEqual([
       'function-procedure',
     ])
   })

@@ -5,6 +5,7 @@ import TypeCatalog from './type-catalog'
 import TypeExpression from './type-expression'
 import ObjectShape from './object-shape'
 import UnionDefinition from './union-definition'
+import type SignatureDefinition from './signature-definition'
 
 let nextNodeId = 1
 
@@ -40,6 +41,20 @@ const unionType = (
   definition: UnionDefinition.Definition,
 ) => node({ kind: 'union-type', typeId, id, definition })
 
+const signatureType = (
+  typeId: string,
+  id: string,
+  parameters: SignatureDefinition.Parameter[] = [],
+  async = false,
+) => node({
+  kind: 'signature-type',
+  typeId,
+  id,
+  async,
+  parameters,
+  returnType: null,
+})
+
 const project = (
   commonObjects: TreeNode.Node[],
   appObjects: TreeNode.Node[] = [],
@@ -59,6 +74,60 @@ const project = (
 ])
 
 describe('TypeCatalog', () => {
+  it('collects Signature types and emits callable declarations', () => {
+    const signature = signatureType('save-handler-type', 'SaveHandler', [{
+      id: 'payload',
+      valueType: { type: 'string' },
+      nullable: false,
+    }], true)
+    const target = node({ kind: 'action', comment: '', source: '' })
+    const root = project([signature, target])
+
+    expect(TypeCatalog.collectVisibleSignatures(root, target.id)
+      .map((entry) => entry.element.id)).toEqual(['SaveHandler'])
+    expect(TypeCatalog.getNamedTypeOptions(root, target.id)).toContainEqual(
+      expect.objectContaining({
+        value: 'save-handler-type',
+        label: 'SaveHandler',
+        kind: 'signature',
+        preview: '(payload: string) => Promise<void>',
+      }),
+    )
+    expect(TypeCatalog.getNamedTypeOptions(root, target.id)
+      .find((option) => option.value === 'save-handler-type')?.detail).toBeUndefined()
+    expect(TypeCatalog.createTypeScriptDeclarations(root, target.id))
+      .toContain('type SaveHandler = (payload: string) => Promise<void>')
+  })
+
+  it('treats Signature Value Types as active references', () => {
+    const signature = signatureType('save-handler-type', 'SaveHandler')
+    const variable = node({
+      kind: 'variable',
+      id: 'onSave',
+      binding: 'const',
+      typeSetting: {
+        type: 'explicit',
+        valueType: TypeExpression.createNamed('save-handler-type'),
+        nullable: false,
+      },
+      source: 'save',
+    })
+    const root = project([signature, variable])
+
+    expect(TypeCatalog.isSignatureReferenced(root, 'save-handler-type')).toBe(true)
+  })
+
+  it('treats a Refer Function as an active Signature reference', () => {
+    const signature = signatureType('save-handler-type', 'SaveHandler')
+    const functionNode = node({
+      kind: 'function', id: 'save', mode: 'refer',
+      signatureTypeId: 'save-handler-type',
+    })
+    const root = project([signature, functionNode])
+
+    expect(TypeCatalog.isSignatureReferenced(root, 'save-handler-type')).toBe(true)
+  })
+
   it('validates property names and duplicates per hierarchy level', () => {
     const valid = [
       property('name', { type: 'string' }),
@@ -284,11 +353,11 @@ describe('TypeCatalog', () => {
       node({ kind: 'apps' }, [
         node({ kind: 'app', id: 'app' }, [
           node({ kind: 'declares' }, [node({ kind: 'types' }, [globalType])]),
-          node({ kind: 'function', id: 'first', async: false, returnType: null }, [
+          node({ kind: 'function', id: 'first', mode: 'inline', async: false, returnType: null }, [
             node({ kind: 'function-arguments' }),
             node({ kind: 'function-procedure' }, [ownType, target]),
           ]),
-          node({ kind: 'function', id: 'second', async: false, returnType: null }, [
+          node({ kind: 'function', id: 'second', mode: 'inline', async: false, returnType: null }, [
             node({ kind: 'function-arguments' }),
             node({ kind: 'function-procedure' }, [otherType, otherTarget]),
           ]),
