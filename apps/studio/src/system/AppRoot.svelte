@@ -8,6 +8,7 @@
   import AppHeader from './shell/AppHeader.svelte'
   import ToastLayer from './feedback/toast/ToastLayer.svelte'
   import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
+  import CommandConsoleLayer from './command/console/CommandConsoleLayer.svelte'
   import { screenStore } from './store/screen-store'
 
   const preventNativeContextMenu = (event: MouseEvent) => {
@@ -29,6 +30,7 @@
   <ActionMenuLayer />
   <ElementDialogLayer />
   <PreviewDialog />
+  <CommandConsoleLayer />
   <ConfirmDialogLayer />
   <ToastLayer />
 </main>

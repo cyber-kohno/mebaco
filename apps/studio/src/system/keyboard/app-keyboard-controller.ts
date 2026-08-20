@@ -7,6 +7,8 @@ import RuntimeSessionStore from '../runtime/runtime-session-store'
 import { screenStore } from '../store/screen-store'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
+import CommandController from '../command/command-controller'
+import { commandSessionStore } from '../command/command-session-store'
 import KeyboardController from './keyboard-controller'
 
 namespace AppKeyboardController {
@@ -28,6 +30,7 @@ namespace AppKeyboardController {
   const hasBlockingLayer = (): boolean => (
     get(elementDialogStore) != null
     || get(actionMenuStore) != null
+    || get(commandSessionStore) != null
     || get(confirmDialogStore) != null
     || get(RuntimeSessionStore.store) != null
   )
@@ -35,6 +38,13 @@ namespace AppKeyboardController {
   export const handleKeydown = (event: KeyboardEvent) => {
     if (event.defaultPrevented) return
     if (get(screenStore) !== 'develop') return
+    if (get(commandSessionStore) != null) return
+    if (event.key.toLowerCase() === 'k' && event.ctrlKey && !hasBlockingLayer()) {
+      event.preventDefault()
+      event.stopPropagation()
+      CommandController.open()
+      return
+    }
     if (
       hasBlockingLayer()
       || isEditableTarget(event.target)
