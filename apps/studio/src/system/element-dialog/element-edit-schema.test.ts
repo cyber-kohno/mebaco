@@ -66,7 +66,7 @@ describe('ElementEditSchema number field', () => {
 describe('ElementEditSchema formula field', () => {
   const injectionSource = 'declare var $state: { count: number; title: string; users: { name: string }[]; };'
 
-  it('rejects expressions that do not match primitive expected types', () => {
+  it('does not block saving based on expression result types', () => {
     const formulaField: ElementEditSchema.FormulaField = {
       type: 'formula',
       key: 'countSource',
@@ -79,7 +79,7 @@ describe('ElementEditSchema formula field', () => {
       formulaField,
       '$state.title',
       injectionSource,
-    )).toBe('Expression must return number.')
+    )).toBeNull()
     expect(ElementEditSchema.validateFormula(
       formulaField,
       '$state.count',
@@ -87,7 +87,7 @@ describe('ElementEditSchema formula field', () => {
     )).toBeNull()
   })
 
-  it('rejects empty array literals for collection expressions', () => {
+  it('does not block saving based on collection item inference', () => {
     const formulaField: ElementEditSchema.FormulaField = {
       type: 'formula',
       key: 'collectionSource',
@@ -100,7 +100,7 @@ describe('ElementEditSchema formula field', () => {
       formulaField,
       '[]',
       injectionSource,
-    )).toBe('Collection item type could not be inferred.')
+    )).toBeNull()
   })
 })
 
@@ -119,7 +119,7 @@ describe('ElementEditSchema Tag Ref key', () => {
     )).toBeNull()
   })
 
-  it('requires an enabled key to resolve to a non-empty string', () => {
+  it('requires an enabled key to be present without type-validating its formula', () => {
     expect(ElementEditSchema.validateTagRefKey(
       JSON.stringify({ type: 'literal', value: '' }),
       injectionSource,
@@ -127,7 +127,7 @@ describe('ElementEditSchema Tag Ref key', () => {
     expect(ElementEditSchema.validateTagRefKey(
       JSON.stringify({ type: 'formula', source: '$var.index' }),
       injectionSource,
-    )).toBe('Expression must return string.')
+    )).toBeNull()
   })
 })
 

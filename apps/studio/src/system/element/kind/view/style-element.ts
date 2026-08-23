@@ -6,7 +6,7 @@ import StyleTreeLabel from './StyleTreeLabel.svelte'
 import StyleParamsElement from './style-params-element'
 import TreeStore from '../../../store/tree-store'
 import type TreeNode from '../../../tree/tree-node'
-import StyleResolver from './style-resolver'
+import StyleParameterCatalog from './style-parameter-catalog'
 
 namespace StyleElement {
   export type Kind = 'style'
@@ -106,7 +106,7 @@ namespace StyleElement {
   export type CreateSchemaOptions = {
     reservedNames?: readonly string[]
     styleOptions?: readonly ElementEditSchema.SelectOption[]
-    styleCatalog?: StyleResolver.Catalog
+    styleCatalog?: StyleParameterCatalog.Catalog
     ownerStyleId?: string
   }
 
@@ -127,6 +127,7 @@ namespace StyleElement {
         tab: 'info',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'identifier',
@@ -427,7 +428,7 @@ namespace StyleElement {
             createSchema({
               reservedNames,
               styleOptions: getStyleOptions(context.rootNode, context.node.id),
-              styleCatalog: StyleResolver.createCatalog(context.rootNode),
+              styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
               ownerStyleId: context.element.id,
             }),
           )
@@ -438,6 +439,7 @@ namespace StyleElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

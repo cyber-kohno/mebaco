@@ -16,6 +16,7 @@ import FunctionScope from './kind/function/function-scope'
 import ControlConditionalElement from './kind/directive/control-conditional-element'
 import ControlSwitchElement from './kind/directive/control-switch-element'
 import SwitchElement from './kind/directive/switch-element'
+import TransitionElement from './kind/variable/transition-element'
 
 namespace FunctionActions {
   const findNode = (
@@ -128,6 +129,19 @@ namespace FunctionActions {
     ))
   }
 
+  export const createAddTransitionItem = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+    insertIndex?: number,
+  ): ActionMenuState.ActionItem => {
+    const { action } = ActionMenu.createFactory()
+    return action('Transition', () => ElementDialog.openCreate(
+      parentNodeId,
+      TransitionElement.createSchema(rootNode),
+      insertIndex,
+    ))
+  }
+
   export const createAddStatementMenu = (
     parentNodeId: number,
     rootNode: TreeNode.Node,
@@ -137,6 +151,7 @@ namespace FunctionActions {
     const { parent } = ActionMenu.createFactory()
     return parent('Add statement', [
       createAddActionItem(parentNodeId, insertIndex),
+      createAddTransitionItem(parentNodeId, rootNode, insertIndex),
       ...(includeReturn
         ? [createAddReturnItem(parentNodeId, rootNode)]
         : []),

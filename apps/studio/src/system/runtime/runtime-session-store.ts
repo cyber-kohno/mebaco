@@ -7,6 +7,8 @@ namespace RuntimeSessionStore {
     app: AppElement.Element
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
+    launcherId?: string
+    launchValues?: Readonly<Record<string, unknown>>
   }
 
   export const store = writable<Session | null>(null)

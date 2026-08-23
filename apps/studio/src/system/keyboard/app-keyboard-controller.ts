@@ -7,8 +7,9 @@ import RuntimeSessionStore from '../runtime/runtime-session-store'
 import { screenStore } from '../store/screen-store'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
-import CommandController from '../command/command-controller'
-import { commandSessionStore } from '../command/command-session-store'
+import CommandController from '../terminal/command-controller'
+import { commandSessionStore } from '../terminal/command-session-store'
+import ReferenceGraphController from '../analysis/reference-graph-controller'
 import KeyboardController from './keyboard-controller'
 
 namespace AppKeyboardController {
@@ -39,10 +40,34 @@ namespace AppKeyboardController {
     if (event.defaultPrevented) return
     if (get(screenStore) !== 'develop') return
     if (get(commandSessionStore) != null) return
-    if (event.key.toLowerCase() === 'k' && event.ctrlKey && !hasBlockingLayer()) {
+    if (
+      event.key.toLowerCase() === 't'
+      && !event.ctrlKey
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+      && !hasBlockingLayer()
+      && !isEditableTarget(event.target)
+      && !isNativeActivation(event)
+    ) {
       event.preventDefault()
       event.stopPropagation()
       CommandController.open()
+      return
+    }
+    if (
+      event.key.toLowerCase() === 'r'
+      && !event.ctrlKey
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+      && !hasBlockingLayer()
+      && !isEditableTarget(event.target)
+      && !isNativeActivation(event)
+    ) {
+      event.preventDefault()
+      event.stopPropagation()
+      ReferenceGraphController.toggle(get(TreeStore.selectedNodeId))
       return
     }
     if (
@@ -64,6 +89,8 @@ namespace AppKeyboardController {
       },
       canDisable: (node) => ElementRegistry.get(node.element.kind).canDisable,
       toggleDisabled: TreeStore.toggleDisabled,
+      canReorder: (nodeId, direction) => TreeStore.canMoveNode(nodeId, direction),
+      reorder: (nodeId, direction) => TreeStore.moveNode(nodeId, direction),
       getContextMenu: (node, parentNode) => (
         ElementRegistry.get(node.element.kind).getContextMenu({
           element: node.element,

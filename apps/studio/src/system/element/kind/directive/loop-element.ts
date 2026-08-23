@@ -165,6 +165,7 @@ namespace LoopElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

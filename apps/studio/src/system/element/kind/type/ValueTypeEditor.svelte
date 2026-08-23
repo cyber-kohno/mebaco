@@ -10,6 +10,7 @@
     objectOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string }[]
     namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string; preview?: string; kind?: 'union' | 'signature' }[]
     errorMessage?: string | null
+    readOnly?: boolean
     onValueChange: (value: string) => void
   }
 
@@ -18,6 +19,7 @@
     objectOptions,
     namedTypeOptions,
     errorMessage = null,
+    readOnly = false,
     onValueChange,
   }: Props = $props()
 
@@ -190,7 +192,7 @@
   ): string => typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
 </script>
 
-<section class="value-type-editor">
+<section class="value-type-editor" class:read-only-editor={readOnly} inert={readOnly}>
   {#if errorMessage != null}
     <div class="editor-error">{errorMessage}</div>
   {/if}
@@ -323,6 +325,23 @@
     gap: 14px;
     color: #2b4850;
     font-size: 13px;
+  }
+
+  .value-type-editor.read-only-editor,
+  .value-type-editor.read-only-editor label,
+  .value-type-editor.read-only-editor .detail-label {
+    color: #1976a2;
+  }
+
+  .value-type-editor.read-only-editor :global(input),
+  .value-type-editor.read-only-editor :global(select),
+  .value-type-editor.read-only-editor :global(button) {
+    opacity: 1;
+    border-color: #9acbd4;
+    background: transparent;
+    color: #1976a2;
+    -webkit-text-fill-color: #1976a2;
+    cursor: default;
   }
 
   .editor-error {

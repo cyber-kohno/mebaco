@@ -63,11 +63,13 @@ namespace FunctionElement {
     fields: [
       {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
+        readOnlyOnUpdate: true,
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
       {
         type: 'select', key: 'mode', label: 'Mode', width: 'mode', required: true,
+        readOnlyOnUpdate: options.lockedMode != null,
         defaultValue: options.lockedMode ?? 'inline',
         options: options.lockedMode == null
           ? [
@@ -94,6 +96,7 @@ namespace FunctionElement {
       },
       {
         type: 'valueType', key: 'returnType', label: 'Return Type', required: true,
+        readOnlyOnUpdate: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
         namedTypeOptions: options.namedTypeOptions ?? [],
@@ -177,6 +180,7 @@ namespace FunctionElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

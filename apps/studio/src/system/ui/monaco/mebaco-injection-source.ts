@@ -1,7 +1,7 @@
 import type StateElement from '../../element/kind/variable/store/state-element'
 import type TreeNode from '../../tree/tree-node'
 import type StyleParamElement from '../../element/kind/view/style-param-element'
-import StyleResolver from '../../element/kind/view/style-resolver'
+import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
 import MonacoInjection from './monaco-injection'
 import TypeCatalog from '../../element/kind/type/type-catalog'
 import TypeExpression from '../../element/kind/type/type-expression'
@@ -129,6 +129,15 @@ namespace MebacoInjectionSource {
       ?? []
   }
 
+  const collectApps = (
+    node: TreeNode.Node,
+    result: TreeNode.Node[] = [],
+  ): TreeNode.Node[] => {
+    if (node.element.kind === 'app') result.push(node)
+    node.children.forEach((child) => collectApps(child, result))
+    return result
+  }
+
   const collectScopedStates = (
     targetNode: TreeNode.Node | null,
     rootNode: TreeNode.Node,
@@ -186,6 +195,32 @@ namespace MebacoInjectionSource {
     return ['declare var $launch: {', ...fields, '};'].join('\n')
   }
 
+  const createTransitionDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): string | null => {
+    const ownerAppNode = findOwnerApp(rootNode, targetNodeId)
+    const targetApps = collectApps(rootNode)
+      .filter((appNode) => ownerAppNode == null || appNode.id !== ownerAppNode.id)
+    if (targetApps.length === 0) return null
+
+    const methods = targetApps.map((appNode) => {
+      const appId = appNode.element.kind === 'app' ? appNode.element.id : ''
+      const fields = getLaunchArguments(appNode)
+        .map((argument) => (
+          `    ${argument.id}: ${getValueType(argument, rootNode)};`
+        ))
+      const launchValuesType = fields.length === 0
+        ? '{}'
+        : ['{', ...fields, '  }'].join('\n')
+      return [
+        `  transition(appId: ${JSON.stringify(appId)}, launchValues: ${launchValuesType}): void;`,
+      ].join('\n')
+    })
+
+    return methods.join('\n')
+  }
+
   const collectValueProps = (
     componentNode: TreeNode.Node | null,
   ): ValuePropElement.Element[] => (
@@ -226,7 +261,7 @@ namespace MebacoInjectionSource {
   ): Array<Pick<StyleParamElement.Element, 'id' | 'valueType'>> => {
     if (node?.element.kind !== 'style') return []
 
-    return StyleResolver.createCatalog(rootNode)
+    return StyleParameterCatalog.createCatalog(rootNode)
       .resolve(node.element.id)
       .parameters
       .map((parameter) => ({
@@ -416,6 +451,7 @@ namespace MebacoInjectionSource {
       getLaunchArguments(findOwnerApp(rootNode, targetNodeId)),
       rootNode,
     )
+    const transitionDeclaration = createTransitionDeclaration(rootNode, targetNodeId)
     const styleParameterDeclaration = createStyleParameterDeclaration(
       collectStyleParameters(rootNode, targetNode),
     )
@@ -431,6 +467,7 @@ namespace MebacoInjectionSource {
         ? [
             'declare var $system: {',
             '  getRef(refKey: string): HTMLElement | null;',
+            ...(transitionDeclaration == null ? [] : [transitionDeclaration]),
             ...(eventType != null
               ? ['  afterRender(callback: () => void): () => void;']
               : []),

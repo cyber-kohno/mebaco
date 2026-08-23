@@ -7,9 +7,12 @@
   import ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import StyleElement from '../../element/kind/view/style-element'
-  import StyleResolver from '../style/style-resolver'
+  import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeProps from '../runtime-props'
+  import RuntimeLaunch from '../runtime-launch'
+  import type AppElement from '../../element/kind/app/app-element'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import PreviewController from '../preview/preview-controller'
   import FunctionRunner from '../function/function-runner'
   import RuntimeErrorScreen from './RuntimeErrorScreen.svelte'
   import RuntimeError from './runtime-error'
@@ -17,9 +20,11 @@
   type Props = {
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
+    launcherId?: string
+    launchValues?: Readonly<Record<string, unknown>>
   }
 
-  let { appNode, projectNode }: Props = $props()
+  let { appNode, projectNode, launcherId, launchValues }: Props = $props()
 
   let renderRevision = $state(0)
   let actionError = $state<{
@@ -30,20 +35,47 @@
   // error screen unmounts renderers, whose cleanup effects report null; clearing
   // the failure here would remount them and create an update loop.
   let runtimeFailure = $state<RuntimeError.Failure | null>(null)
-  let styleResults = $state<Record<number, StyleResolver.Result>>({})
+  let transitionRequested = $state(false)
+  let styleResults = $state<Record<number, StyleDeclarationResolver.Result>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
   let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
   const runtimeSystem = RuntimeRefRegistry.createSystem({
     requestRender: () => invalidateRuntime(),
     reportError: (nodeId, error) => setActionError(nodeId, error),
+    transition: (appId, values) => {
+      if (transitionRequested) return
+      transitionRequested = true
+      queueMicrotask(() => {
+        if (!PreviewController.transition(projectNode, appId, values)) {
+          transitionRequested = false
+        }
+      })
+    },
   })
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
-  const runtimeState = $derived(RuntimeState.createState(runtime))
+  const runtimeState = $derived(RuntimeState.createState(
+    runtime,
+    launchValues == null ? {} : { ...launchValues },
+  ))
   const entryComponentNode = $derived(RuntimeTree.getEntryComponentNode(runtime))
+  const baseFormulaContext = $derived(FormulaContext.create({
+    $state: runtimeState,
+    $system: runtimeSystem,
+  }))
+  const launchResult = $derived(RuntimeLaunch.resolve({
+    appNode: appNode as TreeNode.Node & { element: AppElement.Element },
+    projectNode,
+    launcherId,
+    launchValues,
+    baseContext: baseFormulaContext,
+  }))
+  const effectiveRuntimeState = $derived(RuntimeState.createState(runtime, launchResult.values))
   const appFormulaContext = $derived.by(() => {
     const context = FormulaContext.create({
-      $state: runtimeState,
+      ...baseFormulaContext,
+      $launch: launchResult.values,
+      $state: effectiveRuntimeState,
       $system: runtimeSystem,
     })
     context.$function = FunctionRunner.createNamespace(
@@ -74,7 +106,12 @@
     )
     return context
   })
-  const styleCatalog = $derived(StyleResolver.createCatalog(projectNode))
+
+  $effect(() => {
+    appNode.id
+    transitionRequested = false
+  })
+  const styleCatalog = $derived(StyleDeclarationResolver.createCatalog(projectNode))
   const firstStyleError = $derived(Object.entries(styleResults)
     .flatMap(([nodeId, result]) => {
       const numericNodeId = Number(nodeId)
@@ -82,11 +119,14 @@
       return result.errors.map((error) => ({ nodeId: numericNodeId, error }))
     })[0] ?? null)
   const derivedRuntimeFailure = $derived.by(() => {
+    if (launchResult.errors.length > 0) {
+      return RuntimeError.unexpected(launchResult.errors[0], { nodeId: appNode.id })
+    }
     if (actionError != null) {
       return RuntimeError.fromScriptError(actionError.error, { nodeId: actionError.nodeId })
     }
     if (firstStyleError != null) {
-      return RuntimeError.unexpected(StyleResolver.formatError(firstStyleError.error), {
+      return RuntimeError.unexpected(StyleDeclarationResolver.formatError(firstStyleError.error), {
         nodeId: firstStyleError.nodeId,
       })
     }
@@ -95,6 +135,7 @@
     }
     return null
   })
+  const displayedRuntimeFailure = $derived(runtimeFailure ?? derivedRuntimeFailure)
   const runtimeStyleSheet = $derived.by(() => {
     const rules: string[] = []
     Object.entries(styleResults).forEach(([nodeId, result]) => {
@@ -149,8 +190,8 @@
   )
 
   const styleSourcesEqual = (
-    left: StyleResolver.DeclarationSource,
-    right: StyleResolver.DeclarationSource,
+    left: StyleDeclarationResolver.DeclarationSource,
+    right: StyleDeclarationResolver.DeclarationSource,
   ): boolean => (
     left.styleId === right.styleId
     && left.valueType === right.valueType
@@ -158,8 +199,8 @@
   )
 
   const styleDeclarationsEqual = (
-    left: StyleResolver.Declaration,
-    right: StyleResolver.Declaration,
+    left: StyleDeclarationResolver.Declaration,
+    right: StyleDeclarationResolver.Declaration,
   ): boolean => (
     left.property === right.property
     && left.value === right.value
@@ -168,8 +209,8 @@
   )
 
   const styleErrorsEqual = (
-    left: StyleResolver.Error,
-    right: StyleResolver.Error,
+    left: StyleDeclarationResolver.Error,
+    right: StyleDeclarationResolver.Error,
   ): boolean => (
     left.type === right.type
     && left.message === right.message
@@ -182,15 +223,15 @@
   )
 
   const styleResultsEqual = (
-    left: StyleResolver.Result,
-    right: StyleResolver.Result,
+    left: StyleDeclarationResolver.Result,
+    right: StyleDeclarationResolver.Result,
   ): boolean => (
     arraysEqual(left.declarations, right.declarations, styleDeclarationsEqual)
     && arraysEqual(left.errors, right.errors, styleErrorsEqual)
   )
 
   const isEmptyStyleResult = (
-    result: StyleResolver.Result,
+    result: StyleDeclarationResolver.Result,
   ): boolean => result.declarations.length === 0 && result.errors.length === 0
 
   const setActionError = (
@@ -211,7 +252,7 @@
 
   const setStyleResult = (
     nodeId: number,
-    result: StyleResolver.Result | null,
+    result: StyleDeclarationResolver.Result | null,
   ) => {
     const currentResults = untrack(() => styleResults)
     if (result == null || isEmptyStyleResult(result)) {
@@ -227,7 +268,7 @@
     ) return
     styleResults = { ...currentResults, [nodeId]: result }
     if (result.errors.length > 0 && runtimeFailure == null) {
-      runtimeFailure = RuntimeError.unexpected(StyleResolver.formatError(result.errors[0]), {
+      runtimeFailure = RuntimeError.unexpected(StyleDeclarationResolver.formatError(result.errors[0]), {
         nodeId,
       })
     }
@@ -236,17 +277,9 @@
 
 <div class="runtime-view">
   <style bind:this={runtimeStyleElement}></style>
-  {#if runtimeFailure ?? derivedRuntimeFailure}
-    <RuntimeErrorScreen failure={runtimeFailure ?? derivedRuntimeFailure} />
-  {:else if runtime.entryNode == null}
-    <div class="runtime-message">Entry is missing.</div>
-  {:else if runtime.entryNode.element.kind === 'entry' && runtime.entryNode.element.componentId == null}
-    <div class="runtime-message">Entry component is not selected.</div>
-  {:else if entryComponentNode == null}
-    <div class="runtime-message">Entry component was not found.</div>
-  {:else if rootViewNodes.length === 0}
-    <div class="runtime-message">Entry component has no elements.</div>
-  {:else}
+  {#if displayedRuntimeFailure != null}
+    <RuntimeErrorScreen failure={displayedRuntimeFailure} />
+  {:else if entryComponentNode != null}
     <RenderContent hostNode={entryComponentNode} contentNodes={rootViewNodes}
       {projectNode} {styleCatalog}
       {formulaContext} {renderRevision} {invalidateRuntime}
@@ -270,20 +303,6 @@
 
   .runtime-view > :global(*) {
     vertical-align: top;
-  }
-
-  .runtime-message {
-    display: inline-flex;
-    align-items: center;
-    margin: 18px;
-    min-height: 34px;
-    padding: 0 12px;
-    border: 1px solid rgba(154, 203, 212, 0.68);
-    border-radius: 6px;
-    background: rgba(244, 251, 252, 0.9);
-    color: #6d8990;
-    font-size: 13px;
-    font-weight: 700;
   }
 
 </style>

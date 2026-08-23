@@ -5,7 +5,7 @@
   import RuntimeTree from '../runtime-tree'
   import RuntimeState from '../runtime-state'
   import ScriptError from '../script/script-error'
-  import type StyleResolver from '../style/style-resolver'
+  import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
   import RenderContent from './RenderContent.svelte'
   import type FormulaContextType from '../formula/formula-context'
@@ -17,12 +17,12 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
   type Props = {
     node: TreeNode.Node
     projectNode: TreeNode.Node
-    styleCatalog: StyleResolver.Catalog
+    styleCatalog: StyleDeclarationResolver.Catalog
     formulaContext: FormulaContextType.Value
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptErrorType.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 
@@ -100,6 +100,7 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
       projectNode,
       formulaContext.$state,
       RuntimeTree.getComponentStateNodes(componentNode),
+      formulaContext.$launch,
     )
     stateFrames.set(componentNode, created)
     return created

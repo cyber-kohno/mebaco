@@ -1,4 +1,4 @@
-import { open, save } from '@tauri-apps/plugin-dialog'
+import { open, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { readFile, writeFile } from '@tauri-apps/plugin-fs'
 import { get } from 'svelte/store'
 import JSZip from 'jszip'
@@ -6,8 +6,16 @@ import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
 import { screenStore } from '../store/screen-store'
+import ToastController from '../feedback/toast/toast-controller'
+import ProjectSession from './project-session-store'
+import ExpressionVerificationStore from '../validation/expression-verification-store'
 
 namespace ProjectFile {
+  export type SaveResult =
+    | { status: 'saved'; mode: 'overwrite' | 'new'; fileName: string | null }
+    | { status: 'cancelled' }
+    | { status: 'unchanged' }
+
   type Manifest = {
     format: 'mebaco'
     appVersion: string
@@ -74,18 +82,8 @@ namespace ProjectFile {
     }
   }
 
-  export const saveAs = async () => {
-    const selectedPath = await save({
-      title: 'Save Mebaco project',
-      filters: [
-        {
-          name: 'Mebaco project',
-          extensions: ['mbc'],
-        },
-      ],
-    })
-    if (selectedPath == null) return
-
+  const writeProject = async (selectedPath: string) => {
+    const targetPath = ensureMbcExtension(selectedPath)
     const zip = new JSZip()
     zip.file('manifest.json', JSON.stringify(createManifest(), null, 2))
     zip.file('project.json', JSON.stringify({ rootNode: get(TreeStore.rootNode) } satisfies ProjectJson, null, 2))
@@ -95,7 +93,37 @@ namespace ProjectFile {
       type: 'uint8array',
       compression: 'DEFLATE',
     })
-    await writeFile(ensureMbcExtension(selectedPath), bytes)
+    await writeFile(targetPath, bytes)
+    ProjectSession.markSaved(get(TreeStore.rootNode), targetPath)
+    return get(ProjectSession.store)
+  }
+
+  export const saveAs = async (): Promise<SaveResult> => {
+    const selectedPath = await saveDialog({
+      title: 'Save Mebaco project',
+      filters: [
+        {
+          name: 'Mebaco project',
+          extensions: ['mbc'],
+        },
+      ],
+    })
+    if (selectedPath == null) return { status: 'cancelled' }
+
+    const session = await writeProject(selectedPath)
+    return { status: 'saved', mode: 'new', fileName: session.fileName }
+  }
+
+  export const save = async (): Promise<SaveResult> => {
+    const session = get(ProjectSession.store)
+    if (session.path == null) {
+      return saveAs()
+    }
+    if (!session.isDirty) return { status: 'unchanged' }
+
+    await writeProject(session.path)
+    ToastController.show('Project saved successfully.', { tone: 'success' })
+    return { status: 'saved', mode: 'overwrite', fileName: session.fileName }
   }
 
   export const openFile = async () => {
@@ -122,8 +150,33 @@ namespace ProjectFile {
     parseManifest(await manifestFile.async('string'))
     const projectJson = parseProjectJson(await projectFile.async('string'))
 
+    ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(projectJson.rootNode)
+    ProjectSession.markSaved(get(TreeStore.rootNode), selectedPath)
     screenStore.set('develop')
+  }
+
+  export const startEmpty = () => {
+    ExpressionVerificationStore.clear()
+    TreeStore.replaceRoot(TreeNode.createRootNode())
+    ProjectSession.startNew(get(TreeStore.rootNode))
+    screenStore.set('develop')
+  }
+
+  export const close = () => {
+    ExpressionVerificationStore.clear()
+    ProjectSession.clear()
+    TreeStore.replaceRoot(TreeNode.createRootNode())
+    screenStore.set('start')
+  }
+
+  export const saveWithAlert = async () => {
+    try {
+      await save()
+    } catch (error) {
+      console.error('Failed to save project:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save project.')
+    }
   }
 
   export const saveAsWithAlert = async () => {

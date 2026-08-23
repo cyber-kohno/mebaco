@@ -24,33 +24,61 @@ namespace PreviewController {
     return null
   }
 
-  export const openForSelectedNode = (
+  const findApp = (
+    node: TreeNode.Node,
+    appId: string,
+  ): TreeNode.Node | null => {
+    if (node.element.kind === 'app' && node.element.id === appId) return node
+    for (const child of node.children) {
+      const found = findApp(child, appId)
+      if (found != null) return found
+    }
+    return null
+  }
+
+  const openApp = (
     rootNode: TreeNode.Node,
-    selectedNodeId: number,
+    appNode: TreeNode.Node,
+    launcherId?: string,
+    launchValues?: Readonly<Record<string, unknown>>,
   ): boolean => {
-    const appNode = findOwnerApp(rootNode, selectedNodeId)
-    if (appNode?.element.kind !== 'app') return false
+    if (appNode.element.kind !== 'app') return false
 
     const runtime = RuntimeTree.createAppRuntime(appNode, rootNode)
-    if (runtime.entryNode == null) {
-      ToastController.show('Entry is not configured for this App.', { tone: 'warning' })
-      return false
-    }
-    if (runtime.entryNode.element.componentId == null) {
-      ToastController.show('Entry component is not configured.', { tone: 'warning' })
-      return false
-    }
-    if (RuntimeTree.getEntryComponentNode(runtime) == null) {
-      ToastController.show('The configured Entry component was not found.', { tone: 'warning' })
-      return false
-    }
+    if (RuntimeTree.getEntryConfigurationError(runtime) != null) return false
 
     RuntimeSessionStore.open({
       app: appNode.element as AppElement.Element,
       appNode,
       projectNode: rootNode,
+      launcherId,
+      launchValues,
     })
     return true
+  }
+
+  export const openForSelectedNode = (
+    rootNode: TreeNode.Node,
+    selectedNodeId: number,
+    launcherId?: string,
+    launchValues?: Readonly<Record<string, unknown>>,
+  ): boolean => {
+    const appNode = findOwnerApp(rootNode, selectedNodeId)
+    if (appNode?.element.kind !== 'app') return false
+    return openApp(rootNode, appNode, launcherId, launchValues)
+  }
+
+  export const transition = (
+    rootNode: TreeNode.Node,
+    appId: string,
+    launchValues: Readonly<Record<string, unknown>>,
+  ): boolean => {
+    const appNode = findApp(rootNode, appId)
+    if (appNode == null) {
+      ToastController.show(`Transition target App '${appId}' was not found.`, { tone: 'danger' })
+      return false
+    }
+    return openApp(rootNode, appNode, undefined, launchValues)
   }
 
   export const close = () => {

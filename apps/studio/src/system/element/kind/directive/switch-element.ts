@@ -44,6 +44,7 @@ namespace SwitchElement {
         type: 'switchValueType',
         key: 'valueType',
         label: 'Value Type',
+        readOnlyOnUpdate: true,
         defaultValue: SwitchValueType.stringify(SwitchValueType.createPrimitive()),
         literalUnionOptions: options.literalUnionOptions ?? [],
         caseValueType: options.caseValueType,
@@ -187,6 +188,7 @@ namespace SwitchElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

@@ -80,4 +80,29 @@ describe('RuntimeTree', () => {
 
     expect(RuntimeTree.getComponentStateNodes(componentNode)).toEqual([stateNode])
   })
+
+  it('reports App entry configuration errors separately from empty view content', () => {
+    const appNode = node(1, { kind: 'app', id: 'Main' }, [
+      node(2, { kind: 'entry', componentId: null, propBindings: [] }),
+    ])
+    const runtime = RuntimeTree.createAppRuntime(appNode, node(10, { kind: 'project' }))
+
+    expect(RuntimeTree.getEntryConfigurationError(runtime)).toBe(
+      'Entry component is not configured.',
+    )
+  })
+
+  it('accepts an entry component even when it has no view elements', () => {
+    const componentNode = node(4, { kind: 'component', id: 'MainView' }, [
+      node(5, { kind: 'elements' }),
+    ])
+    const appNode = node(1, { kind: 'app', id: 'Main' }, [
+      componentNode,
+      node(6, { kind: 'entry', componentId: 'MainView', propBindings: [] }),
+    ])
+    const runtime = RuntimeTree.createAppRuntime(appNode, node(10, { kind: 'project' }))
+
+    expect(RuntimeTree.getEntryConfigurationError(runtime)).toBeNull()
+    expect(RuntimeTree.getComponentRootViewNodes(componentNode)).toEqual([])
+  })
 })

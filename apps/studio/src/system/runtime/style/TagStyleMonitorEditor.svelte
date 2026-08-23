@@ -2,7 +2,7 @@
   import type TagElement from '../../element/kind/view/tag-element'
   import StyleElement from '../../element/kind/view/style-element'
   import FormulaContext from '../formula/formula-context'
-  import RuntimeStyleResolver from './style-resolver'
+  import StyleDeclarationResolver from './style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
   import ResolvedStyleMonitor from './ResolvedStyleMonitor.svelte'
 
@@ -27,7 +27,7 @@
 
   const preview = $derived.by(() => {
     const applications = parseApplications(styles)
-    return RuntimeStyleResolver
+    return StyleDeclarationResolver
       .createCatalog(rootNode)
       .resolve(applications, FormulaContext.createEmpty(), {
         includeUnresolvedDeclarations: true,

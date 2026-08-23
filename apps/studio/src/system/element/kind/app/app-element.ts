@@ -41,6 +41,7 @@ namespace AppElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'identifier',
@@ -118,6 +119,7 @@ namespace AppElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

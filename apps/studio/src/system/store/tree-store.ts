@@ -1,7 +1,8 @@
-import { writable } from 'svelte/store'
+import { get, writable } from 'svelte/store'
 import type MebacoElement from '../element/element'
 import ElementRegistry from '../element/element-registry'
 import TreeNode from '../tree/tree-node'
+import TreeReorder from '../tree/tree-reorder'
 
 namespace TreeStore {
   export type NodeTransformer = (
@@ -208,6 +209,32 @@ namespace TreeStore {
       return changed ? nextRoot : root
     })
 
+    if (changed) selectedNodeId.set(nodeId)
+    return changed
+  }
+
+  export const canMoveNode = (
+    nodeId: number,
+    direction: TreeReorder.Direction,
+  ): boolean => TreeReorder.canMove(
+    get(rootNode),
+    nodeId,
+    direction,
+    (node) => ElementRegistry.get(node.element.kind).reorderGroup ?? null,
+  )
+
+  export const moveNode = (
+    nodeId: number,
+    direction: TreeReorder.Direction,
+  ): boolean => {
+    let changed = false
+    rootNode.update((root) => {
+      const nextRoot = TreeNode.clone(root)
+      changed = TreeReorder.move(nextRoot, nodeId, direction, (node) => (
+        ElementRegistry.get(node.element.kind).reorderGroup ?? null
+      ))
+      return changed ? nextRoot : root
+    })
     if (changed) selectedNodeId.set(nodeId)
     return changed
   }

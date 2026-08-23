@@ -7,7 +7,9 @@ namespace CommandContextFactory {
     selectedNodeId: number
     appendOutput: (tone: CommandTone, message: string) => void
     close: () => void
-    openPreview: () => boolean
+    openPreview: CommandContext['openPreview']
+    requestChoice: CommandContext['requestChoice']
+    requestInput: CommandContext['requestInput']
   }): CommandContext => ({ ...options })
 }
 

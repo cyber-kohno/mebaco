@@ -9,7 +9,7 @@ import TagCatalog from './tag-catalog'
 import TagTreeLabel from './TagTreeLabel.svelte'
 import TreeStore from '../../../store/tree-store'
 import type StyleElement from './style-element'
-import StyleResolver from './style-resolver'
+import StyleParameterCatalog from './style-parameter-catalog'
 
 namespace TagElement {
   export type Kind = 'tag'
@@ -141,7 +141,7 @@ namespace TagElement {
 
   export type CreateSchemaOptions = {
     styleOptions?: readonly ElementEditSchema.SelectOption[]
-    styleCatalog?: StyleResolver.Catalog
+    styleCatalog?: StyleParameterCatalog.Catalog
   }
 
   export const createSchema = (
@@ -435,7 +435,7 @@ namespace TagElement {
             context.element,
             createSchema({
               styleOptions: getStyleOptions(context.rootNode),
-              styleCatalog: StyleResolver.createCatalog(context.rootNode),
+              styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
             }),
           )
         }),
@@ -456,6 +456,7 @@ namespace TagElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

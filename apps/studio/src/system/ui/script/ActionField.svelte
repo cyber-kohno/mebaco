@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ScriptEditorField from '../script/ScriptEditorField.svelte'
+  import ScriptEditorField from './ScriptEditorField.svelte'
 
   type Props = {
     value: string

@@ -58,6 +58,7 @@ namespace ConditionalElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

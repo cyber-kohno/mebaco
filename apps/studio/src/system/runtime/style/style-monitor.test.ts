@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type StyleResolver from './style-resolver'
+import type StyleDeclarationResolver from './style-declaration-resolver'
 import StyleMonitor from './style-monitor'
 
 const declaration = (
   property: string,
   value: string,
   styleId: string,
-  state: StyleResolver.Declaration['state'] = null,
-): StyleResolver.Declaration => ({
+  state: StyleDeclarationResolver.Declaration['state'] = null,
+): StyleDeclarationResolver.Declaration => ({
   property,
   value,
   state,

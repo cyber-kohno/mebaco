@@ -11,6 +11,7 @@ import ContentHost from '../../element/content-host'
 import FunctionRunner from '../function/function-runner'
 import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
+import TransitionExecutor from '../transition/transition-executor'
 
 namespace RetentionResolver {
   export type Result = {
@@ -64,6 +65,18 @@ namespace RetentionResolver {
         if (child.element.kind === 'block') {
           const result = resolveChildren(child.children)
           if (result != null) return result
+          continue
+        }
+
+        if (child.element.kind === 'transition') {
+          const executed = TransitionExecutor.execute(
+            child.element,
+            nextContext,
+            projectNode,
+          )
+          if (!executed.ok) {
+            return { context: nextContext, error: executed.error, errorNodeId: child.id }
+          }
           continue
         }
 

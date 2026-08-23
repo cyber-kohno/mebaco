@@ -65,6 +65,7 @@ namespace ValuePropElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'jsIdentifier',
@@ -76,6 +77,7 @@ namespace ValuePropElement {
         type: 'valueType',
         key: 'valueType',
         label: 'Value Type',
+        readOnlyOnUpdate: true,
         required: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
@@ -159,6 +161,7 @@ namespace ValuePropElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

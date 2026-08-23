@@ -138,6 +138,7 @@ describe('Function editing UI models', () => {
       lockedMode: 'refer',
     })
     expect(updateSchema.fields.find((field) => field.key === 'mode')).toMatchObject({
+      readOnlyOnUpdate: true,
       options: [{ value: 'refer', label: 'Refer' }],
     })
   })
@@ -175,7 +176,7 @@ describe('Function editing UI models', () => {
     expect(initialStatement.type).toBe('parent')
     if (initialStatement.type === 'parent') {
       expect(initialStatement.children.map((item) => item.label))
-        .toEqual(['Action', 'Return'])
+        .toEqual(['Action', 'Transition', 'Return'])
     }
 
     const withReturn = createTree(true)
@@ -195,7 +196,7 @@ describe('Function editing UI models', () => {
     const addAction = items[1]
     expect(addAction.type).toBe('parent')
     if (addAction.type !== 'parent') return
-    expect(addAction.children.map((item) => item.label)).toEqual(['Action'])
+    expect(addAction.children.map((item) => item.label)).toEqual(['Action', 'Transition'])
     const actionItem = addAction.children[0]
     expect(actionItem.type).toBe('action')
     if (actionItem.type !== 'action') return

@@ -100,7 +100,7 @@
 
 {#if $actionMenuStore != null}
   <button class="scrim" type="button" aria-label="Close menu" onclick={ActionMenu.close}></button>
-  <div class="menu-layer" role="menu" tabindex="-1" onmouseleave={ActionMenu.close}>
+  <div class="menu-layer" role="menu" tabindex="-1">
     {#each levels as level}
       <div
         class="frame"

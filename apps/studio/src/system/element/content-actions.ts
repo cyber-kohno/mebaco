@@ -5,7 +5,7 @@ import ComponentUseElement from './kind/component/reference/component-use-elemen
 import ConditionalElement from './kind/directive/conditional-element'
 import ContentHost from './content-host'
 import ElementDialog from '../element-dialog/element-dialog-controller'
-import StyleResolver from './kind/view/style-resolver'
+import StyleParameterCatalog from './kind/view/style-parameter-catalog'
 import TagElement from './kind/view/tag-element'
 import TextElement from './kind/view/text-element'
 import TreeStore from '../store/tree-store'
@@ -26,7 +26,7 @@ namespace ContentActions {
           parentNodeId,
           TagElement.createSchema({
             styleOptions: TagElement.getStyleOptions(rootNode),
-            styleCatalog: StyleResolver.createCatalog(rootNode),
+            styleCatalog: StyleParameterCatalog.createCatalog(rootNode),
           }),
         )
       }),

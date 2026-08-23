@@ -93,6 +93,7 @@ namespace BlockElement {
         items.push(
           FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
           FunctionActions.createAddActionItem(context.node.id),
+          FunctionActions.createAddTransitionItem(context.node.id, context.rootNode),
           FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
           FunctionActions.createAddBlockItem(context.node.id),
         )
@@ -100,6 +101,7 @@ namespace BlockElement {
         items.push(
           RetentionActions.createAddDeclareMenu(context.node.id, context.rootNode),
           RetentionActions.createAddActionItem(context.node.id),
+          RetentionActions.createAddTransitionItem(context.node.id, context.rootNode),
           RetentionActions.createAddControlMenu(context.node.id, context.rootNode),
           ContentActions.createAddBlockItem(context.node.id),
         )
@@ -116,6 +118,7 @@ namespace BlockElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

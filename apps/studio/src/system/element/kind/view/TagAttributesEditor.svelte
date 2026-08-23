@@ -2,7 +2,7 @@
   import ArrowDown from '@lucide/svelte/icons/arrow-down'
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import Trash2 from '@lucide/svelte/icons/trash-2'
-  import ActionField from '../../../ui/action/ActionField.svelte'
+  import ActionField from '../../../ui/script/ActionField.svelte'
   import IconButton from '../../../ui/button/IconButton.svelte'
   import FormulaField from '../../../ui/formula/FormulaField.svelte'
   import SuggestTextInput from '../../../ui/input/SuggestTextInput.svelte'

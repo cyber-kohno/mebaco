@@ -12,6 +12,7 @@ import ScriptPolicy from '../script/script-policy'
 import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
 import FunctionDefinition from '../../element/kind/function/function-definition'
+import TransitionExecutor from '../transition/transition-executor'
 
 namespace FunctionRunner {
   export type Success = {
@@ -133,6 +134,9 @@ namespace FunctionRunner {
       } else if (child.element.kind === 'block') {
         const blockFailure = executeChildren(child.children, context, frame, projectNode)
         if (blockFailure != null) return blockFailure
+      } else if (child.element.kind === 'transition') {
+        const executed = TransitionExecutor.execute(child.element, context, projectNode)
+        if (!executed.ok) return failure(child.id, executed.error)
       } else if (child.element.kind === 'variable') {
         const policyError = ScriptPolicy.validate(child.element.source, {
           allowAwait: false,
@@ -200,6 +204,9 @@ namespace FunctionRunner {
           projectNode,
         )
         if (blockFailure != null) return blockFailure
+      } else if (child.element.kind === 'transition') {
+        const executed = TransitionExecutor.execute(child.element, context, projectNode)
+        if (!executed.ok) return failure(child.id, executed.error)
       } else if (child.element.kind === 'variable') {
         const policyError = ScriptPolicy.validate(child.element.source, {
           allowAwait: false,

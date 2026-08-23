@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import StyleFixture from '../../../test-support/style-fixture'
-import StyleResolver from './style-resolver'
+import StyleParameterCatalog from './style-parameter-catalog'
 
-describe('element StyleResolver', () => {
+describe('element StyleParameterCatalog', () => {
   beforeEach(StyleFixture.resetNodeIds)
 
   it('collects direct parameters', () => {
@@ -12,7 +12,7 @@ describe('element StyleResolver', () => {
       }),
     ])
 
-    expect(StyleResolver.createCatalog(root).resolve('base')).toEqual({
+    expect(StyleParameterCatalog.createCatalog(root).resolve('base')).toEqual({
       parameters: [{
         parameterId: 'width',
         valueType: 'number',
@@ -42,7 +42,7 @@ describe('element StyleResolver', () => {
         },
       })],
     })
-    const catalog = StyleResolver.createCatalog(
+    const catalog = StyleParameterCatalog.createCatalog(
       StyleFixture.project([base, delegated, defaulted, valued]),
     )
 
@@ -68,7 +68,7 @@ describe('element StyleResolver', () => {
         StyleFixture.base('beta', { shared: { type: 'delegate' } }),
       ],
     })
-    const catalog = StyleResolver.createCatalog(
+    const catalog = StyleParameterCatalog.createCatalog(
       StyleFixture.project([alpha, beta, cycle, conflict]),
     )
 

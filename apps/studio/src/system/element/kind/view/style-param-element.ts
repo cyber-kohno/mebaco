@@ -43,6 +43,7 @@ namespace StyleParamElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'jsIdentifier',
@@ -54,6 +55,7 @@ namespace StyleParamElement {
         type: 'select',
         key: 'valueType',
         label: 'Value Type',
+        readOnlyOnUpdate: true,
         required: true,
         defaultValue: 'string',
         clearWhenChanged: ['defaultValue'],
@@ -143,6 +145,7 @@ namespace StyleParamElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

@@ -1,12 +1,12 @@
 <script lang="ts">
   import StyleElement from '../../element/kind/view/style-element'
-  import type ElementStyleResolver from '../../element/kind/view/style-resolver'
-  import RuntimeStyleResolver from './style-resolver'
+  import type StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
+  import StyleDeclarationResolver from './style-declaration-resolver'
   import StyleMonitor from './style-monitor'
 
   type Props = {
-    resolution: RuntimeStyleResolver.Result | null
-    unresolved?: readonly ElementStyleResolver.Parameter[]
+    resolution: StyleDeclarationResolver.Result | null
+    unresolved?: readonly StyleParameterCatalog.Parameter[]
     issues?: readonly string[]
     localStyleId?: string
     unavailableMessage?: string
@@ -44,7 +44,7 @@
   )
 
   const formatSource = (
-    declaration: RuntimeStyleResolver.Declaration,
+    declaration: StyleDeclarationResolver.Declaration,
   ): string => {
     const source = localStyleId != null && declaration.source.styleId === localStyleId
       ? 'Local'
@@ -110,7 +110,7 @@
       {#if displayErrors.length > 0}
         <div class="error-list" role="alert">
           {#each displayErrors as error}
-            <div>{RuntimeStyleResolver.formatError(error)}</div>
+            <div>{StyleDeclarationResolver.formatError(error)}</div>
           {/each}
         </div>
       {/if}

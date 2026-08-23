@@ -1,32 +1,27 @@
 <script lang="ts">
   import { restartApp } from "../app/restart-app";
   import ProjectFile from "../project/project-file";
+  import ProjectGuard from "../project/project-guard";
+  import ProjectSession from "../project/project-session-store";
   import { screenStore } from "../store/screen-store";
-  import TreeStore from "../store/tree-store";
-  import TreeNode from "../tree/tree-node";
-  import ConfirmDialogController from "../feedback/confirm/confirm-dialog-controller";
 
-  const closeProject = () => {
-    TreeStore.replaceRoot(TreeNode.createRootNode())
-    screenStore.set("start")
+  const projectSessionStore = ProjectSession.store;
+
+  const closeProject = async () => {
+    if (await ProjectGuard.confirmDiscard()) ProjectFile.close()
   }
 
-  const requestCloseProject = async () => {
-    const confirmed = await ConfirmDialogController.open({
-      tone: 'danger',
-      title: 'Close Project',
-      message: 'Discard the current project and return to the start screen?',
-      choices: [{ label: 'Discard', role: 'proceed' }],
-    })
-    if (confirmed) closeProject()
-  }
 </script>
 
 <header class="app-header" aria-label="Application navigation">
   <nav class="actions" aria-label="Screen actions">
     {#if $screenStore === "start"}{:else if $screenStore === "develop"}
-      <button type="button" onclick={ProjectFile.saveAsWithAlert}>Save</button>
-      <button type="button" onclick={requestCloseProject}
+      <button
+        type="button"
+        disabled={!$projectSessionStore.isDirty}
+        onclick={ProjectFile.saveWithAlert}
+      >Save</button>
+      <button type="button" onclick={closeProject}
         >Close</button
       >
     {/if}
@@ -73,7 +68,11 @@
       color 120ms ease;
   }
 
-  button:hover {
+  button:disabled {
+    opacity: 0.45;
+  }
+
+  button:not(:disabled):hover {
     border-color: var(--mbc-color-primary);
     background: var(--mbc-color-primary-soft);
     color: #1f6270;

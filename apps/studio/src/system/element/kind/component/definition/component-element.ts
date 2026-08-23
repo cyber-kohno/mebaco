@@ -48,6 +48,7 @@ namespace ComponentElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'pascalIdentifier',
@@ -125,6 +126,7 @@ namespace ComponentElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

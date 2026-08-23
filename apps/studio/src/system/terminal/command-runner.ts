@@ -4,7 +4,7 @@ import PreviewController from '../runtime/preview/preview-controller'
 import CommandRegistry from './command-registry'
 import CommandContextFactory from './command-context'
 import { commandSessionStore } from './command-session-store'
-import type { CommandContext, CommandOutput, CommandTone } from './command-types'
+import type { CommandChoice, CommandContext, CommandOutput, CommandTone } from './command-types'
 
 namespace CommandRunner {
   let outputId = 0
@@ -24,10 +24,45 @@ namespace CommandRunner {
       commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [...session.outputs, output] }))
     },
     close: () => commandSessionStore.set(null),
-    openPreview: () => PreviewController.openForSelectedNode(
+    openPreview: (launcherId?: string, launchValues?: Readonly<Record<string, unknown>>) => PreviewController.openForSelectedNode(
       get(TreeStore.rootNode),
       get(TreeStore.selectedNodeId),
+      launcherId,
+      launchValues,
     ),
+    requestChoice: (
+      message: string,
+      choices: readonly CommandChoice[],
+      onSelect: (choiceId: string) => void | Promise<void>,
+    ) => {
+      commandSessionStore.update((session) => session == null ? session : ({
+        ...session,
+        prompt: {
+          message,
+          choices: [...choices],
+          focus: 0,
+          onSelect,
+        },
+      }))
+    },
+    requestInput: (
+      message,
+      spec,
+      onSubmit,
+    ) => {
+      commandSessionStore.update((session) => session == null ? session : ({
+        ...session,
+        prompt: {
+          message,
+          choices: [],
+          focus: 0,
+          onSelect: () => undefined,
+          inputValue: '',
+          inputSpec: spec,
+          onInputSubmit: onSubmit,
+        },
+      }))
+    },
   })
 
   export const execute = async (input: string): Promise<void> => {
@@ -35,13 +70,15 @@ namespace CommandRunner {
     if (tokens.length === 0) return
 
     const context = createContext()
+    const session = get(commandSessionStore)
+    context.appendOutput('normal', `node-${session?.nodeId ?? get(TreeStore.selectedNodeId)}> ${input}`)
+    commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '', completionDismissed: false, prompt: null }))
     const definition = CommandRegistry.find(context, tokens[0])
     if (definition == null) {
       context.appendOutput('warning', `Unknown command: ${tokens[0]}`)
       return
     }
 
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '' }))
     try {
       await definition.execute(context, tokens.slice(1))
     } catch (error) {

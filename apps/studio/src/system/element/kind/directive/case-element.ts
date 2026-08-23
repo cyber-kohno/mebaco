@@ -189,6 +189,7 @@ namespace CaseElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'switch-case',
   } satisfies ElementDefinition.Definition<Element>
 }
 

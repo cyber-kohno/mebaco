@@ -1,5 +1,4 @@
 import type ActionMenuState from '../action-menu/action-menu-state'
-import PreviewController from '../runtime/preview/preview-controller'
 import ShortcutCommand from './shortcut-command'
 
 namespace ShortcutRegistry {
@@ -54,6 +53,24 @@ namespace ShortcutRegistry {
     if (selectedRow == null) return
 
     context.toggleDisabled(selectedRow.node.id)
+  }
+
+  const canReorderSelectedNode = (
+    context: ShortcutCommand.Context,
+    direction: -1 | 1,
+  ): boolean => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    return selectedRow != null
+      && context.canReorder(selectedRow.node.id, direction)
+  }
+
+  const reorderSelectedNode = (
+    context: ShortcutCommand.Context,
+    direction: -1 | 1,
+  ) => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    if (selectedRow == null) return
+    context.reorder(selectedRow.node.id, direction)
   }
 
   const moveSelection = (
@@ -116,17 +133,6 @@ namespace ShortcutRegistry {
     }
   }
 
-  const canOpenPreview = (context: ShortcutCommand.Context): boolean => (
-    ShortcutCommand.getSelectedRow(context) != null
-  )
-
-  const openPreview = (context: ShortcutCommand.Context) => {
-    PreviewController.openForSelectedNode(
-      context.rootNode,
-      context.selectedNodeId,
-    )
-  }
-
   export const commands: readonly ShortcutCommand.Command[] = [
     {
       id: 'modify-selected-node-enter',
@@ -153,10 +159,22 @@ namespace ShortcutRegistry {
       run: (context) => moveSelection(context, -1),
     },
     {
+      id: 'reorder-selected-node-up',
+      key: { key: 'ArrowUp', alt: true },
+      when: (context) => canReorderSelectedNode(context, -1),
+      run: (context) => reorderSelectedNode(context, -1),
+    },
+    {
       id: 'move-selection-down',
       key: { key: 'ArrowDown' },
       when: canUseSelectedRow,
       run: (context) => moveSelection(context, 1),
+    },
+    {
+      id: 'reorder-selected-node-down',
+      key: { key: 'ArrowDown', alt: true },
+      when: (context) => canReorderSelectedNode(context, 1),
+      run: (context) => reorderSelectedNode(context, 1),
     },
     {
       id: 'open-selected-node',
@@ -181,12 +199,6 @@ namespace ShortcutRegistry {
       key: { key: 'ArrowLeft' },
       when: canUseSelectedRow,
       run: leaveSelectedNode,
-    },
-    {
-      id: 'open-preview',
-      key: { key: ' ' },
-      when: canOpenPreview,
-      run: openPreview,
     },
   ]
 }

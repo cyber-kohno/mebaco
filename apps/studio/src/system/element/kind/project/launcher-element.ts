@@ -23,13 +23,16 @@ namespace LauncherElement {
     } as ValuePropElement.Element))
     return { componentId: node.element.id, label: node.element.id, props }
   }
+  export const getAppOptions = (rootNode: TreeNode.Node): ComponentReference.Option[] => (
+    apps(rootNode).map(getAppOption).filter((option): option is ComponentReference.Option => option != null)
+  )
   export const createSchema = (rootNode: TreeNode.Node, reservedNames: readonly string[] = []): ElementEditSchema.Schema<Element> => {
-    const options = apps(rootNode).map(getAppOption).filter((option): option is ComponentReference.Option => option != null)
+    const options = getAppOptions(rootNode)
     const parse = (values: Readonly<Record<string, string>>): ComponentReference.Binding[] => ComponentReference.normalizeBindings(ComponentReference.parseBindings(values.argumentBindings) ?? [], options.find((option) => option.componentId === values.appId))
     return {
       createTitle: 'Create Launcher', updateTitle: 'Update Launcher',
       fields: [
-        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
+        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, readOnlyOnUpdate: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
         { type: 'text', key: 'name', label: 'Name', width: 'id', required: true, minLength: 1, maxLength: 64 },
         { type: 'select', key: 'appId', label: 'App', width: 'id', options: options.map((option) => ({ value: option.componentId, label: option.label })) , clearWhenChanged: ['argumentBindings'] },
         { type: 'componentBindings', key: 'argumentBindings', label: 'Arguments', defaultValue: '[]', required: true, componentIdKey: 'appId', components: options },
@@ -40,6 +43,6 @@ namespace LauncherElement {
       update: (e, values) => ({ ...e, id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
     }
   }
-  export const definition = { kind: 'launcher', treeLabel: { type: 'component', Component: LauncherTreeLabel }, getContextMenu: (context) => { const { action } = ActionMenuState.createFactory(); const reservedNames = context.parentNode?.children.filter((n) => n.id !== context.node.id).map((n) => n.element).filter((e): e is Element => e.kind === 'launcher').map((e) => e.id) ?? []; return [action('Modify', () => ElementDialog.openUpdate(context.node.id, context.element, createSchema(context.rootNode, reservedNames))), action('Delete', () => import('../../../store/tree-store').then(({ default: store }) => store.removeNode(context.node.id)), 'danger')] }, childSlots: [], canDisable: false } satisfies ElementDefinition.Definition<Element>
+ export const definition = { kind: 'launcher', treeLabel: { type: 'component', Component: LauncherTreeLabel }, getContextMenu: (context) => { const { action } = ActionMenuState.createFactory(); const reservedNames = context.parentNode?.children.filter((n) => n.id !== context.node.id).map((n) => n.element).filter((e): e is Element => e.kind === 'launcher').map((e) => e.id) ?? []; return [action('Modify', () => ElementDialog.openUpdate(context.node.id, context.element, createSchema(context.rootNode, reservedNames))), action('Delete', () => import('../../../store/tree-store').then(({ default: store }) => store.removeNode(context.node.id)), 'danger')] }, childSlots: [], canDisable: false, reorderGroup: 'siblings' } satisfies ElementDefinition.Definition<Element>
 }
 export default LauncherElement

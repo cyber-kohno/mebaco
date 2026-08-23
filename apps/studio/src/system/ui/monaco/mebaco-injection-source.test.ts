@@ -458,4 +458,42 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(source).toContain('captured: string;')
     expect(source).toContain('readonly local: number;')
   })
+
+  it('injects typed transition overloads for other Apps only', () => {
+    const target = node(8, { kind: 'action', comment: '', source: '' })
+    const currentApp = node(3, { kind: 'app', id: 'current' }, [target])
+    const otherApp = node(20, { kind: 'app', id: 'details' }, [
+      node(21, { kind: 'launch-options' }, [
+        node(22, { kind: 'launch-arguments' }, [
+          node(23, {
+            kind: 'launch-argument',
+            id: 'userId',
+            valueType: { type: 'number' },
+            nullable: false,
+          }),
+        ]),
+      ]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [currentApp, otherApp]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
+
+    expect(source).toContain(
+      'transition(appId: "details", launchValues: {\n    userId: number;\n  }): void;',
+    )
+    expect(source).not.toContain('appId: "current"')
+  })
+
+  it('does not inject transition when the current App has no peer App', () => {
+    const target = node(4, { kind: 'action', comment: '', source: '' })
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [node(3, { kind: 'app', id: 'only' }, [target])]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
+
+    expect(source).not.toContain('transition(')
+  })
 })

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type FormulaContext from '../formula/formula-context'
-  import type StyleResolver from '../style/style-resolver'
+  import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import RuntimeProps from '../runtime-props'
@@ -13,12 +13,12 @@
   type Props = {
     node: TreeNode.Node & { element: SlotUseElement.Element }
     projectNode: TreeNode.Node
-    styleCatalog: StyleResolver.Catalog
+    styleCatalog: StyleDeclarationResolver.Catalog
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
     slotContents?: ReadonlyMap<string, TreeNode.Node>
     slotDefinitions?: ReadonlyMap<string, TreeNode.Node>

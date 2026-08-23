@@ -84,6 +84,7 @@ namespace ElseIfElement {
     },
     childSlots: [],
     canDisable: true,
+    reorderGroup: 'conditional-branch',
   } satisfies ElementDefinition.Definition<Element>
 }
 

@@ -68,6 +68,7 @@ namespace RuntimeState {
     state: StateElement.Element,
     $state: Record<string, unknown>,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
+    $launch: Record<string, unknown>,
   ): unknown => {
     switch (state.initial.type) {
       case 'literal':
@@ -75,7 +76,7 @@ namespace RuntimeState {
       case 'formula': {
         const result = FormulaEvaluator.evaluateExpression(
           state.initial.source,
-          FormulaContext.create({ $state }),
+          FormulaContext.create({ $state, $launch }),
         )
 
         if (result.ok) return result.value
@@ -123,6 +124,7 @@ namespace RuntimeState {
     projectNode: RuntimeTree.AppRuntime['projectNode'],
     parentState: Record<string, unknown>,
     stateNodes: readonly TreeNode.Node[],
+    launchValues: Record<string, unknown> = {},
   ): Record<string, unknown> => {
     const localState: Record<string, unknown> = {}
     const state = createLayeredState(parentState, localState)
@@ -134,7 +136,7 @@ namespace RuntimeState {
 
     stateNodes.forEach((node) => {
       if (node.element.kind !== 'state') return
-      localState[node.element.id] = evaluateInitialValue(node.element, state, projectNode)
+      localState[node.element.id] = evaluateInitialValue(node.element, state, projectNode, launchValues)
     })
 
     return state
@@ -142,6 +144,7 @@ namespace RuntimeState {
 
   export const createState = (
     runtime: RuntimeTree.AppRuntime,
+    launchValues: Record<string, unknown> = {},
   ): Record<string, unknown> => {
     const $state: Record<string, unknown> = {}
 
@@ -156,6 +159,7 @@ namespace RuntimeState {
         node.element,
         $state,
         runtime.projectNode,
+        launchValues,
       )
     })
 

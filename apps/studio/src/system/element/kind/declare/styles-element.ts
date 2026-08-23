@@ -2,7 +2,7 @@ import type ElementDefinition from '../../element-definition'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import StyleElement from '../view/style-element'
-import StyleResolver from '../view/style-resolver'
+import StyleParameterCatalog from '../view/style-parameter-catalog'
 
 namespace StylesElement {
   export type Kind = 'styles'
@@ -36,7 +36,7 @@ namespace StylesElement {
             StyleElement.createSchema({
               reservedNames,
               styleOptions: StyleElement.getStyleOptions(context.rootNode),
-              styleCatalog: StyleResolver.createCatalog(context.rootNode),
+              styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
             }),
           )
         }),

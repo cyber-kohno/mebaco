@@ -48,6 +48,7 @@ namespace SignatureTypeElement {
     fields: [
       {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
+        readOnlyOnUpdate: true,
         charset: 'pascalIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
@@ -117,6 +118,7 @@ namespace SignatureTypeElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

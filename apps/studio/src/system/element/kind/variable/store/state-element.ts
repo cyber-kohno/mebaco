@@ -41,6 +41,7 @@ namespace StateElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'jsIdentifier',
@@ -52,6 +53,7 @@ namespace StateElement {
         type: 'valueType',
         key: 'valueType',
         label: 'Value Type',
+        readOnlyOnUpdate: true,
         required: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
@@ -162,6 +164,7 @@ namespace StateElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

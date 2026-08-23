@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
+  import { getCurrentWindow } from '@tauri-apps/api/window'
   import ActionMenuLayer from './action-menu/ActionMenuLayer.svelte'
   import ElementDialogLayer from './element-dialog/ElementDialogLayer.svelte'
   import AppKeyboardController from './keyboard/app-keyboard-controller'
@@ -8,8 +10,51 @@
   import AppHeader from './shell/AppHeader.svelte'
   import ToastLayer from './feedback/toast/ToastLayer.svelte'
   import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
-  import CommandConsoleLayer from './command/console/CommandConsoleLayer.svelte'
+  import CommandConsoleLayer from './terminal/console/CommandConsoleLayer.svelte'
+  import ReferenceGraphPanel from './analysis/ReferenceGraphPanel.svelte'
   import { screenStore } from './store/screen-store'
+  import TreeStore from './store/tree-store'
+  import ProjectSession from './project/project-session-store'
+  import ProjectGuard from './project/project-guard'
+  import WindowTitle from './shell/window-title'
+  import ExpressionVerificationStore from './validation/expression-verification-store'
+
+  onMount(() => {
+    const unsubscribeRoot = TreeStore.rootNode.subscribe((rootNode) => {
+      ProjectSession.updateFromRoot(rootNode)
+      ExpressionVerificationStore.syncRoot(rootNode)
+    })
+    const unsubscribeTitle = WindowTitle.subscribe()
+    let isClosing = false
+    let unlistenClose: (() => void) | undefined
+
+    try {
+      void getCurrentWindow().onCloseRequested(async (event) => {
+        if (isClosing || !ProjectGuard.isDirty()) return
+
+        event.preventDefault()
+        if (!await ProjectGuard.confirmDiscard()) return
+
+        isClosing = true
+        try {
+          await getCurrentWindow().close()
+        } catch (error) {
+          isClosing = false
+          console.error('Failed to close the Mebaco window:', error)
+        }
+      }).then((unlisten) => {
+        unlistenClose = unlisten
+      }).catch(() => undefined)
+    } catch {
+      // The browser-only Vite preview has no Tauri window bridge.
+    }
+
+    return () => {
+      unsubscribeRoot()
+      unsubscribeTitle()
+      unlistenClose?.()
+    }
+  })
 
   const preventNativeContextMenu = (event: MouseEvent) => {
     event.preventDefault()
@@ -31,6 +76,7 @@
   <ElementDialogLayer />
   <PreviewDialog />
   <CommandConsoleLayer />
+  <ReferenceGraphPanel />
   <ConfirmDialogLayer />
   <ToastLayer />
 </main>

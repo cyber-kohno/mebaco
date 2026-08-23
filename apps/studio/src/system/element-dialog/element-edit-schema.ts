@@ -1,5 +1,5 @@
 import type MebacoElement from '../element/element'
-import type StyleResolver from '../element/kind/view/style-resolver'
+import type StyleParameterCatalog from '../element/kind/view/style-parameter-catalog'
 import StylePropertyName from '../element/kind/view/style-property-name'
 import ValueSource from '../ui/input/value-source'
 import TypeExpression from '../element/kind/type/type-expression'
@@ -7,7 +7,6 @@ import ObjectShape from '../element/kind/type/object-shape'
 import UnionDefinition from '../element/kind/type/union-definition'
 import SignatureDefinition from '../element/kind/type/signature-definition'
 import type ComponentReference from '../element/kind/component/shared/component-reference'
-import ExpressionTypeInference from '../element/kind/type/expression-type-inference'
 import SwitchValueType from '../element/kind/directive/switch-value-type'
 import ValueTypeDefinition from '../element/kind/type/value-type-definition'
 
@@ -23,7 +22,20 @@ namespace ElementEditSchema {
     tab?: string
     visibleWhen?: FieldVisibility
     visibleWhenAll?: readonly FieldVisibility[]
+    readOnlyOnUpdate?: boolean
     width?: 'id' | 'tagName' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
+  }
+
+  export class ReadOnlyFieldMutationError extends Error {
+    readonly fieldKey: string
+    readonly fieldLabel: string
+
+    constructor(field: Field) {
+      super(`Read-only field changed during update: ${field.label} (${field.key}).`)
+      this.name = 'ReadOnlyFieldMutationError'
+      this.fieldKey = field.key
+      this.fieldLabel = field.label
+    }
   }
 
   export type TextField = {
@@ -151,7 +163,7 @@ namespace ElementEditSchema {
     label: string
     defaultValue?: string
     options: readonly SelectOption[]
-    getResolution?: (styleId: string) => StyleResolver.Result
+    getResolution?: (styleId: string) => StyleParameterCatalog.Result
   } & FieldBase
 
   export type StyleBasesField = {
@@ -160,8 +172,8 @@ namespace ElementEditSchema {
     label: string
     defaultValue?: string
     options: readonly SelectOption[]
-    getResolution?: (styleId: string) => StyleResolver.Result
-    ownerParameters?: readonly StyleResolver.Parameter[]
+    getResolution?: (styleId: string) => StyleParameterCatalog.Result
+    ownerParameters?: readonly StyleParameterCatalog.Parameter[]
   } & FieldBase
 
   export type StyleMonitorField = {
@@ -371,39 +383,18 @@ namespace ElementEditSchema {
   export const validateFormula = (
     field: FormulaField,
     value: string,
-    injectionSource?: string,
+    _injectionSource?: string,
   ): string | null => {
     if (field.required === true && value.length === 0) return 'Required.'
     if (field.maxLength != null && value.length > field.maxLength) {
       return `Must be ${field.maxLength} characters or fewer.`
     }
-
-    if (
-      (
-        field.expectedType === 'string'
-        || field.expectedType === 'number'
-        || field.expectedType === 'boolean'
-      )
-      && injectionSource != null
-    ) {
-      const inferred = ExpressionTypeInference.inferType(injectionSource, value, true)
-      if (!inferred.ok) return inferred.error
-      return inferred.typeText === field.expectedType
-        ? null
-        : `Expression must return ${field.expectedType}.`
-    }
-
-    if (field.expectedType === 'array' && injectionSource != null) {
-      const inferred = ExpressionTypeInference.inferArrayItem(injectionSource, value)
-      return inferred.ok ? null : inferred.error
-    }
-
     return null
   }
 
   export const validateTagRefKey = (
     value: string,
-    injectionSource?: string,
+    _injectionSource?: string,
   ): string | null => {
     if (value.length === 0) return null
 
@@ -423,17 +414,7 @@ namespace ElementEditSchema {
         return 'Select a valid Ref key.'
       }
       if (parsed.source.length === 0) return 'Enter a Ref key formula.'
-      if (injectionSource == null) return null
-
-      const inferred = ExpressionTypeInference.inferType(
-        injectionSource,
-        parsed.source,
-        true,
-      )
-      if (!inferred.ok) return inferred.error
-      return inferred.typeText === 'string'
-        ? null
-        : 'Expression must return string.'
+      return null
     } catch {
       return 'Select a valid Ref key.'
     }
@@ -710,7 +691,7 @@ namespace ElementEditSchema {
 
   const isResolvedStyleArgument = (
     binding: unknown,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
   ): boolean => {
     if (binding == null || typeof binding !== 'object') return false
 
@@ -724,7 +705,7 @@ namespace ElementEditSchema {
 
   const isInvalidStyleArgumentBinding = (
     binding: unknown,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
     allowDelegate: boolean,
   ): boolean => {
     if (binding == null || typeof binding !== 'object') return true

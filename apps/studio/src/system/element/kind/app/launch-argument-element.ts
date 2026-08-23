@@ -16,8 +16,8 @@ namespace LaunchArgumentElement {
   export const createSchema = (options: CreateSchemaOptions = {}): ElementEditSchema.Schema<Element> => ({
     createTitle: 'Create Launch Argument', updateTitle: 'Update Launch Argument',
     fields: [
-      { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'jsIdentifier', minLength: 1, maxLength: 32, reservedNames: options.reservedNames },
-      { type: 'valueType', key: 'valueType', label: 'Value Type', required: true, defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()), objectOptions: options.referenceOptions ?? [], namedTypeOptions: options.namedTypeOptions ?? [] },
+      { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, readOnlyOnUpdate: true, charset: 'jsIdentifier', minLength: 1, maxLength: 32, reservedNames: options.reservedNames },
+      { type: 'valueType', key: 'valueType', label: 'Value Type', required: true, readOnlyOnUpdate: true, defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()), objectOptions: options.referenceOptions ?? [], namedTypeOptions: options.namedTypeOptions ?? [] },
     ],
     createPreview: () => create(), getInitialValues: (e) => ({ id: e.id, valueType: ValueTypeDefinition.stringify(ValueTypeDefinition.create(e.valueType, e.nullable)) }),
     create: (v) => { const d = ValueTypeDefinition.parse(v.valueType) ?? ValueTypeDefinition.create(); return { kind: 'launch-argument', id: v.id, valueType: d.valueType, nullable: d.nullable } },
@@ -48,6 +48,7 @@ namespace LaunchArgumentElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 export default LaunchArgumentElement

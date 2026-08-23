@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import bodyPortal from '../portal/body-portal'
+  import bodyPortal from '../body-portal'
 
   type Option = {
     value: string

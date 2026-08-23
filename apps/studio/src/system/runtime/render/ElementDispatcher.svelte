@@ -1,6 +1,6 @@
 <script lang="ts">
   import type FormulaContext from '../formula/formula-context'
-  import type StyleResolver from '../style/style-resolver'
+  import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RenderComponentUse from './RenderComponentUse.svelte'
   import RenderTag from './RenderTag.svelte'
   import RenderText from './RenderText.svelte'
@@ -16,12 +16,12 @@
   type Props = {
     node: TreeNode.Node
     projectNode: TreeNode.Node
-    styleCatalog: StyleResolver.Catalog
+    styleCatalog: StyleDeclarationResolver.Catalog
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
     slotContents?: ReadonlyMap<string, TreeNode.Node>
     slotDefinitions?: ReadonlyMap<string, TreeNode.Node>

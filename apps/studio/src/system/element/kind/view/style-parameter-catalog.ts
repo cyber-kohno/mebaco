@@ -2,7 +2,7 @@ import type TreeNode from '../../../tree/tree-node'
 import type StyleElement from './style-element'
 import type StyleParamElement from './style-param-element'
 
-namespace StyleResolver {
+namespace StyleParameterCatalog {
   export type Parameter = {
     parameterId: string
     valueType: StyleParamElement.ValueType
@@ -200,4 +200,4 @@ namespace StyleResolver {
   }
 }
 
-export default StyleResolver
+export default StyleParameterCatalog

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StyleFixture from '../../test-support/style-fixture'
 import FormulaContext from '../formula/formula-context'
-import StyleResolver from './style-resolver'
+import StyleDeclarationResolver from './style-declaration-resolver'
 
-describe('runtime StyleResolver', () => {
+describe('runtime StyleDeclarationResolver', () => {
   beforeEach(() => {
     StyleFixture.resetNodeIds()
     vi.stubGlobal('CSS', {
@@ -29,7 +29,7 @@ describe('runtime StyleResolver', () => {
       })],
       rules: [StyleFixture.literal('color', 'red')],
     })
-    const result = StyleResolver
+    const result = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([base, local]))
       .resolve([StyleFixture.application('local')], FormulaContext.createEmpty())
 
@@ -75,7 +75,7 @@ describe('runtime StyleResolver', () => {
         value: { type: 'formula', source: '1 + 1 === 2' },
       },
     })
-    const result = StyleResolver
+    const result = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([parameterized]))
       .resolve([application], FormulaContext.createEmpty())
 
@@ -98,7 +98,7 @@ describe('runtime StyleResolver', () => {
         value: { type: 'literal', value: '#ff6699' },
       },
     })
-    const result = StyleResolver
+    const result = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([parameterized]))
       .resolve([application], FormulaContext.createEmpty())
 
@@ -115,7 +115,7 @@ describe('runtime StyleResolver', () => {
         StyleFixture.literal('background', 'red'),
       ],
     })
-    const result = StyleResolver
+    const result = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([square]))
       .resolve([StyleFixture.application('square')], FormulaContext.createEmpty())
 
@@ -132,7 +132,7 @@ describe('runtime StyleResolver', () => {
     const style = StyleFixture.style('conditional', {
       rules: [StyleFixture.literal('display', 'block')],
     })
-    const catalog = StyleResolver.createCatalog(StyleFixture.project([style]))
+    const catalog = StyleDeclarationResolver.createCatalog(StyleFixture.project([style]))
 
     expect(catalog.resolve(
       [StyleFixture.application('conditional', {}, 'false')],
@@ -150,7 +150,7 @@ describe('runtime StyleResolver', () => {
     const invalidFormula = StyleFixture.style('invalid-formula', {
       rules: [StyleFixture.formula('opacity', '1')],
     })
-    const formulaResult = StyleResolver
+    const formulaResult = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([invalidFormula]))
       .resolve([StyleFixture.application('invalid-formula')], FormulaContext.createEmpty())
 
@@ -163,7 +163,7 @@ describe('runtime StyleResolver', () => {
     const invalidCss = StyleFixture.style('invalid-css', {
       rules: [StyleFixture.literal('display', 'not-a-display-value')],
     })
-    const cssResult = StyleResolver
+    const cssResult = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([invalidCss]))
       .resolve([StyleFixture.application('invalid-css')], FormulaContext.createEmpty())
 
@@ -175,7 +175,7 @@ describe('runtime StyleResolver', () => {
     const stateful = StyleFixture.style('stateful', {
       rules: [StyleFixture.formula('height', '`${$state.data.count}px`')],
     })
-    const catalog = StyleResolver.createCatalog(StyleFixture.project([stateful]))
+    const catalog = StyleDeclarationResolver.createCatalog(StyleFixture.project([stateful]))
 
     const runtimeResult = catalog.resolve(
       [StyleFixture.application('stateful')],
@@ -204,14 +204,14 @@ describe('runtime StyleResolver', () => {
     const required = StyleFixture.style('required', {
       parameters: [StyleFixture.parameter('value', 'string')],
     })
-    const unresolved = StyleResolver
+    const unresolved = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([required]))
       .resolve([StyleFixture.application('required')], FormulaContext.createEmpty())
     expect(unresolved.errors[0]?.type).toBe('result-type')
 
     const alpha = StyleFixture.style('alpha', { bases: [StyleFixture.base('beta')] })
     const beta = StyleFixture.style('beta', { bases: [StyleFixture.base('alpha')] })
-    const cycle = StyleResolver
+    const cycle = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([alpha, beta]))
       .resolve([StyleFixture.application('alpha')], FormulaContext.createEmpty())
     expect(cycle.errors.some((error) => error.type === 'structure')).toBe(true)

@@ -8,7 +8,7 @@
   import TagRefKeyEditor from '../element/kind/view/TagRefKeyEditor.svelte'
   import ColorSwatch from '../ui/color/ColorSwatch.svelte'
   import FormulaField from '../ui/formula/FormulaField.svelte'
-  import ActionField from '../ui/action/ActionField.svelte'
+  import ActionField from '../ui/script/ActionField.svelte'
   import ValueSourceField from '../ui/input/ValueSourceField.svelte'
   import ObjectShapeEditor from '../element/kind/type/ObjectShapeEditor.svelte'
   import UnionDefinitionEditor from '../element/kind/type/UnionDefinitionEditor.svelte'
@@ -22,6 +22,7 @@
   import FieldValidationIndicator from '../ui/validation/FieldValidationIndicator.svelte'
   import ValidationIssue from '../ui/validation/validation-issue'
   import ElementDialog from './element-dialog-controller'
+  import type ElementDialogStore from './element-dialog-store'
   import { elementDialogStore } from './element-dialog-store'
   import ElementEditSchema from './element-edit-schema'
   import FunctionScope from '../element/kind/function/function-scope'
@@ -36,6 +37,21 @@
   const isRequiredField = (field: ElementEditSchema.Field): boolean => (
     'required' in field && field.required === true
   )
+
+  const isReadOnlyField = (field: ElementEditSchema.Field): boolean => (
+    $elementDialogStore?.mode === 'update' && field.readOnlyOnUpdate === true
+  )
+
+  const assertReadOnlyFieldsUnchanged = (
+    session: ElementDialogStore.UpdateSession,
+  ) => {
+    const initialValues = session.schema.getInitialValues(session.element)
+    const changedField = session.schema.fields.find((field) => (
+      field.readOnlyOnUpdate === true
+      && values[field.key] !== initialValues[field.key]
+    ))
+    if (changedField != null) throw new ElementEditSchema.ReadOnlyFieldMutationError(changedField)
+  }
 
   $effect(() => {
     const session = $elementDialogStore
@@ -196,6 +212,7 @@
       const element = session.schema.create(values)
       TreeStore.addChild(session.parentNodeId, element, session.insertIndex)
     } else {
+      assertReadOnlyFieldsUnchanged(session)
       const element = session.schema.update(session.element, values)
       TreeStore.updateElement(session.nodeId, element)
     }
@@ -439,10 +456,11 @@
             />
           </div>
         {:else if field.type === 'switchValueType'}
-          <div class="field" data-validation-severity={issue?.severity}>
+          <div class="field" class:read-only-field={isReadOnlyField(field)} data-validation-severity={issue?.severity}>
             <SwitchValueTypeEditor
               value={values[field.key] ?? field.defaultValue ?? ''}
               literalUnionOptions={field.literalUnionOptions}
+              readOnly={isReadOnlyField(field)}
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -451,11 +469,12 @@
             />
           </div>
         {:else if field.type === 'valueType'}
-          <div class="field" data-validation-severity={issue?.severity}>
+          <div class="field" class:read-only-field={isReadOnlyField(field)} data-validation-severity={issue?.severity}>
             <ValueTypeEditor
               value={values[field.key] ?? field.defaultValue ?? ''}
               objectOptions={field.objectOptions}
               namedTypeOptions={field.namedTypeOptions}
+              readOnly={isReadOnlyField(field)}
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -536,7 +555,9 @@
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
                 class:literal-union-width={field.width === 'literalUnion'}
+                class:read-only-control={isReadOnlyField(field)}
                 type="text"
+                readonly={isReadOnlyField(field)}
                 value={values[field.key] ?? ''}
                 aria-invalid={issue == null ? undefined : true}
                 data-validation-severity={issue?.severity}
@@ -560,7 +581,9 @@
                   class:value-type-width={field.width === 'valueType'}
                   class:array-depth-width={field.width === 'arrayDepth'}
                   class:literal-union-width={field.width === 'literalUnion'}
+                  class:read-only-control={isReadOnlyField(field)}
                   value={values[field.key] ?? ''}
+                  disabled={isReadOnlyField(field)}
                   aria-invalid={issue == null ? undefined : true}
                   data-validation-severity={issue?.severity}
                   title={issue?.message}
@@ -599,7 +622,9 @@
                 class:value-type-width={field.width === 'valueType'}
                 class:array-depth-width={field.width === 'arrayDepth'}
                 class:literal-union-width={field.width === 'literalUnion'}
+                class:read-only-control={isReadOnlyField(field)}
                 type="number"
+                readonly={isReadOnlyField(field)}
                 value={values[field.key] ?? ''}
                 min={field.min}
                 max={field.max}
@@ -619,7 +644,9 @@
             {#if field.type === 'checkbox'}
               <input
                 class="checkbox-input"
+                class:read-only-control={isReadOnlyField(field)}
                 type="checkbox"
+                disabled={isReadOnlyField(field)}
                 checked={values[field.key] === 'true'}
                 onchange={(event) => {
                   values[field.key] = String(event.currentTarget.checked)
@@ -871,6 +898,30 @@
     font: inherit;
     font-size: 14px;
     outline: none;
+  }
+
+  .field:has(.read-only-control) .field-label {
+    color: #1976a2;
+  }
+
+  input.read-only-control,
+  select.read-only-control:disabled {
+    opacity: 1;
+    border-color: #9acbd4;
+    background: transparent;
+    color: #1976a2;
+    -webkit-text-fill-color: #1976a2;
+    cursor: default;
+  }
+
+  input.read-only-control:focus,
+  select.read-only-control:focus {
+    outline: none;
+  }
+
+  input.checkbox-input.read-only-control:disabled {
+    opacity: 1;
+    accent-color: #1976a2;
   }
 
   select {

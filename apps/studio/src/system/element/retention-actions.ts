@@ -6,7 +6,7 @@ import ComponentElement from './kind/component/definition/component-element'
 import ElementDialog from '../element-dialog/element-dialog-controller'
 import ObjectTypeElement from './kind/type/object-type-element'
 import StyleElement from './kind/view/style-element'
-import StyleResolver from './kind/view/style-resolver'
+import StyleParameterCatalog from './kind/view/style-parameter-catalog'
 import TypeCatalog from './kind/type/type-catalog'
 import UnionTypeElement from './kind/type/union-type-element'
 import SignatureTypeElement from './kind/type/signature-type-element'
@@ -16,6 +16,7 @@ import ControlConditionalElement from './kind/directive/control-conditional-elem
 import ControlSwitchElement from './kind/directive/control-switch-element'
 import TreeStore from '../store/tree-store'
 import SwitchElement from './kind/directive/switch-element'
+import TransitionElement from './kind/variable/transition-element'
 
 namespace RetentionActions {
   const findNode = (
@@ -86,7 +87,7 @@ namespace RetentionActions {
         StyleElement.createSchema({
           reservedNames: styleNames,
           styleOptions: StyleElement.getStyleOptions(rootNode),
-          styleCatalog: StyleResolver.createCatalog(rootNode),
+          styleCatalog: StyleParameterCatalog.createCatalog(rootNode),
         }),
       )),
       action('Object', () => ElementDialog.openCreate(
@@ -121,6 +122,17 @@ namespace RetentionActions {
     return action('Add Action', () => ElementDialog.openCreate(
       parentNodeId,
       ActionElement.createSchema(),
+    ))
+  }
+
+  export const createAddTransitionItem = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+  ): ActionMenuState.ActionItem => {
+    const { action } = ActionMenu.createFactory()
+    return action('Transition', () => ElementDialog.openCreate(
+      parentNodeId,
+      TransitionElement.createSchema(rootNode),
     ))
   }
 

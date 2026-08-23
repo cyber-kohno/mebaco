@@ -45,6 +45,7 @@ namespace UnionTypeElement {
         type: 'text',
         key: 'id',
         label: 'Id',
+        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'pascalIdentifier',
@@ -112,6 +113,7 @@ namespace UnionTypeElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

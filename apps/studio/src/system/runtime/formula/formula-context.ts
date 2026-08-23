@@ -2,10 +2,12 @@ namespace FormulaContext {
   export type SystemValue = Record<string, unknown> & {
     getRef: (key: string) => HTMLElement | null
     afterRender: (callback: () => void) => () => void
+    transition?: (appId: string, launchValues: Readonly<Record<string, unknown>>) => void
   }
 
   export type Value = {
     $args: Record<string, unknown>
+    $launch: Record<string, unknown>
     $state: Record<string, unknown>
     $param: Record<string, unknown>
     $props: Record<string, unknown>
@@ -22,12 +24,16 @@ namespace FormulaContext {
     afterRender: () => {
       throw new Error('$system.afterRender() is not available in this runtime context.')
     },
+    transition: () => {
+      throw new Error('$system.transition() is not available in this runtime context.')
+    },
   }
 
   export const create = (
     options: CreateOptions = {},
   ): Value => ({
     $args: options.$args ?? {},
+    $launch: options.$launch ?? {},
     $state: options.$state ?? {},
     $param: options.$param ?? {},
     $props: options.$props ?? {},

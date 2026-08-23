@@ -29,6 +29,8 @@ namespace ElementDefinition {
     rootNode?: TreeNode.Node
   }
 
+  export type ReorderGroup = 'siblings' | 'conditional-branch' | 'switch-case'
+
   export type StaticTreeLabel<TElement extends MebacoElement.Element> = {
     type: 'static'
     kindText: string
@@ -67,6 +69,7 @@ namespace ElementDefinition {
     }
     childSlots: readonly ChildSlot<TElement>[]
     canDisable: boolean
+    reorderGroup?: ReorderGroup
   }
 }
 

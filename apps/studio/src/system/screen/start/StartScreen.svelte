@@ -1,7 +1,6 @@
 <script lang="ts">
   import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../version'
   import ProjectFile from '../../project/project-file'
-  import { screenStore } from '../../store/screen-store'
 </script>
 
 <section class="start-screen" aria-label="Mebaco start">
@@ -18,7 +17,7 @@
   <div class="start-panel">
     <p class="lead">Start a project or open a .mbc file.</p>
     <div class="actions">
-      <button type="button" onclick={() => screenStore.set('develop')}>Start Empty</button>
+      <button type="button" onclick={ProjectFile.startEmpty}>Start Empty</button>
       <button type="button" class="secondary" onclick={ProjectFile.openFileWithAlert}>Open File</button>
     </div>
   </div>

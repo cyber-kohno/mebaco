@@ -1,20 +1,20 @@
 import type StyleElement from '../../element/kind/view/style-element'
 import StylePropertyName from '../../element/kind/view/style-property-name'
-import type StyleResolver from './style-resolver'
+import type StyleDeclarationResolver from './style-declaration-resolver'
 
 namespace StyleMonitor {
-  export type Entry = StyleResolver.Declaration & {
-    overridden: StyleResolver.Declaration[]
+  export type Entry = StyleDeclarationResolver.Declaration & {
+    overridden: StyleDeclarationResolver.Declaration[]
   }
 
   export type Result = {
     entries: Entry[]
-    errors: StyleResolver.Error[]
+    errors: StyleDeclarationResolver.Error[]
   }
 
   const applyDeclarations = (
     entries: Map<string, Entry>,
-    declarations: readonly StyleResolver.Declaration[],
+    declarations: readonly StyleDeclarationResolver.Declaration[],
   ) => {
     declarations.forEach((declaration) => {
       const key = StylePropertyName.normalize(declaration.property)
@@ -29,7 +29,7 @@ namespace StyleMonitor {
   }
 
   export const create = (
-    resolution: StyleResolver.Result,
+    resolution: StyleDeclarationResolver.Result,
     state: StyleElement.State | null,
   ): Result => {
     const entries = new Map<string, Entry>()

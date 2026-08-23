@@ -19,6 +19,8 @@
       <RuntimeView
         appNode={$sessionStore.appNode}
         projectNode={$sessionStore.projectNode}
+        launcherId={$sessionStore.launcherId}
+        launchValues={$sessionStore.launchValues}
       />
     </div>
   </section>

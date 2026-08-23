@@ -1,7 +1,7 @@
 <script lang="ts">
   import MonacoScriptEditor from '../monaco/MonacoScriptEditor.svelte'
   import type MonacoInjection from '../monaco/monaco-injection'
-  import bodyPortal from '../portal/body-portal'
+  import bodyPortal from '../body-portal'
 
   type Props = {
     value: string

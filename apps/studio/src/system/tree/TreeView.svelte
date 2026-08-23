@@ -5,6 +5,8 @@
   import ElementRegistry from '../element/element-registry'
   import { elementDialogStore } from '../element-dialog/element-dialog-store'
   import TreeStore from '../store/tree-store'
+  import ExpressionVerificationActions from '../validation/expression-verification-actions'
+  import ExpressionVerificationStore from '../validation/expression-verification-store'
   import TreeNode from './tree-node'
 
   type VisibleNode = {
@@ -18,6 +20,8 @@
 
   const rootNodeStore = TreeStore.rootNode
   const selectedNodeIdStore = TreeStore.selectedNodeId
+  const expressionVerificationEntries = ExpressionVerificationStore.entries
+  let altPressed = $state(false)
   const selectionRelations = $derived(
     TreeNode.getSelectionRelations($rootNodeStore, $selectedNodeIdStore),
   )
@@ -31,6 +35,18 @@
 
   const selectNode = (node: TreeNode.Node) => {
     TreeStore.selectedNodeId.set(node.id)
+  }
+
+  const handleWindowKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Alt' || event.altKey) altPressed = true
+  }
+
+  const handleWindowKeyup = (event: KeyboardEvent) => {
+    if (event.key === 'Alt') altPressed = false
+  }
+
+  const handleWindowBlur = () => {
+    altPressed = false
   }
 
   const isEditingNode = (row: VisibleNode): boolean => {
@@ -52,11 +68,12 @@
       rootNode: $rootNodeStore,
     })
 
+    const withVerification = ExpressionVerificationActions.add(items, $rootNodeStore, node)
     return definition.canDisable
-      ? DisabledActionMenu.add(items, node.disabled === true, () => {
+      ? DisabledActionMenu.add(withVerification, node.disabled === true, () => {
           TreeStore.toggleDisabled(node.id)
         })
-      : items
+      : withVerification
   }
 
   const openContextMenu = (
@@ -118,15 +135,30 @@
   }
 </script>
 
+<svelte:window
+  onkeydown={handleWindowKeydown}
+  onkeyup={handleWindowKeyup}
+  onblur={handleWindowBlur}
+/>
+
 <div class="tree-view" role="tree" aria-label="Tree prototype">
   <div class="tree-content">
     {#each buildVisibleNodes($rootNodeStore) as row (row.node.id)}
+      {@const verificationEntry = $expressionVerificationEntries[row.node.id]}
+      {@const verificationStatus = ExpressionVerificationStore.getStatus(
+        $rootNodeStore,
+        row.node,
+        $expressionVerificationEntries,
+      )}
       <div
         class:selected={$selectedNodeIdStore === row.node.id}
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
         class:sibling={selectionRelations.siblingIds.has(row.node.id)}
         class:editing={isEditingNode(row)}
         class:disabled-descendant={row.disabledDescendant}
+        class:reorder-target={altPressed
+          && $selectedNodeIdStore === row.node.id
+          && ElementRegistry.get(row.node.element.kind).reorderGroup != null}
         class="tree-row"
         role="treeitem"
         aria-expanded={row.node.children.length > 0 ? row.node.isOpen : undefined}
@@ -167,6 +199,14 @@
           >
             {row.node.isOpen ? '-' : '+'}
           </button>
+        {/if}
+
+        {#if verificationStatus != null}
+          <span
+            class="expression-verification-status {verificationStatus}"
+            title={`Expression verification: ${verificationStatus}${verificationEntry?.messages.length ? ` — ${verificationEntry.messages.join(' ')}` : ''}`}
+            aria-label={`Expression verification: ${verificationStatus}`}
+          >{verificationStatus === 'verified' ? '✓' : verificationStatus === 'error' ? '×' : '?'}</span>
         {/if}
 
         <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} rootNode={$rootNodeStore} disabled={row.node.disabled} />
@@ -234,6 +274,10 @@
     background: rgba(85, 147, 239, 0.34);
   }
 
+  .tree-row.reorder-target {
+    background: rgba(239, 171, 85, 0.42);
+  }
+
   .tree-row.editing {
     background: rgba(255, 100, 126, 0.34);
   }
@@ -298,4 +342,20 @@
     background: var(--mbc-color-primary-soft);
     border-color: var(--mbc-color-primary);
   }
+
+  .expression-verification-status {
+    display: inline-flex;
+    flex: 0 0 22px;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 30px;
+    margin: 5px 2px 0 2px;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .expression-verification-status.unverified { color: #b37b00; }
+  .expression-verification-status.verified { color: #188b4b; }
+  .expression-verification-status.error { color: #c22f3f; }
 </style>

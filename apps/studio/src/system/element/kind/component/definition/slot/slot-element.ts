@@ -29,6 +29,7 @@ namespace SlotElement {
       type: 'text',
       key: 'id',
       label: 'Id',
+      readOnlyOnUpdate: true,
       width: 'id',
       required: true,
       charset: 'jsIdentifier',
@@ -65,6 +66,7 @@ namespace SlotElement {
     },
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

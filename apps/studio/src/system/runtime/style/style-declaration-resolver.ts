@@ -2,13 +2,13 @@ import type TreeNode from '../../tree/tree-node'
 import type StyleElement from '../../element/kind/view/style-element'
 import type StyleParamElement from '../../element/kind/view/style-param-element'
 import type TagElement from '../../element/kind/view/tag-element'
-import ElementStyleResolver from '../../element/kind/view/style-resolver'
+import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
 import StyleValueSupport from '../../element/kind/view/style-value-support'
 import FormulaContext from '../formula/formula-context'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import type ScriptError from '../script/script-error'
 
-namespace StyleResolver {
+namespace StyleDeclarationResolver {
   export type DeclarationSource = {
     styleId: string
     path: string[]
@@ -144,7 +144,7 @@ namespace StyleResolver {
 
   const resolveArgument = (
     argument: StyleElement.Argument | undefined,
-    parameter: ElementStyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
     callerParameters: Readonly<Record<string, unknown>>,
     context: FormulaContext.Value,
     styleId: string,
@@ -211,7 +211,7 @@ namespace StyleResolver {
     }
     collect(rootNode)
 
-    const parameterCatalog = ElementStyleResolver.createCatalog(rootNode)
+    const parameterCatalog = StyleParameterCatalog.createCatalog(rootNode)
 
     const resolveStyle = (
       styleId: string,
@@ -487,4 +487,4 @@ namespace StyleResolver {
   }
 }
 
-export default StyleResolver
+export default StyleDeclarationResolver

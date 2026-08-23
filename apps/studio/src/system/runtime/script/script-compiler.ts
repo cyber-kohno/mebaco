@@ -26,6 +26,7 @@ namespace ScriptCompiler {
 
   const contextNames = [
     '$args',
+    '$launch',
     '$state',
     '$param',
     '$props',

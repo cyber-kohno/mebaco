@@ -39,7 +39,7 @@ namespace ActionElement {
         action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
-    childSlots: [], canDisable: true,
+    childSlots: [], canDisable: true, reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 export default ActionElement

@@ -9,12 +9,12 @@
   import CompactFormulaField from '../../../ui/formula/CompactFormulaField.svelte'
   import FormulaModeToggle from '../../../ui/formula/FormulaModeToggle.svelte'
   import StyleElement from './style-element'
-  import type StyleResolver from './style-resolver'
+  import type StyleParameterCatalog from './style-parameter-catalog'
 
   type Props = {
     value: string
     options: readonly ElementEditSchema.SelectOption[]
-    getResolution?: (styleId: string) => StyleResolver.Result
+    getResolution?: (styleId: string) => StyleParameterCatalog.Result
     formulaInjectionSource?: string
     usage?: 'inheritance' | 'application'
     onValueChange: (value: string) => void
@@ -114,7 +114,7 @@
 
   const getBaseResolution = (
     base: StyleElement.Base,
-  ): StyleResolver.Result => (
+  ): StyleParameterCatalog.Result => (
     base.styleId.length === 0 || getResolution == null
       ? { parameters: [], issues: [] }
       : getResolution(base.styleId)
@@ -122,7 +122,7 @@
 
   const getArgument = (
     base: StyleElement.Base,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
   ): StyleElement.Argument => (
     base.arguments.find((argument) => argument.parameterId === parameter.parameterId)
     ?? {
@@ -170,7 +170,7 @@
   }
 
   const createLiteral = (
-    valueType: StyleResolver.Parameter['valueType'],
+    valueType: StyleParameterCatalog.Parameter['valueType'],
   ): StyleElement.ParameterValue => {
     switch (valueType) {
       case 'number':
@@ -184,14 +184,14 @@
   }
 
   const getFormulaExpectedType = (
-    valueType: StyleResolver.Parameter['valueType'],
+    valueType: StyleParameterCatalog.Parameter['valueType'],
   ): 'string' | 'number' | 'boolean' => (
     valueType === 'color' ? 'string' : valueType
   )
 
   const updateBinding = (
     base: StyleElement.Base,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
     type: StyleElement.ArgumentBinding['type'],
   ) => {
     switch (type) {
@@ -212,7 +212,7 @@
 
   const updateValueMode = (
     base: StyleElement.Base,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
     type: StyleElement.ParameterValue['type'],
   ) => {
     updateArgument(base, parameter.parameterId, {
@@ -225,7 +225,7 @@
 
   const updateLiteral = (
     base: StyleElement.Base,
-    parameter: StyleResolver.Parameter,
+    parameter: StyleParameterCatalog.Parameter,
     value: string,
   ) => {
     const literal = parameter.valueType === 'number' && value.length > 0

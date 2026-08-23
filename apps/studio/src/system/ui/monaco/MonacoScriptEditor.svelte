@@ -160,11 +160,14 @@
       ))
     })
 
-    if (expectedTypeText != null && injectionSource != null) {
+    const expectedTypeForValidation = expectedTypeText ?? (
+      expectedType === 'array' ? 'unknown[]' : expectedType
+    )
+    if (expectedTypeForValidation != null) {
       const typeError = ExpressionTypeInference.validateExpectedType(
-        injectionSource,
+        getInjectionSource(),
         userModel.getValue(),
-        expectedTypeText,
+        expectedTypeForValidation,
       )
       if (typeError != null) {
         markers.push(MonacoDiagnostics.createWholeModelErrorMarker(

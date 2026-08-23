@@ -29,6 +29,8 @@ const createContext = (
       selectedNode.disabled = !selectedNode.disabled
       refreshTree()
     },
+    canReorder: () => false,
+    reorder: vi.fn(),
     getContextMenu: () => [],
   }
 }
@@ -100,5 +102,25 @@ describe('KeyboardController disabled shortcut', () => {
 
     expect(selectedNode.disabled).toBeUndefined()
     expect(refreshTree).not.toHaveBeenCalled()
+  })
+
+  it('reorders the selected node with Alt and an arrow key', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'action', comment: '', source: '' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const reorder = vi.fn()
+    context.canReorder = () => true
+    context.reorder = reorder
+
+    const event = createEvent({ key: 'ArrowUp', altKey: true })
+    KeyboardController.handleKeydown(event, context)
+
+    expect(reorder).toHaveBeenCalledWith(selectedNode.id, -1)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
   })
 })

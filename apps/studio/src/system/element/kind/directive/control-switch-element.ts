@@ -27,6 +27,7 @@ namespace ControlSwitchElement {
     ),
     childSlots: [],
     canDisable: false,
+    reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }
 

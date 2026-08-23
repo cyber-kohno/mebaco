@@ -24,6 +24,8 @@ namespace ShortcutCommand {
     refreshTree: () => void
     canDisable: (node: TreeNode.Node) => boolean
     toggleDisabled: (nodeId: number) => void
+    canReorder: (nodeId: number, direction: -1 | 1) => boolean
+    reorder: (nodeId: number, direction: -1 | 1) => void
     getContextMenu: (node: TreeNode.Node, parentNode: TreeNode.Node | null) => ActionMenuState.Item[]
   }
 

@@ -23,6 +23,7 @@ namespace RetentionElement {
     getContextMenu: (context) => [
       RetentionActions.createAddDeclareMenu(context.node.id, context.rootNode),
       RetentionActions.createAddActionItem(context.node.id),
+      RetentionActions.createAddTransitionItem(context.node.id, context.rootNode),
       RetentionActions.createAddControlMenu(context.node.id, context.rootNode),
       ContentActions.createAddBlockItem(context.node.id),
     ],

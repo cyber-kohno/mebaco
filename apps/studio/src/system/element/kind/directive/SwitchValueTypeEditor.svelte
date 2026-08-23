@@ -6,6 +6,7 @@
     value: string
     literalUnionOptions: readonly SwitchValueType.LiteralUnionOption[]
     errorMessage?: string | null
+    readOnly?: boolean
     onValueChange: (value: string) => void
   }
 
@@ -13,6 +14,7 @@
     value,
     literalUnionOptions,
     errorMessage = null,
+    readOnly = false,
     onValueChange,
   }: Props = $props()
 
@@ -72,7 +74,12 @@
   ): string => typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
 </script>
 
-<section class="switch-value-type" data-invalid={errorMessage == null ? undefined : true}>
+<section
+  class="switch-value-type"
+  class:read-only-editor={readOnly}
+  data-invalid={errorMessage == null ? undefined : true}
+  inert={readOnly}
+>
   {#if errorMessage != null}
     <div class="switch-error">{errorMessage}</div>
   {/if}
@@ -133,6 +140,22 @@
     gap: 14px;
     color: #2b4850;
     font-size: 13px;
+  }
+
+  .switch-value-type.read-only-editor,
+  .switch-value-type.read-only-editor label {
+    color: #1976a2;
+  }
+
+  .switch-value-type.read-only-editor :global(input),
+  .switch-value-type.read-only-editor :global(select),
+  .switch-value-type.read-only-editor :global(button) {
+    opacity: 1;
+    border-color: #9acbd4;
+    background: transparent;
+    color: #1976a2;
+    -webkit-text-fill-color: #1976a2;
+    cursor: default;
   }
 
   .switch-error {

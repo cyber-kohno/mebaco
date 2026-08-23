@@ -165,6 +165,22 @@ namespace RuntimeTree {
     )) ?? null
   }
 
+  export const getEntryConfigurationError = (
+    runtime: AppRuntime,
+  ): string | null => {
+    if (runtime.entryNode == null) return 'Entry is not configured.'
+    if (runtime.entryNode.element.kind !== 'entry') {
+      return 'Entry is not configured.'
+    }
+    if (runtime.entryNode.element.componentId == null) {
+      return 'Entry component is not configured.'
+    }
+    if (getEntryComponentNode(runtime) == null) {
+      return 'The configured Entry component was not found.'
+    }
+    return null
+  }
+
   export const getComponentRootViewNodes = (
     componentNode: TreeNode.Node,
   ): TreeNode.Node[] => {

@@ -11,19 +11,19 @@
   import RuntimeTree from '../runtime-tree'
   import type ScriptErrorValue from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
-  import StyleResolver from '../style/style-resolver'
+  import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeRefKey from '../ref/runtime-ref-key'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
 
   type Props = {
     node: TreeNode.Node
     projectNode: TreeNode.Node
-    styleCatalog: StyleResolver.Catalog
+    styleCatalog: StyleDeclarationResolver.Catalog
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptErrorValue.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleResolver.Result | null) => void
+    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 

@@ -1,9 +1,9 @@
 <script lang="ts">
   import type TreeNode from '../../tree/tree-node'
   import StyleElement from '../../element/kind/view/style-element'
-  import ElementStyleResolver from '../../element/kind/view/style-resolver'
+  import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
   import FormulaContext from '../formula/formula-context'
-  import RuntimeStyleResolver from './style-resolver'
+  import StyleDeclarationResolver from './style-declaration-resolver'
   import ResolvedStyleMonitor from './ResolvedStyleMonitor.svelte'
 
   type Props = {
@@ -59,7 +59,7 @@
         : null
     if (previewRoot == null) return null
 
-    const parameters = ElementStyleResolver
+    const parameters = StyleParameterCatalog
       .createCatalog(previewRoot)
       .resolve(styleId)
     const unresolved = parameters.parameters
@@ -81,7 +81,7 @@
         binding: { type: 'default' as const },
       })),
     }
-    const resolution = RuntimeStyleResolver
+    const resolution = StyleDeclarationResolver
       .createCatalog(previewRoot)
       .resolve([application], FormulaContext.createEmpty(), {
         includeUnresolvedDeclarations: true,
