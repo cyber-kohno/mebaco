@@ -14,6 +14,7 @@ export type CommandContext = {
   rootNode: TreeNode.Node
   selectedNodeId: number
   appendOutput: (tone: CommandTone, message: string) => void
+  clearOutputs: () => void
   close: () => void
   openPreview: (launcherId?: string, launchValues?: Readonly<Record<string, unknown>>) => boolean
   requestChoice: (

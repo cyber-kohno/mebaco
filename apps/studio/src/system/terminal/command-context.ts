@@ -6,6 +6,7 @@ namespace CommandContextFactory {
     rootNode: TreeNode.Node
     selectedNodeId: number
     appendOutput: (tone: CommandTone, message: string) => void
+    clearOutputs: () => void
     close: () => void
     openPreview: CommandContext['openPreview']
     requestChoice: CommandContext['requestChoice']

@@ -14,6 +14,10 @@ namespace CommandRunner {
     commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [...session.outputs, output] }))
   }
 
+  export const clearOutputs = () => {
+    commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [] }))
+  }
+
   const tokenize = (input: string): string[] => input.trim().match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g)?.map((token) => {
     if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
       return token.slice(1, -1)
@@ -27,6 +31,7 @@ namespace CommandRunner {
     appendOutput: (tone: CommandTone, message: string) => {
       appendRecord('log', tone, message)
     },
+    clearOutputs,
     close: () => commandSessionStore.set(null),
     openPreview: (launcherId?: string, launchValues?: Readonly<Record<string, unknown>>) => PreviewController.openForSelectedNode(
       get(TreeStore.rootNode),

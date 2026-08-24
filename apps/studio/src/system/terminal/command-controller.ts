@@ -131,6 +131,12 @@ namespace CommandController {
 
   export const handleKeydown = (event: KeyboardEvent) => {
     if (get(commandSessionStore) == null) return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
+      event.preventDefault()
+      event.stopPropagation()
+      CommandRunner.clearOutputs()
+      return
+    }
     if (get(commandSessionStore)?.prompt != null) {
       if (event.key === 'Escape') {
         event.preventDefault()

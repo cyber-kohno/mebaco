@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import CommandController from '../command-controller'
   import CommandRegistry from '../command-registry'
   import CommandRunner from '../command-runner'
@@ -43,6 +44,15 @@
     else if (session?.prompt == null) inputElement?.focus()
   }
 
+  const handleTerminalMousedown = (event: MouseEvent) => {
+    const target = event.target
+    if (
+      target instanceof HTMLElement
+      && target.closest('input, button') != null
+    ) return
+    setTimeout(focusTerminalInput, 0)
+  }
+
   const handleTerminalFocusout = (event: FocusEvent) => {
     const terminal = event.currentTarget as HTMLElement
     if (event.relatedTarget instanceof Node && terminal.contains(event.relatedTarget)) return
@@ -68,10 +78,13 @@
 
   $effect(() => {
     if (session == null) return
-    setTimeout(() => {
-      if (session?.prompt?.inputSpec != null) promptInputElement?.focus()
-      else if (session?.prompt == null) inputElement?.focus()
-    }, 0)
+    let cancelled = false
+    void tick().then(() => {
+      if (!cancelled) focusTerminalInput()
+    })
+    return () => {
+      cancelled = true
+    }
   })
 
   $effect(() => {
@@ -84,8 +97,7 @@
       return
     }
 
-    const shouldFollow = output.scrollHeight - output.scrollTop - output.clientHeight < 32
-    if ((outputCount !== previousOutputCount || promptActive !== previousPromptActive) && shouldFollow) {
+    if (outputCount !== previousOutputCount || promptActive !== previousPromptActive) {
       setTimeout(() => {
         output.scrollTop = output.scrollHeight
       }, 0)
@@ -100,7 +112,7 @@
 {#if session != null}
   <div class="layer" use:bodyPortal>
     <div class="scrim" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) CommandController.close() }}></div>
-    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1" onfocusout={handleTerminalFocusout}>
+    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1" onfocusout={handleTerminalFocusout} onmousedown={handleTerminalMousedown}>
       <header class="header">
         <span class="title">Mebaco terminal</span>
         <span class="hint">↑↓ select · Enter accept/run · Tab complete · Esc close</span>
@@ -193,6 +205,7 @@
     z-index: 12000;
     inset: 0;
     pointer-events: none;
+    opacity: 0.95;
   }
 
   .scrim {
