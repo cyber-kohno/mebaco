@@ -1,9 +1,11 @@
 import type TreeNode from '../tree/tree-node'
 
 export type CommandTone = 'normal' | 'success' | 'warning' | 'danger'
+export type CommandOutputKind = 'command' | 'log'
 
 export type CommandOutput = {
   id: number
+  kind: CommandOutputKind
   tone: CommandTone
   message: string
 }

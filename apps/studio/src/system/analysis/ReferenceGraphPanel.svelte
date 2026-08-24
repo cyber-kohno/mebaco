@@ -169,7 +169,7 @@
 
   h2 {
     margin: 0 0 7px;
-    color: rgb(126, 126, 255);
+    color: rgb(200, 200, 255);
     font-size: 12px;
     letter-spacing: 0.05em;
   }

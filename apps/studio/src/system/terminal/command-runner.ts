@@ -4,10 +4,15 @@ import PreviewController from '../runtime/preview/preview-controller'
 import CommandRegistry from './command-registry'
 import CommandContextFactory from './command-context'
 import { commandSessionStore } from './command-session-store'
-import type { CommandChoice, CommandContext, CommandOutput, CommandTone } from './command-types'
+import type { CommandChoice, CommandContext, CommandOutput, CommandOutputKind, CommandTone } from './command-types'
 
 namespace CommandRunner {
   let outputId = 0
+
+  const appendRecord = (kind: CommandOutputKind, tone: CommandTone, message: string) => {
+    const output: CommandOutput = { id: ++outputId, kind, tone, message }
+    commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [...session.outputs, output] }))
+  }
 
   const tokenize = (input: string): string[] => input.trim().match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g)?.map((token) => {
     if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
@@ -20,8 +25,7 @@ namespace CommandRunner {
     rootNode: get(TreeStore.rootNode),
     selectedNodeId: get(TreeStore.selectedNodeId),
     appendOutput: (tone: CommandTone, message: string) => {
-      const output: CommandOutput = { id: ++outputId, tone, message }
-      commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [...session.outputs, output] }))
+      appendRecord('log', tone, message)
     },
     close: () => commandSessionStore.set(null),
     openPreview: (launcherId?: string, launchValues?: Readonly<Record<string, unknown>>) => PreviewController.openForSelectedNode(
@@ -71,7 +75,7 @@ namespace CommandRunner {
 
     const context = createContext()
     const session = get(commandSessionStore)
-    context.appendOutput('normal', `node-${session?.nodeId ?? get(TreeStore.selectedNodeId)}> ${input}`)
+    appendRecord('command', 'normal', `node-${session?.nodeId ?? get(TreeStore.selectedNodeId)}> ${input}`)
     commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '', completionDismissed: false, prompt: null }))
     const definition = CommandRegistry.find(context, tokens[0])
     if (definition == null) {

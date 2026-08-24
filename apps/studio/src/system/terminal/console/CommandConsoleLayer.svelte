@@ -38,6 +38,17 @@
     updateSuggestionPosition()
   }
 
+  const focusTerminalInput = () => {
+    if (session?.prompt?.inputSpec != null) promptInputElement?.focus()
+    else if (session?.prompt == null) inputElement?.focus()
+  }
+
+  const handleTerminalFocusout = (event: FocusEvent) => {
+    const terminal = event.currentTarget as HTMLElement
+    if (event.relatedTarget instanceof Node && terminal.contains(event.relatedTarget)) return
+    setTimeout(focusTerminalInput, 0)
+  }
+
   $effect(() => {
     suggestions.length
     session?.input
@@ -89,7 +100,7 @@
 {#if session != null}
   <div class="layer" use:bodyPortal>
     <div class="scrim" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) CommandController.close() }}></div>
-    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1">
+    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1" onfocusout={handleTerminalFocusout}>
       <header class="header">
         <span class="title">Mebaco terminal</span>
         <span class="hint">↑↓ select · Enter accept/run · Tab complete · Esc close</span>
@@ -100,7 +111,7 @@
           <div class="welcome">Mebaco terminal. Type a command to show suggestions; use ↑↓ and Enter to choose.</div>
         {/if}
         {#each session.outputs as output}
-          <div class="output" data-tone={output.tone}>{output.message}</div>
+          <div class="output" data-kind={output.kind} data-tone={output.tone}>{output.message}</div>
         {/each}
 
         {#if session.prompt != null}
@@ -231,7 +242,7 @@
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 5px;
+    gap: 2px;
     min-height: 0;
     padding: 12px;
     overflow: auto;
@@ -240,6 +251,11 @@
 
   .welcome { color: #80aeb4; }
   .output { line-height: 1.45; }
+  .output[data-kind='log'] {
+    margin-left: 12px;
+    padding: 2px 6px;
+    background: #00000076;
+  }
   .output[data-tone='success'] { color: #9be0ad; }
   .output[data-tone='warning'] { color: #f0c27c; }
   .output[data-tone='danger'] { color: #ff9ca4; }
