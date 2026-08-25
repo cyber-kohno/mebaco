@@ -29,6 +29,7 @@ namespace AppElement {
 
   export type CreateSchemaOptions = {
     reservedNames?: readonly string[]
+    afterCreate?: (element: Element, nodeId: number) => void | Promise<void>
   }
 
   export const createSchema = (
@@ -55,6 +56,7 @@ namespace AppElement {
       id: element.id,
     }),
     create: (values) => create(values.id),
+    afterCreate: options.afterCreate,
     update: (element, values) => ({
       ...element,
       id: values.id,

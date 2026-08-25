@@ -299,6 +299,7 @@ namespace ElementEditSchema {
     createPreview?(): TElement
     getInitialValues(element: TElement): Record<string, string>
     create(values: Record<string, string>): TElement
+    afterCreate?(element: TElement, nodeId: number): void | Promise<void>
     update(element: TElement, values: Record<string, string>): TElement
   }
 

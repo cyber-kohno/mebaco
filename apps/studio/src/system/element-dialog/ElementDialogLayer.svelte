@@ -204,13 +204,16 @@
       && FunctionElement.getAsync($rootNodeStore, owner.element)
   }
 
-  const submit = () => {
+  const submit = async () => {
     const session = $elementDialogStore
     if (session == null || !canSubmit()) return
 
     if (session.mode === 'create') {
       const element = session.schema.create(values)
-      TreeStore.addChild(session.parentNodeId, element, session.insertIndex)
+      const nodeId = TreeStore.addChildAndGetId(session.parentNodeId, element, session.insertIndex)
+      ElementDialog.close()
+      await session.schema.afterCreate?.(element, nodeId)
+      return
     } else {
       assertReadOnlyFieldsUnchanged(session)
       const element = session.schema.update(session.element, values)

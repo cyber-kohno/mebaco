@@ -131,11 +131,11 @@ namespace TreeStore {
     ))
   }
 
-  export const addChild = (
+  export const addChildAndGetId = (
     parentNodeId: number,
     element: MebacoElement.Element,
     index?: number,
-  ) => {
+  ): number => {
     const childNode = createNode(
       { element },
       { collapseGeneratedChildren: true },
@@ -155,6 +155,15 @@ namespace TreeStore {
       return nextRoot
     })
     selectedNodeId.set(childNode.id)
+    return childNode.id
+  }
+
+  export const addChild = (
+    parentNodeId: number,
+    element: MebacoElement.Element,
+    index?: number,
+  ): void => {
+    addChildAndGetId(parentNodeId, element, index)
   }
 
   export const updateElement = (
