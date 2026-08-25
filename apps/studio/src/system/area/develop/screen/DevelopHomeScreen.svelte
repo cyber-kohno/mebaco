@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../version'
-  import ProjectFile from '../../project/project-file'
+  import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../../version'
+  import DevelopProjectController from '../develop-project-controller'
 </script>
 
-<section class="start-screen" aria-label="Mebaco start">
+<section class="develop-home-screen" aria-label="Mebaco develop home">
   <div class="version-info" aria-label="Version information">
     <div>{`version ${APP_VERSION}`}</div>
     <div>{`schema gen: ${SCHEMA_GEN}`}</div>
@@ -17,8 +17,8 @@
   <div class="start-panel">
     <p class="lead">Start a project or open a .mbc file.</p>
     <div class="actions">
-      <button type="button" onclick={ProjectFile.startEmpty}>Start Empty</button>
-      <button type="button" class="secondary" onclick={ProjectFile.openFileWithAlert}>Open File</button>
+      <button type="button" onclick={DevelopProjectController.startEmpty}>Start Empty</button>
+      <button type="button" class="secondary" onclick={DevelopProjectController.openFileWithAlert}>Open File</button>
     </div>
   </div>
 
@@ -26,7 +26,7 @@
 </section>
 
 <style>
-  .start-screen {
+  .develop-home-screen {
     position: relative;
     display: grid;
     place-items: center;
@@ -39,7 +39,7 @@
       var(--mbc-color-app-background);
   }
 
-  .start-screen::before {
+  .develop-home-screen::before {
     content: '';
     position: absolute;
     inset: 16px;

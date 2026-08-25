@@ -187,27 +187,39 @@
           </span>
         {/each}
 
-        {#if row.node.children.length > 0}
-          <button
-            class="branch-button"
-            type="button"
-            aria-label={row.node.isOpen ? 'Close node' : 'Open node'}
-            onclick={(event) => {
-              event.stopPropagation()
-              toggleNode(row.node)
-            }}
-          >
-            {row.node.isOpen ? '-' : '+'}
-          </button>
-        {/if}
+        <span class="branch-slot">
+          {#if row.node.children.length > 0}
+            <button
+              class="branch-button"
+              type="button"
+              aria-label={row.node.isOpen ? 'Close node' : 'Open node'}
+              onclick={(event) => {
+                event.stopPropagation()
+                toggleNode(row.node)
+              }}
+            >
+              {row.node.isOpen ? '-' : '+'}
+            </button>
+          {:else if row.depth > 0}
+            <span class="leaf-connector" aria-hidden="true"></span>
+          {/if}
+        </span>
 
-        {#if verificationStatus != null}
-          <span
-            class="expression-verification-status {verificationStatus}"
-            title={`Expression verification: ${verificationStatus}${verificationEntry?.messages.length ? ` — ${verificationEntry.messages.join(' ')}` : ''}`}
-            aria-label={`Expression verification: ${verificationStatus}`}
-          >{verificationStatus === 'verified' ? '✓' : verificationStatus === 'error' ? '×' : '?'}</span>
-        {/if}
+        <span class="verification-slot">
+          {#if verificationStatus != null}
+            <span
+              class="expression-verification-status {verificationStatus}"
+              title={`Expression verification: ${verificationStatus}${verificationEntry?.messages.length ? ` — ${verificationEntry.messages.join(' ')}` : ''}`}
+              aria-label={`Expression verification: ${verificationStatus}`}
+            >{verificationStatus === 'verified' ? '✓' : verificationStatus === 'error' ? '×' : '?'}</span>
+          {:else}
+            <span
+              class="expression-verification-status not-applicable"
+              title="Expression verification: not applicable"
+              aria-label="Expression verification: not applicable"
+            >−</span>
+          {/if}
+        </span>
 
         <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} rootNode={$rootNodeStore} disabled={row.node.disabled} />
       </div>
@@ -315,18 +327,34 @@
   .line-right {
     left: 20px;
     top: 19px;
-    width: 19px;
+    width: 20px;
     height: 3px;
   }
 
-  .branch-button {
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
-    margin: 5px 0 0 3px;
+  .branch-slot {
+    position: relative;
+    display: block;
+    flex: 0 0 33px;
+    width: 33px;
+    height: 40px;
+  }
+
+  .leaf-connector {
+    position: absolute;
+    left: 0;
+    top: 19px;
+    width: 100%;
+    height: 3px;
+    background: #68aeb9;
+    opacity: 0.72;
   }
 
   .branch-button {
+    position: absolute;
+    left: 3px;
+    top: 5px;
+    width: 30px;
+    height: 30px;
     border: 1px solid #87bac2;
     border-radius: 4px;
     background: #ffffff;
@@ -341,6 +369,14 @@
   .branch-button:hover {
     background: var(--mbc-color-primary-soft);
     border-color: var(--mbc-color-primary);
+  }
+
+  .verification-slot {
+    display: flex;
+    flex: 0 0 26px;
+    align-items: flex-start;
+    width: 26px;
+    height: 40px;
   }
 
   .expression-verification-status {
@@ -358,4 +394,8 @@
   .expression-verification-status.unverified { color: #b37b00; }
   .expression-verification-status.verified { color: #188b4b; }
   .expression-verification-status.error { color: #c22f3f; }
+  .expression-verification-status.not-applicable {
+    color: var(--mbc-color-text-subtle);
+    font-weight: 700;
+  }
 </style>

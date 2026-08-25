@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import MonacoInjection from './monaco-injection'
 
 describe('MonacoInjection', () => {
+  it('does not inject namespace roots without scoped declarations', () => {
+    expect(MonacoInjection.createDefaultInjectionSource('expression')).toBe('')
+    expect(MonacoInjection.createDefaultInjectionSource('action')).toBe('')
+    expect(MonacoInjection.getAnalysisOffsetLine('expression', {
+      injectionSource: '',
+    })).toBe(3)
+  })
+
   it('isolates analysis declarations from the global injection model', () => {
     const source = MonacoInjection.wrapForAnalysis(
       '$state.value',

@@ -5,7 +5,6 @@ import JSZip from 'jszip'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
-import { screenStore } from '../store/screen-store'
 import ToastController from '../feedback/toast/toast-controller'
 import ProjectSession from './project-session-store'
 import ExpressionVerificationStore from '../validation/expression-verification-store'
@@ -126,7 +125,7 @@ namespace ProjectFile {
     return { status: 'saved', mode: 'overwrite', fileName: session.fileName }
   }
 
-  export const openFile = async () => {
+  export const openFile = async (): Promise<boolean> => {
     const selectedPath = await open({
       title: 'Open Mebaco project',
       multiple: false,
@@ -137,7 +136,7 @@ namespace ProjectFile {
         },
       ],
     })
-    if (typeof selectedPath !== 'string') return
+    if (typeof selectedPath !== 'string') return false
 
     const bytes = await readFile(selectedPath)
     const zip = await JSZip.loadAsync(bytes)
@@ -153,21 +152,19 @@ namespace ProjectFile {
     ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(projectJson.rootNode)
     ProjectSession.markSaved(get(TreeStore.rootNode), selectedPath)
-    screenStore.set('develop')
+    return true
   }
 
   export const startEmpty = () => {
     ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(TreeNode.createRootNode())
     ProjectSession.startNew(get(TreeStore.rootNode))
-    screenStore.set('develop')
   }
 
   export const close = () => {
     ExpressionVerificationStore.clear()
     ProjectSession.clear()
     TreeStore.replaceRoot(TreeNode.createRootNode())
-    screenStore.set('start')
   }
 
   export const saveWithAlert = async () => {
@@ -188,12 +185,13 @@ namespace ProjectFile {
     }
   }
 
-  export const openFileWithAlert = async () => {
+  export const openFileWithAlert = async (): Promise<boolean> => {
     try {
-      await openFile()
+      return await openFile()
     } catch (error) {
       console.error('Failed to open project:', error)
       alert(error instanceof Error ? error.message : 'Failed to open project.')
+      return false
     }
   }
 }

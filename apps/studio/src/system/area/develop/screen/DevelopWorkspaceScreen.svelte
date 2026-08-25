@@ -1,13 +1,13 @@
 <script lang="ts">
-  import TreeView from '../../tree/TreeView.svelte'
+  import TreeView from '../../../tree/TreeView.svelte'
 </script>
 
-<section class="develop-screen" aria-label="Mebaco develop">
+<section class="develop-workspace-screen" aria-label="Mebaco develop workspace">
   <TreeView />
 </section>
 
 <style>
-  .develop-screen {
+  .develop-workspace-screen {
     width: 100%;
     height: 100%;
     overflow: hidden;

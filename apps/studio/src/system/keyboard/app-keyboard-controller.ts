@@ -1,10 +1,11 @@
 import { get } from 'svelte/store'
 import { actionMenuStore } from '../action-menu/action-menu-store'
+import { developScreenStore } from '../area/develop/develop-screen-store'
 import ElementRegistry from '../element/element-registry'
 import { elementDialogStore } from '../element-dialog/element-dialog-store'
 import { confirmDialogStore } from '../feedback/confirm/confirm-dialog-state'
 import RuntimeSessionStore from '../runtime/runtime-session-store'
-import { screenStore } from '../store/screen-store'
+import { appAreaStore } from '../navigation/app-area-store'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
 import CommandController from '../terminal/command-controller'
@@ -38,7 +39,10 @@ namespace AppKeyboardController {
 
   export const handleKeydown = (event: KeyboardEvent) => {
     if (event.defaultPrevented) return
-    if (get(screenStore) !== 'develop') return
+    if (
+      get(appAreaStore) !== 'develop'
+      || get(developScreenStore) !== 'workspace'
+    ) return
     if (get(commandSessionStore) != null) return
     if (
       event.key.toLowerCase() === 't'

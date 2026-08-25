@@ -1,6 +1,7 @@
 import { get } from 'svelte/store'
+import { developScreenStore } from '../../area/develop/develop-screen-store'
+import { appAreaStore } from '../../navigation/app-area-store'
 import ProjectFile from '../../project/project-file'
-import { screenStore } from '../../store/screen-store'
 import type { CommandContext, CommandDefinition } from '../command-types'
 
 const appendSaveResult = (context: CommandContext, result: ProjectFile.SaveResult) => {
@@ -29,7 +30,10 @@ const createSaveCatalog = (): CommandDefinition => ({
   id: 'save',
   label: 'save',
   description: 'Save the current Mebaco project.',
-  isAvailable: () => get(screenStore) === 'develop',
+  isAvailable: () => (
+    get(appAreaStore) === 'develop'
+    && get(developScreenStore) === 'workspace'
+  ),
   complete: (_context, args) => {
     if (args.length > 1) return []
     return [{

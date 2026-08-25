@@ -11,31 +11,15 @@ namespace MonacoInjection {
   }
 
   export const createDefaultInjectionSource = (
-    mode: Mode,
-  ): string => {
-    const declarations = [
-      'declare var $state: Record<string, unknown>;',
-      'declare var $param: Record<string, unknown>;',
-      'declare var $args: Record<string, unknown>;',
-      'declare var $props: Record<string, unknown>;',
-      'declare var $var: Record<string, unknown>;',
-      'declare var $function: Record<string, unknown>;',
-      'declare var $system: Record<string, unknown>;',
-    ]
-
-    if (mode === 'action') {
-      declarations.push('declare var $event: Event;')
-    }
-
-    return declarations.join('\n')
-  }
+    _mode: Mode,
+  ): string => ''
 
   export const wrapForAnalysis = (
     code: string,
     mode: Mode,
     options: AnalysisOptions = {},
   ): string => {
-    const declarations = options.injectionSource == null
+    const declarations = options.injectionSource == null || options.injectionSource.length === 0
       ? []
       : options.injectionSource.split('\n')
     const analysisCode = code.trim().length === 0 ? 'undefined' : code
@@ -72,7 +56,7 @@ namespace MonacoInjection {
     mode: Mode,
     options: AnalysisOptions = {},
   ): number => {
-    const declarationLineCount = options.injectionSource == null
+    const declarationLineCount = options.injectionSource == null || options.injectionSource.length === 0
       ? 0
       : options.injectionSource.split('\n').length
     const moduleAndWrapperLineCount = mode === 'expression' ? 3 : 2

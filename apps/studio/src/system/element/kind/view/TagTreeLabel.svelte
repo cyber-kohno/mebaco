@@ -9,26 +9,50 @@
   let { element }: Props = $props()
 
   const tone = $derived(TagCatalog.getTone(element.tagName))
-  const styleIds = $derived(element.styles.map((style) => style.styleId))
+  const styleIds = $derived([...new Set(element.styles.map((style) => style.styleId))])
+  const attributeNames = $derived([...new Set(element.attributes.map((attribute) => attribute.name))])
   const refKeyText = $derived(element.refKey == null
     ? null
     : element.refKey.type === 'literal'
       ? element.refKey.value
       : `ƒ ${element.refKey.source}`)
+  const hasDetails = $derived(
+    element.comment.length > 0
+    || styleIds.length > 0
+    || attributeNames.length > 0
+    || refKeyText != null,
+  )
 </script>
 
 <span class="tag-label">
-  <span class:has-detail={element.comment.length > 0 || styleIds.length > 0 || refKeyText != null} class="tag-kind" data-tone={tone}>
+  <span class:has-detail={hasDetails} class="tag-kind" data-tone={tone}>
     Tag <span class="tag-name">&lt;{element.tagName}&gt;</span>
   </span>
-  {#if element.comment.length > 0}
-    <span class="tag-comment">&lt;!-- {element.comment} --&gt;</span>
-  {/if}
-  {#if styleIds.length > 0}
-    <span class="tag-styles">Styles[{styleIds.join(', ')}]</span>
-  {/if}
-  {#if refKeyText != null}
-    <span class="tag-ref">ref: {refKeyText}</span>
+  {#if hasDetails}
+    <span class="tag-details">
+      {#if element.comment.length > 0}
+        <span class="tag-comment">&lt;!-- {element.comment} --&gt;</span>
+      {/if}
+      {#if styleIds.length > 0}
+        <span class="tag-token-list">
+          <span class="tag-detail-label">Styles:</span>
+          {#each styleIds as styleId}
+            <span class="tag-token style-token">{styleId}</span>
+          {/each}
+        </span>
+      {/if}
+      {#if attributeNames.length > 0}
+        <span class="tag-token-list">
+          <span class="tag-detail-label">Attrs:</span>
+          {#each attributeNames as attributeName}
+            <span class="tag-token attribute-token">{attributeName}</span>
+          {/each}
+        </span>
+      {/if}
+      {#if refKeyText != null}
+        <span class="tag-ref">ref: {refKeyText}</span>
+      {/if}
+    </span>
   {/if}
 </span>
 
@@ -45,7 +69,7 @@
   }
 
   .tag-kind,
-  .tag-comment {
+  .tag-details {
     display: inline-flex;
     align-items: center;
     height: 30px;
@@ -73,30 +97,54 @@
     font-style: italic;
   }
 
-  .tag-comment,
-  .tag-styles,
-  .tag-ref {
+  .tag-details {
+    gap: 12px;
     min-width: 84px;
     padding: 0 12px;
     border-left: 0;
-    background: #14171a;
-    color: #ddeef1;
+    border-radius: 0 4px 4px 0;
+    background: #496970;
+  }
+
+  .tag-comment,
+  .tag-ref {
     font-style: italic;
   }
 
-  .tag-comment:last-child,
-  .tag-styles:last-child,
-  .tag-ref:last-child {
-    border-radius: 0 4px 4px 0;
+  .tag-comment {
+    color: #ddeef1;
   }
 
-  .tag-styles {
-    min-width: 0;
-    color: #d1dfa0;
+  .tag-token-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .tag-detail-label {
+    color: #ddeef1;
+  }
+
+  .tag-token {
+    padding: 3px 7px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    line-height: 1;
+  }
+
+  .style-token {
+    border-color: #9fb56c;
+    background: #667441;
+    color: #efffc2;
+  }
+
+  .attribute-token {
+    border-color: #6eb7c4;
+    background: #326b76;
+    color: #d8f7fc;
   }
 
   .tag-ref {
-    min-width: 0;
     max-width: 260px;
     overflow: hidden;
     color: #9ed7e1;

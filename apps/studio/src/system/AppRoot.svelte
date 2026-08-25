@@ -2,17 +2,18 @@
   import { onMount } from 'svelte'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import ActionMenuLayer from './action-menu/ActionMenuLayer.svelte'
+  import ClientArea from './area/client/ClientArea.svelte'
+  import DevelopArea from './area/develop/DevelopArea.svelte'
+  import SettingArea from './area/setting/SettingArea.svelte'
   import ElementDialogLayer from './element-dialog/ElementDialogLayer.svelte'
   import AppKeyboardController from './keyboard/app-keyboard-controller'
-  import DevelopScreen from './screen/develop/DevelopScreen.svelte'
   import PreviewDialog from './runtime/preview/PreviewDialog.svelte'
-  import StartScreen from './screen/start/StartScreen.svelte'
   import AppHeader from './shell/AppHeader.svelte'
   import ToastLayer from './feedback/toast/ToastLayer.svelte'
   import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
   import CommandConsoleLayer from './terminal/console/CommandConsoleLayer.svelte'
   import ReferenceGraphPanel from './analysis/ReferenceGraphPanel.svelte'
-  import { screenStore } from './store/screen-store'
+  import { appAreaStore } from './navigation/app-area-store'
   import TreeStore from './store/tree-store'
   import ProjectSession from './project/project-session-store'
   import ProjectGuard from './project/project-guard'
@@ -65,11 +66,18 @@
 
 <main class="app-root" aria-label="Mebaco" oncontextmenu={preventNativeContextMenu}>
   <AppHeader />
-  <div class="screen-host">
-    {#if $screenStore === 'start'}
-      <StartScreen />
-    {:else if $screenStore === 'develop'}
-      <DevelopScreen />
+  <div
+    class="screen-host"
+    role="tabpanel"
+    id={`${$appAreaStore}-area-panel`}
+    aria-labelledby={`${$appAreaStore}-area-tab`}
+  >
+    {#if $appAreaStore === 'client'}
+      <ClientArea />
+    {:else if $appAreaStore === 'develop'}
+      <DevelopArea />
+    {:else}
+      <SettingArea />
     {/if}
   </div>
   <ActionMenuLayer />

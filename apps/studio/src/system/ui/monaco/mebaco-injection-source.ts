@@ -172,8 +172,8 @@ namespace MebacoInjectionSource {
   const createStateDeclaration = (
     states: readonly StateElement.Element[],
     rootNode: TreeNode.Node,
-  ): string => {
-    if (states.length === 0) return 'declare var $state: Record<string, unknown>;'
+  ): string | null => {
+    if (states.length === 0) return null
 
     const fields = states
       .map((state) => `  ${state.id}: ${getValueType(state, rootNode)};`)
@@ -189,8 +189,8 @@ namespace MebacoInjectionSource {
   const createLaunchDeclaration = (
     argumentsList: readonly LaunchArgumentElement.Element[],
     rootNode: TreeNode.Node,
-  ): string => {
-    if (argumentsList.length === 0) return 'declare var $launch: Record<string, unknown>;'
+  ): string | null => {
+    if (argumentsList.length === 0) return null
     const fields = argumentsList.map((argument) => `  ${argument.id}: ${getValueType(argument, rootNode)};`)
     return ['declare var $launch: {', ...fields, '};'].join('\n')
   }
@@ -235,8 +235,8 @@ namespace MebacoInjectionSource {
   const createPropsDeclaration = (
     props: readonly ValuePropElement.Element[],
     rootNode: TreeNode.Node,
-  ): string => {
-    if (props.length === 0) return 'declare var $props: Record<string, unknown>;'
+  ): string | null => {
+    if (props.length === 0) return null
 
     const fields = props
       .map((prop) => {
@@ -272,8 +272,8 @@ namespace MebacoInjectionSource {
 
   const createStyleParameterDeclaration = (
     parameters: readonly Pick<StyleParamElement.Element, 'id' | 'valueType'>[],
-  ): string => {
-    if (parameters.length === 0) return 'declare var $param: Record<string, unknown>;'
+  ): string | null => {
+    if (parameters.length === 0) return null
 
     const fields = parameters
       .map((parameter) => (
@@ -300,9 +300,9 @@ namespace MebacoInjectionSource {
   const createArgumentsDeclaration = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
-  ): string => {
+  ): string | null => {
     const owner = FunctionScope.findOwnerFunction(rootNode, targetNodeId)
-    if (owner == null) return 'declare var $args: Record<string, unknown>;'
+    if (owner == null) return null
     const fields = FunctionScope.getArguments(rootNode, owner.node).map((argument) => (
       `  ${argument.id}: ${getFunctionValueTypeText(
         rootNode,
@@ -310,6 +310,7 @@ namespace MebacoInjectionSource {
         argument.nullable,
       )};`
     ))
+    if (fields.length === 0) return null
     return [
       'declare var $args: {',
       ...fields,
@@ -320,7 +321,7 @@ namespace MebacoInjectionSource {
   const createFunctionsDeclaration = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
-  ): string => {
+  ): string | null => {
     const fields = FunctionScope.collectVisibleFunctions(rootNode, targetNodeId)
       .map((entry) => {
         const parameters = FunctionScope.getArguments(rootNode, entry.node)
@@ -344,7 +345,7 @@ namespace MebacoInjectionSource {
       })
 
     return fields.length === 0
-      ? 'declare var $function: Record<string, unknown>;'
+      ? null
       : ['declare var $function: {', ...fields, '};'].join('\n')
   }
 
@@ -353,12 +354,12 @@ namespace MebacoInjectionSource {
     targetNodeId: number,
     includeTargetScope: boolean,
     baseDeclarations: readonly string[],
-  ): string => {
+  ): string | null => {
     const path = findPath(rootNode, targetNodeId) ?? []
     const fields = new Map<string, { typeText: string; readonly: boolean }>()
 
     const createDeclaration = () => {
-      if (fields.size === 0) return 'declare var $var: Record<string, unknown>;'
+      if (fields.size === 0) return ''
       return [
         'declare var $var: {',
         '  [key: string]: unknown;',
@@ -425,7 +426,7 @@ namespace MebacoInjectionSource {
       }
     })
 
-    return createDeclaration()
+    return fields.size === 0 ? null : createDeclaration()
   }
 
   export const createForNode = (
@@ -455,7 +456,7 @@ namespace MebacoInjectionSource {
     const styleParameterDeclaration = createStyleParameterDeclaration(
       collectStyleParameters(rootNode, targetNode),
     )
-    const declarations = [
+    const declarations: Array<string | null> = [
       typeDeclarations,
       launchDeclaration,
       stateDeclaration,
@@ -473,21 +474,26 @@ namespace MebacoInjectionSource {
               : []),
             '};',
           ].join('\n')
-        : 'declare var $system: Record<string, unknown>;',
+        : null,
     ]
 
-    declarations.push(createVariableDeclaration(
+    const availableDeclarations = declarations.filter(
+      (declaration): declaration is string => declaration != null && declaration.length > 0,
+    )
+
+    const variableDeclaration = createVariableDeclaration(
       rootNode,
       targetNodeId,
       includeTargetScope,
-      declarations,
-    ))
+      availableDeclarations,
+    )
+    if (variableDeclaration != null) availableDeclarations.push(variableDeclaration)
 
-    if (mode === 'action') {
-      declarations.push(`declare var $event: ${eventType ?? 'Event'};`)
+    if (mode === 'action' && eventType != null) {
+      availableDeclarations.push(`declare var $event: ${eventType};`)
     }
 
-    return declarations.join('\n')
+    return availableDeclarations.join('\n')
   }
 }
 

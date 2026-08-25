@@ -58,7 +58,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       'expression',
     )
 
-    expect(source).toContain('declare var $state: Record<string, unknown>;')
+    expect(source).not.toContain('declare var $state:')
     expect(source).toContain('width: number;')
     expect(source).not.toContain('data: Data;')
     expect(source).not.toContain('type Data')
@@ -110,7 +110,7 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(source).toContain('afterRender(callback: () => void): () => void;')
   })
 
-  it('injects a generic Event for actions by default', () => {
+  it('does not inject an Event outside an event action', () => {
     const tagNode = node(2, {
       kind: 'tag',
       tagName: 'button',
@@ -122,12 +122,12 @@ describe('MebacoInjectionSource Loop variables', () => {
 
     const source = MebacoInjectionSource.createForNode(rootNode, tagNode.id, 'action')
 
-    expect(source).toContain('declare var $event: Event;')
+    expect(source).not.toContain('declare var $event:')
     expect(source).toContain('getRef(refKey: string): HTMLElement | null;')
     expect(source).not.toContain('afterRender(callback: () => void)')
   })
 
-  it('does not expose imperative Ref access to expressions', () => {
+  it('does not inject empty namespaces into expressions', () => {
     const tagNode = node(2, {
       kind: 'tag',
       tagName: 'div',
@@ -138,9 +138,60 @@ describe('MebacoInjectionSource Loop variables', () => {
     const rootNode = node(1, { kind: 'project' }, [tagNode])
 
     const source = MebacoInjectionSource.createForNode(rootNode, tagNode.id, 'expression')
+    const namespaceRoots = [
+      '$args',
+      '$launch',
+      '$state',
+      '$param',
+      '$props',
+      '$var',
+      '$function',
+      '$system',
+      '$event',
+    ]
 
-    expect(source).toContain('declare var $system: Record<string, unknown>;')
-    expect(source).not.toContain('getRef(refKey: string)')
+    namespaceRoots.forEach((name) => expect(source).not.toContain(`declare var ${name}:`))
+  })
+
+  it('injects Launch Arguments and Component Props when available', () => {
+    const textNode = node(10, {
+      kind: 'text',
+      source: { type: 'formula', value: '$launch.userId + $props.offset' },
+    })
+    const componentNode = node(7, { kind: 'component', id: 'Main' }, [
+      node(8, { kind: 'props' }, [
+        node(9, {
+          kind: 'value-prop',
+          propId: 'offset-prop',
+          id: 'offset',
+          valueType: TypeExpression.createPrimitive('number'),
+          nullable: false,
+        }),
+      ]),
+      node(11, { kind: 'elements' }, [textNode]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [
+        node(3, { kind: 'app', id: 'main' }, [
+          node(4, { kind: 'launch-options' }, [
+            node(5, { kind: 'launch-arguments' }, [
+              node(6, {
+                kind: 'launch-argument',
+                id: 'userId',
+                valueType: TypeExpression.createPrimitive('string'),
+                nullable: false,
+              }),
+            ]),
+          ]),
+          componentNode,
+        ]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, textNode.id, 'expression')
+
+    expect(source).toContain('declare var $launch: {\n  userId: string;\n};')
+    expect(source).toContain('declare var $props: {\n  offset: number;\n};')
   })
 
   it('adds ancestor Loop bindings to $var', () => {
@@ -321,6 +372,22 @@ describe('MebacoInjectionSource Loop variables', () => {
 })
 
 describe('MebacoInjectionSource Function scope', () => {
+  it('does not inject $args into a Function without Arguments', () => {
+    const actionNode = node(5, { kind: 'action', comment: '', source: '' })
+    const functionNode = node(2, {
+      kind: 'function', id: 'run', mode: 'inline', async: false, returnType: null,
+    }, [
+      node(3, { kind: 'function-arguments' }),
+      node(4, { kind: 'function-procedure' }, [actionNode]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [functionNode])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, actionNode.id, 'action')
+
+    expect(source).not.toContain('declare var $args:')
+    expect(source).toContain('declare var $system:')
+  })
+
   it('injects arguments, async, and return type from a Refer Function Signature', () => {
     const actionNode = node(8, { kind: 'action', comment: '', source: '' })
     const referNode = node(6, {
