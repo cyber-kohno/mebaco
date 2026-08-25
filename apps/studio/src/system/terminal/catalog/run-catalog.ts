@@ -4,6 +4,8 @@ import type { CommandInputSpec } from '../command-types'
 export type LaunchArgumentSpec = CommandInputSpec & {
   id: string
   nullable: boolean
+  defaultValue?: string
+  defaultIsTypeDefault?: boolean
   literals?: readonly (string | number)[]
   structured: boolean
 }
@@ -71,6 +73,21 @@ const createRunCatalog = (options: {
           if (context.openPreview(undefined, values)) context.close()
           return
         }
+        if (argument.defaultValue != null || argument.defaultIsTypeDefault === true) {
+          if (argument.defaultIsTypeDefault === true && argument.structured) {
+            requestDirectArguments(index + 1, values)
+            return
+          }
+          const parsedDefault = argument.defaultIsTypeDefault === true
+            ? parseTypeDefaultValue(argument)
+            : parseArgumentValue(argument, argument.defaultValue ?? '', true)
+          if (!parsedDefault.ok) {
+            context.appendOutput('danger', parsedDefault.message)
+            return
+          }
+          requestDirectArguments(index + 1, { ...values, [argument.id]: parsedDefault.value })
+          return
+        }
         context.requestInput(
           `Enter ${argument.id} (${argument.kind})${argument.nullable ? ' (optional)' : ''}:`,
           { kind: argument.kind, placeholder: argument.literals?.join(' | ') },
@@ -114,11 +131,26 @@ const createRunCatalog = (options: {
   },
 })
 
+const parseTypeDefaultValue = (
+  argument: LaunchArgumentSpec,
+): { ok: true; value: unknown } | { ok: false; message: string } => {
+  if (argument.kind === 'boolean') return { ok: true, value: false }
+  const rawValue = argument.literals?.[0]?.toString() ?? (argument.kind === 'number' ? '0' : '')
+  return parseArgumentValue(argument, rawValue, true)
+}
+
 const parseArgumentValue = (
   argument: LaunchArgumentSpec,
   rawValue: string,
+  isDefault = false,
 ): { ok: true; value: unknown } | { ok: false; message: string } => {
   const value = rawValue.trim()
+  if (isDefault && argument.kind === 'string') {
+    if (argument.literals != null && !argument.literals.some((literal) => literal === rawValue)) {
+      return { ok: false, message: `${argument.id} must be one of: ${argument.literals.join(', ')}.` }
+    }
+    return { ok: true, value: rawValue }
+  }
   if (value.length === 0 && argument.nullable) return { ok: true, value: null }
   if (value.length === 0) return { ok: false, message: `${argument.id} is required.` }
 

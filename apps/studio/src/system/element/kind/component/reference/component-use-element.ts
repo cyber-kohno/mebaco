@@ -341,7 +341,7 @@ namespace ComponentUseElement {
       ]
     },
     childSlots: [],
-    canDisable: false,
+    canDisable: true,
     reorderGroup: 'siblings',
   } satisfies ElementDefinition.Definition<Element>
 }

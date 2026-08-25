@@ -33,16 +33,14 @@
       void getCurrentWindow().onCloseRequested(async (event) => {
         if (isClosing || !ProjectGuard.isDirty()) return
 
-        event.preventDefault()
-        if (!await ProjectGuard.confirmDiscard()) return
-
-        isClosing = true
-        try {
-          await getCurrentWindow().close()
-        } catch (error) {
-          isClosing = false
-          console.error('Failed to close the Mebaco window:', error)
+        if (!await ProjectGuard.confirmDiscard()) {
+          event.preventDefault()
+          return
         }
+
+        // onCloseRequested destroys the window after the handler resolves.
+        // Do not call close() here, as that would recursively emit this event.
+        isClosing = true
       }).then((unlisten) => {
         unlistenClose = unlisten
       }).catch(() => undefined)

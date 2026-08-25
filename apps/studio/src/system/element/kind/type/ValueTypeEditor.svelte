@@ -55,6 +55,11 @@
         ?? signatureTypeOptions.find((option) => option.value === base.namedTypeId)?.title
       : undefined,
   )
+  const selectedUnionPreview = $derived(
+    selectedNamedTypeKind === 'union' && base.type === 'named'
+      ? unionTypeOptions.find((option) => option.value === base.namedTypeId)?.title
+      : undefined,
+  )
 
   type EditorBaseType = TypeExpression.BaseType | 'signature'
 
@@ -268,6 +273,8 @@
         </select>
         {#if selectedNamedTypeKind === 'signature'}
           <SignatureReferencePreview text={selectedSignaturePreview} />
+        {:else}
+          <SignatureReferencePreview text={selectedUnionPreview} />
         {/if}
       </span>
     </label>

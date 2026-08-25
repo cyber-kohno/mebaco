@@ -46,7 +46,10 @@ namespace ValuePropElement {
     values: Readonly<Record<string, string>>,
   ): ValueSource.Value | undefined => {
     if (values.hasDefaultValue !== 'true') return undefined
-    return ValueSource.parse(values.defaultValue) ?? ValueSource.createDefault()
+    const source = ValueSource.parse(values.defaultValue)
+    return source?.type === 'literal' || source?.type === 'default'
+      ? source
+      : undefined
   }
 
   const parseValueType = (
@@ -96,6 +99,19 @@ namespace ValuePropElement {
         defaultValue: ValueSource.stringify(ValueSource.createDefault()),
         maxFormulaLength: 4000,
         valueTypeDefinitionKey: 'valueType',
+        literalOnly: true,
+        getLiteralOptions: (values) => {
+          const definition = ValueTypeDefinition.parse(values.valueType)
+          const base = definition == null
+            ? null
+            : TypeExpression.unwrapArray(definition.valueType).base
+          if (base?.type !== 'named') return []
+          const option = options.namedTypeOptions?.find((candidate) => candidate.value === base.namedTypeId)
+          return option?.literalValues?.map((value) => ({
+            value: String(value),
+            label: String(value),
+          })) ?? []
+        },
         visibleWhen: { key: 'hasDefaultValue', value: 'true' },
       },
     ],

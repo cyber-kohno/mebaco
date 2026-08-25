@@ -68,6 +68,18 @@ namespace StateElement {
         valueTypeKey: 'valueType',
         arrayDepthKey: 'valueType',
         valueTypeDefinitionKey: 'valueType',
+        getLiteralOptions: (values) => {
+          const definition = ValueTypeDefinition.parse(values.valueType)
+          const base = definition == null
+            ? null
+            : TypeExpression.unwrapArray(definition.valueType).base
+          if (base?.type !== 'named') return []
+          const option = options.namedTypeOptions?.find((candidate) => candidate.value === base.namedTypeId)
+          return option?.literalValues?.map((value) => ({
+            value: String(value),
+            label: String(value),
+          })) ?? []
+        },
         getExpectedTypeText: (values) => {
           const definition = parseValueType(values)
           return ValueTypeDefinition.getTypeText(

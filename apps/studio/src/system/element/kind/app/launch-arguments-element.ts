@@ -13,7 +13,7 @@ namespace LaunchArgumentsElement {
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = context.node.children.map((n) => n.element).filter((e): e is LaunchArgumentElement.Element => e.kind === 'launch-argument').map((e) => e.id)
-      return [action('Add Argument', () => ElementDialog.openCreate(context.node.id, LaunchArgumentElement.createSchema({ reservedNames, referenceOptions: TypeCatalog.getReferenceOptions(context.rootNode, context.node.id), namedTypeOptions: TypeCatalog.getNamedTypeOptions(context.rootNode, context.node.id) })))]
+      return [action('Add Argument', () => ElementDialog.openCreate(context.node.id, LaunchArgumentElement.createSchema({ reservedNames, referenceOptions: TypeCatalog.getReferenceOptions(context.rootNode, context.node.id), namedTypeOptions: TypeCatalog.getCommonNamedTypeOptions(context.rootNode) })))]
     }, childSlots: [], canDisable: false,
   } satisfies ElementDefinition.Definition<Element>
 }

@@ -605,13 +605,10 @@
               </select>
               {#if selectedNamedTypeKind === 'signature'}
                 <SignatureReferencePreview text={getNamedTypePreview(selectedBase.namedTypeId)} />
-              {:else if getNamedTypeDetail(selectedBase.namedTypeId) != null}
-                <span
-                  class="select-detail"
-                  title={getNamedTypeTitle(selectedBase.namedTypeId) ?? getNamedTypeDetail(selectedBase.namedTypeId)}
-                >
-                  {getNamedTypeDetail(selectedBase.namedTypeId)}
-                </span>
+              {:else}
+                <SignatureReferencePreview
+                  text={getNamedTypeTitle(selectedBase.namedTypeId) ?? getNamedTypeDetail(selectedBase.namedTypeId)}
+                />
               {/if}
             </span>
           </label>
@@ -853,17 +850,9 @@
   }
 
   .select-with-detail {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    display: grid;
+    gap: 7px;
     min-width: 0;
-  }
-
-  .select-detail {
-    color: #23758d;
-    font-size: 12px;
-    font-weight: 800;
-    white-space: nowrap;
   }
 
   .select-with-detail.signature-selection {

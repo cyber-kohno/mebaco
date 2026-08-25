@@ -7,6 +7,7 @@ import ComponentReference from '../component/shared/component-reference'
 import type ValuePropElement from '../component/definition/value-prop-element'
 import type LaunchArgumentElement from '../app/launch-argument-element'
 import LauncherTreeLabel from './LauncherTreeLabel.svelte'
+import ValueSource from '../../../ui/input/value-source'
 
 namespace LauncherElement {
   export type Kind = 'launcher'
@@ -19,7 +20,12 @@ namespace LauncherElement {
     if (node.element.kind !== 'app') return null
     const argsNode = node.children.find((child) => child.element.kind === 'launch-options')?.children.find((child) => child.element.kind === 'launch-arguments')
     const props = (argsNode?.children ?? []).filter((child): child is TreeNode.Node & { element: LaunchArgumentElement.Element } => child.element.kind === 'launch-argument').map((child) => ({
-      kind: 'value-prop', propId: child.element.id, id: child.element.id, valueType: child.element.valueType, nullable: child.element.nullable,
+      kind: 'value-prop',
+      propId: child.element.id,
+      id: child.element.id,
+      valueType: child.element.valueType,
+      nullable: child.element.nullable,
+      defaultValue: child.element.defaultValue ?? (child.element.nullable ? ValueSource.createDefault() : undefined),
     } as ValuePropElement.Element))
     return { componentId: node.element.id, label: node.element.id, props }
   }

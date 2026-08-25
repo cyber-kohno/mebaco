@@ -99,6 +99,19 @@ describe('TypeCatalog', () => {
       .toContain('type SaveHandler = (payload: string) => Promise<void>')
   })
 
+  it('exposes only Common named types for launch argument contracts', () => {
+    const commonType = unionType('common-mode', 'CommonMode', {
+      type: 'literal', valueType: 'string', values: ['ready'],
+    })
+    const appType = unionType('app-mode', 'AppMode', {
+      type: 'literal', valueType: 'string', values: ['private'],
+    })
+    const root = project([commonType], [appType])
+
+    expect(TypeCatalog.getCommonNamedTypeOptions(root).map((option) => option.name))
+      .toEqual(['CommonMode'])
+  })
+
   it('treats Signature Value Types as active references', () => {
     const signature = signatureType('save-handler-type', 'SaveHandler')
     const variable = node({

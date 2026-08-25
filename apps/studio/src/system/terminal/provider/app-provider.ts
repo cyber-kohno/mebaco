@@ -1,6 +1,5 @@
 import type { CommandContext, CommandDefinition } from '../command-types'
 import createRunCatalog, { type LaunchArgumentSpec } from '../catalog/run-catalog'
-import createVerifyCatalog from '../catalog/verify-catalog'
 import type TreeNode from '../../tree/tree-node'
 import type LauncherElement from '../../element/kind/project/launcher-element'
 import type LaunchArgumentElement from '../../element/kind/app/launch-argument-element'
@@ -50,13 +49,21 @@ const getLaunchArgumentSpecs = (appNode: TreeNode.Node): LaunchArgumentSpec[] =>
       id: argument.id,
       kind: isPrimitive ? base.type : 'string',
       nullable: argument.nullable,
+      defaultValue: argument.defaultValue?.type === 'literal'
+        ? argument.defaultValue.value
+        : undefined,
+      defaultIsTypeDefault: argument.defaultValue?.type === 'default',
       literals: base.type === 'string' || base.type === 'number' ? base.literals : undefined,
       structured: !isPrimitive || depth > 0,
     }
   })
 
 const hasStructuredArguments = (argumentsList: ReturnType<typeof getLaunchArgumentSpecs>): boolean => (
-  argumentsList.some((argument) => argument.structured)
+  argumentsList.some((argument) => (
+    argument.structured
+    && argument.defaultValue == null
+    && argument.defaultIsTypeDefault !== true
+  ))
 )
 
 const findLaunchers = (
@@ -95,7 +102,7 @@ const createAppProvider = () => ({
             (appNode.element as AppElement.Element).id,
           )
         : [],
-    }), createVerifyCatalog()]
+    })]
   },
 })
 

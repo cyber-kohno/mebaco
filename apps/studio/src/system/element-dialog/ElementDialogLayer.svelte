@@ -529,6 +529,8 @@
                 : ValueTypeDefinition.parse(values[field.valueTypeDefinitionKey] ?? '') ?? undefined}
               valueType={field.valueTypeKey == null ? undefined : values[field.valueTypeKey] ?? 'string'}
               arrayDepth={field.arrayDepthKey == null ? undefined : Number(values[field.arrayDepthKey] ?? '0')}
+              literalOnly={field.literalOnly === true}
+              literalOptions={field.getLiteralOptions?.(values) ?? []}
               expectedTypeText={field.getExpectedTypeText?.(values)}
               injectionSource={getInjectionSource('expression')}
               onValueChange={(nextValue) => {

@@ -118,6 +118,11 @@ namespace ElementEditSchema {
     allowAwaitInAsyncFunction?: boolean
   } & FieldBase
 
+  export type LiteralOption = {
+    value: string
+    label?: string
+  }
+
   export type ScriptField = {
     type: 'script'
     key: string
@@ -133,6 +138,8 @@ namespace ElementEditSchema {
     key: string
     label: string
     defaultValue?: string
+    literalOnly?: boolean
+    getLiteralOptions?: (values: Readonly<Record<string, string>>) => readonly LiteralOption[]
     maxFormulaLength?: number
     valueTypeKey?: string
     arrayDepthKey?: string
@@ -449,7 +456,13 @@ namespace ElementEditSchema {
       if (arrayDepth > 0 || valueType === 'reference') {
         return 'Literal is not available for this value type.'
       }
-      if (valueType === 'named') return 'Literal is not available for this value type.'
+      const namedLiteralOptions = field.getLiteralOptions?.(values) ?? []
+      if (valueType === 'named') {
+        if (namedLiteralOptions.length === 0) return 'Literal is not available for this value type.'
+        if (!namedLiteralOptions.some((option) => option.value === source.value)) {
+          return 'Select one of the allowed literal values.'
+        }
+      }
       if (valueType === 'number' && (
         source.value.trim().length === 0
         || !Number.isFinite(Number(source.value))
@@ -457,6 +470,22 @@ namespace ElementEditSchema {
       if (valueType === 'boolean' && source.value !== 'true' && source.value !== 'false') {
         return 'Select true or false.'
       }
+      if (field.literalOnly === true) {
+        const { base } = TypeExpression.unwrapArray(definition?.valueType ?? TypeExpression.createPrimitive())
+        const literalOptions = namedLiteralOptions.length > 0
+          ? namedLiteralOptions
+          : base.type === 'string' || base.type === 'number'
+            ? (base.literals ?? []).map((value) => ({ value: String(value) }))
+            : []
+        const hasLiteralConstraint = literalOptions.length > 0
+          || ((base.type === 'string' || base.type === 'number') && base.literals != null)
+        if (hasLiteralConstraint && !literalOptions.some((option) => option.value === source.value)) {
+          return 'Select one of the allowed literal values.'
+        }
+      }
+    }
+    if (source.type === 'formula' && field.literalOnly === true) {
+      return 'Only literal values are allowed.'
     }
     if (
       source.type === 'formula'

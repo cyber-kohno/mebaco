@@ -6,6 +6,10 @@ namespace MonacoFactory {
   let initialization: Promise<typeof Monaco> | null = null
   let worker: Promise<unknown> | null = null
 
+  const wait = (milliseconds: number): Promise<void> => new Promise((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+
   export const createMonaco = async (): Promise<typeof Monaco> => {
     if (monaco != null) return monaco
 
@@ -56,9 +60,28 @@ namespace MonacoFactory {
     uri: Monaco.Uri,
   ) => {
     const typescript = targetMonaco.typescript
-    worker ??= typescript.getTypeScriptWorker()
-    const getService = await worker as (uri: string) => Promise<unknown>
-    return getService(uri.toString())
+    let getWorker: ((uri: string) => Promise<unknown>) | null = null
+    let lastError: unknown
+
+    // The TypeScript language contribution is registered asynchronously when
+    // the first TypeScript model is created. Verification can run before an
+    // editor is opened, so wait for that registration instead of caching the
+    // initial rejected worker promise forever.
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        worker ??= typescript.getTypeScriptWorker()
+        getWorker = await worker as (uri: string) => Promise<unknown>
+        break
+      } catch (error) {
+        worker = null
+        lastError = error
+        if (String(error) !== 'TypeScript not registered!') throw error
+        await wait(25)
+      }
+    }
+
+    if (getWorker == null) throw lastError ?? new Error('TypeScript worker is unavailable.')
+    return getWorker(uri.toString())
   }
 
   export const createModel = (

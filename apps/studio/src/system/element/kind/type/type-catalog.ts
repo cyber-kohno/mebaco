@@ -29,6 +29,7 @@ namespace TypeCatalog {
   export type Option = {
     value: string
     label: string
+    literalValues?: readonly (string | number)[]
     name?: string
     detail?: string
     title?: string
@@ -220,6 +221,16 @@ namespace TypeCatalog {
     collectUnions(rootNode).find((entry) => entry.element.typeId === unionTypeId) ?? null
   )
 
+  export const getLiteralUnionValues = (
+    rootNode: TreeNode.Node,
+    unionTypeId: string,
+  ): readonly (string | number)[] | null => {
+    const entry = findUnion(rootNode, unionTypeId)
+    return entry?.element.definition.type === 'literal'
+      ? entry.element.definition.values
+      : null
+  }
+
   export const findSignature = (
     rootNode: TreeNode.Node,
     signatureTypeId: string,
@@ -351,6 +362,9 @@ namespace TypeCatalog {
         ).replaceAll('"', "'"),
         label: entry.element.id,
         kind: 'union',
+        literalValues: entry.element.definition.type === 'literal'
+          ? entry.element.definition.values
+          : undefined,
       }
     }),
     ...collectVisibleSignatures(rootNode, targetNodeId).map((entry): Option => {
@@ -370,6 +384,15 @@ namespace TypeCatalog {
     }),
   ]
     .sort((left, right) => (left.name ?? left.label).localeCompare(right.name ?? right.label))
+
+  export const getCommonNamedTypeOptions = (
+    rootNode: TreeNode.Node,
+  ): Option[] => {
+    const commonNode = findCommonNode(rootNode)
+    return commonNode == null
+      ? []
+      : getNamedTypeOptions(rootNode, commonNode.id)
+  }
 
   export const isObjectReferenced = (
     rootNode: TreeNode.Node,

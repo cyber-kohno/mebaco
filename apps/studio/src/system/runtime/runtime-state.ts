@@ -45,13 +45,23 @@ namespace RuntimeState {
     projectNode: RuntimeTree.AppRuntime['projectNode'],
   ): unknown => {
     const { base, depth } = TypeExpression.unwrapArray(state.valueType)
-    if (depth > 0 || base.type === 'reference' || base.type === 'object' || base.type === 'named') {
+    if (depth > 0 || base.type === 'reference' || base.type === 'object') {
       if (value.length === 0) return getDefaultValue(state, projectNode)
       try {
         return JSON.parse(value)
       } catch {
         return getDefaultValue(state, projectNode)
       }
+    }
+
+    if (base.type === 'named') {
+      const union = TypeCatalog.findUnion(projectNode, base.namedTypeId)
+      if (union?.element.definition.type !== 'literal' || value.length === 0) {
+        return getDefaultValue(state, projectNode)
+      }
+      return union.element.definition.valueType === 'number'
+        ? Number(value)
+        : value
     }
 
     switch (base.type) {

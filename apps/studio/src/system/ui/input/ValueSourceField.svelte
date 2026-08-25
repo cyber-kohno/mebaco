@@ -1,13 +1,17 @@
 <script lang="ts">
   import CompactFormulaField from '../formula/CompactFormulaField.svelte'
   import FormulaModeToggle from '../formula/FormulaModeToggle.svelte'
+  import SuggestTextInput from './SuggestTextInput.svelte'
   import ValueSource from './value-source'
   import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
+  import TypeExpression from '../../element/kind/type/type-expression'
 
   type Props = {
     value: string
     valueType?: string
     arrayDepth?: number
+    literalOnly?: boolean
+    literalOptions?: readonly { value: string; label?: string }[]
     valueTypeDefinition?: ValueTypeDefinition.Definition
     expectedTypeText?: string
     injectionSource?: string
@@ -18,6 +22,8 @@
     value,
     valueType = 'string',
     arrayDepth = 0,
+    literalOnly = false,
+    literalOptions = [],
     valueTypeDefinition,
     expectedTypeText,
     injectionSource,
@@ -31,12 +37,26 @@
   const resolvedArrayDepth = $derived(valueTypeDefinition == null
     ? arrayDepth
     : ValueTypeDefinition.getArrayDepth(valueTypeDefinition))
+  const inlineLiteralOptions = $derived.by(() => {
+    if (valueTypeDefinition == null) return []
+    const { base, depth } = TypeExpression.unwrapArray(valueTypeDefinition.valueType)
+    if (depth > 0 || (base.type !== 'string' && base.type !== 'number')) return []
+    return (base.literals ?? []).map((value) => ({
+      value: String(value),
+      label: String(value),
+    }))
+  })
+  const resolvedLiteralOptions = $derived(
+    literalOptions.length > 0 ? literalOptions : inlineLiteralOptions,
+  )
   const literalAvailable = $derived(
-    resolvedArrayDepth === 0
-    && (resolvedValueType === 'string' || resolvedValueType === 'number' || resolvedValueType === 'boolean'),
+    resolvedLiteralOptions.length > 0
+    || (resolvedArrayDepth === 0
+      && (resolvedValueType === 'string' || resolvedValueType === 'number' || resolvedValueType === 'boolean')),
   )
   const expectedType = $derived(
     literalAvailable
+      && (resolvedValueType === 'string' || resolvedValueType === 'number' || resolvedValueType === 'boolean')
       ? resolvedValueType as 'string' | 'number' | 'boolean'
       : undefined,
   )
@@ -47,6 +67,10 @@
   ) => onValueChange(ValueSource.stringify(nextValue))
 
   $effect(() => {
+    if (literalOnly && source.type === 'formula') {
+      emit(ValueSource.createDefault())
+      return
+    }
     if (!literalAvailable && source.type === 'literal') {
       emit(ValueSource.createDefault())
     }
@@ -61,7 +85,9 @@
     }
     emit(literalAvailable
       ? { type: 'literal', value: '' }
-      : { type: 'formula', source: '' })
+      : literalOnly
+        ? ValueSource.createDefault()
+        : { type: 'formula', source: '' })
   }
 
   const changeMode = (
@@ -79,15 +105,21 @@
     aria-label="Initial binding"
     onchange={(event) => changeBinding(event.currentTarget.value as 'default' | 'value')}
   >
-    <option value="default">Default</option>
-    <option value="value">Set Value</option>
+    <option value="default">Type default</option>
+    {#if !literalOnly || literalAvailable}
+      <option value="value">Set Value</option>
+    {/if}
   </select>
 
   {#if source.type === 'default'}
     <span class="default-value">Type default</span>
   {:else}
-    <div class:formula-only={!literalAvailable} class="specified-value">
-      {#if literalAvailable}
+    <div
+      class:formula-only={!literalAvailable}
+      class:literal-only={literalOnly}
+      class="specified-value"
+    >
+      {#if literalAvailable && !literalOnly}
         <FormulaModeToggle
           mode={source.type}
           onModeChange={changeMode}
@@ -102,6 +134,12 @@
           {expectedType}
           {expectedTypeText}
           onValueChange={(formulaSource) => emit({ type: 'formula', source: formulaSource })}
+        />
+      {:else if resolvedLiteralOptions.length > 0}
+        <SuggestTextInput
+          value={source.value}
+          options={resolvedLiteralOptions}
+          onValueChange={(nextValue) => emit({ type: 'literal', value: nextValue })}
         />
       {:else if resolvedValueType === 'boolean'}
         <select
@@ -143,6 +181,10 @@
   }
 
   .specified-value.formula-only {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .specified-value.literal-only {
     grid-template-columns: minmax(0, 1fr);
   }
 

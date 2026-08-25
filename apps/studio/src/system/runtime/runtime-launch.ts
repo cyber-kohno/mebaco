@@ -4,9 +4,12 @@ import type LauncherElement from '../element/kind/project/launcher-element'
 import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
 import type TreeNode from '../tree/tree-node'
 import ComponentReference from '../element/kind/component/shared/component-reference'
+import TypeExpression from '../element/kind/type/type-expression'
+import TypeCatalog from '../element/kind/type/type-catalog'
 import TypeValue from './type-value'
 import FormulaContext from './formula/formula-context'
 import RuntimeProps from './runtime-props'
+import ValueSource from '../ui/input/value-source'
 
 namespace RuntimeLaunch {
   export type Result = {
@@ -54,7 +57,80 @@ namespace RuntimeLaunch {
     id: argument.id,
     valueType: argument.valueType,
     nullable: argument.nullable,
+    defaultValue: argument.defaultValue
+      ?? (argument.nullable ? ValueSource.createDefault() : undefined),
   }))
+
+  const resolveDefaultValue = (
+    argument: LaunchArgumentElement.Element,
+    projectNode: TreeNode.Node,
+  ): { present: true; value: unknown } | { present: false } | { present: true; error: string } => {
+    if (argument.defaultValue?.type === 'default') {
+      const prop = toProps([argument])[0]
+      if (prop == null) return { present: false }
+      return { present: true, value: RuntimeProps.getDefaultValue(prop, projectNode) }
+    }
+    if (argument.defaultValue?.type !== 'literal') return { present: false }
+
+    const { base, depth } = TypeExpression.unwrapArray(argument.valueType)
+    if (
+      depth > 0
+      || (
+        base.type !== 'string'
+        && base.type !== 'number'
+        && base.type !== 'boolean'
+        && base.type !== 'named'
+      )
+    ) {
+      return {
+        present: true,
+        error: `Launch argument '${argument.id}' has an unsupported default value.`,
+      }
+    }
+
+    let value: unknown = argument.defaultValue.value
+    if (base.type === 'number') {
+      value = Number(argument.defaultValue.value)
+      if (!Number.isFinite(value)) {
+        return {
+          present: true,
+          error: `Launch argument '${argument.id}' has an invalid default value.`,
+        }
+      }
+    } else if (base.type === 'boolean') {
+      if (argument.defaultValue.value !== 'true' && argument.defaultValue.value !== 'false') {
+        return {
+          present: true,
+          error: `Launch argument '${argument.id}' has an invalid default value.`,
+        }
+      }
+      value = argument.defaultValue.value === 'true'
+    } else if (base.type === 'named') {
+      const union = TypeCatalog.findUnion(projectNode, base.namedTypeId)
+      if (union?.element.definition.type !== 'literal') {
+        return {
+          present: true,
+          error: `Launch argument '${argument.id}' has an unsupported default value.`,
+        }
+      }
+      if (union.element.definition.valueType === 'number') {
+        value = Number(argument.defaultValue.value)
+        if (!Number.isFinite(value)) {
+          return {
+            present: true,
+            error: `Launch argument '${argument.id}' has an invalid default value.`,
+          }
+        }
+      }
+    }
+
+    return TypeValue.isCompatible(argument.valueType, value, projectNode)
+      ? { present: true, value }
+      : {
+        present: true,
+        error: `Launch argument '${argument.id}' has an incompatible default value.`,
+      }
+  }
 
   const resolveDirectValues = (
     argumentsList: readonly LaunchArgumentElement.Element[],
@@ -70,11 +146,25 @@ namespace RuntimeLaunch {
     })
 
     argumentsList.forEach((argument) => {
-      if (!Object.prototype.hasOwnProperty.call(launchValues, argument.id)) {
-        errors.push(`Launch argument '${argument.id}' is required.`)
-        return
+      const hasExplicitValue = Object.prototype.hasOwnProperty.call(launchValues, argument.id)
+      let value: unknown
+      if (hasExplicitValue) {
+        value = launchValues[argument.id]
+      } else {
+        const defaultValue = resolveDefaultValue(argument, projectNode)
+        if (defaultValue.present) {
+          if ('error' in defaultValue) {
+            errors.push(defaultValue.error)
+            return
+          }
+          value = defaultValue.value
+        } else if (argument.nullable) {
+          value = null
+        } else {
+          errors.push(`Launch argument '${argument.id}' is required.`)
+          return
+        }
       }
-      const value = launchValues[argument.id]
       if (value === null && argument.nullable) {
         values[argument.id] = value
         return
@@ -146,7 +236,7 @@ namespace RuntimeLaunch {
     if (options.launcherId == null) {
       return argumentsList.length === 0
         ? { values: {}, errors: [] }
-        : { values: {}, errors: ['Launch arguments were not supplied.'] }
+        : resolveDirectValues(argumentsList, {}, options.projectNode)
     }
 
     const launcher = getLauncher(options.projectNode, options.appNode.element.id, options.launcherId)

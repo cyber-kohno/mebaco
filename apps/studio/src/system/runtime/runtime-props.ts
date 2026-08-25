@@ -28,7 +28,7 @@ namespace RuntimeProps {
     ?? []
   )
 
-  const getDefaultValue = (
+  export const getDefaultValue = (
     prop: ValuePropElement.Element,
     projectNode: TreeNode.Node,
   ): unknown => {
@@ -69,6 +69,7 @@ namespace RuntimeProps {
   const coerceLiteral = (
     prop: ValuePropElement.Element,
     value: string,
+    projectNode: TreeNode.Node,
   ): unknown => {
     const { base } = TypeExpression.unwrapArray(prop.valueType)
     switch (base.type) {
@@ -78,6 +79,13 @@ namespace RuntimeProps {
         return Number(value)
       case 'boolean':
         return value === 'true'
+      case 'named': {
+        const union = TypeCatalog.findUnion(projectNode, base.namedTypeId)
+        return union?.element.definition.type === 'literal'
+          && union.element.definition.valueType === 'number'
+          ? Number(value)
+          : value
+      }
       default:
         return value
     }
@@ -117,7 +125,7 @@ namespace RuntimeProps {
       case 'default':
         return { ok: true, value: getDefaultValue(prop, projectNode) }
       case 'literal':
-        return { ok: true, value: coerceLiteral(prop, source.value) }
+        return { ok: true, value: coerceLiteral(prop, source.value, projectNode) }
       case 'formula': {
         const result = FormulaEvaluator.evaluateExpression(source.source, context)
         return result.ok
