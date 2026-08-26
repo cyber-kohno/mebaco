@@ -14,6 +14,36 @@ const node = (
 })
 
 describe('ReferenceGraph', () => {
+  it('resolves structured references by stable definition UUID only', () => {
+    const component = node(2, {
+      kind: 'component',
+      componentId: 'component-uuid',
+      id: 'RenamedCard',
+    })
+    const use = node(3, {
+      kind: 'component-use',
+      componentId: 'component-uuid',
+      propBindings: [],
+    })
+    const root = node(1, { kind: 'project' }, [component, use])
+
+    expect(ReferenceGraph.build(root, component.id).references).toEqual([
+      {
+        sourceNodeId: use.id,
+        sourceLabel: 'component-use#componentId',
+        targetNodeId: component.id,
+        targetLabel: 'component.RenamedCard',
+      },
+    ])
+
+    use.element = {
+      kind: 'component-use',
+      componentId: 'RenamedCard',
+      propBindings: [],
+    }
+    expect(ReferenceGraph.build(root, component.id).references).toEqual([])
+  })
+
   it('collects expression references and formats both directions with node ids', () => {
     const state = node(3, {
       kind: 'state',

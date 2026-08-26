@@ -19,11 +19,16 @@ namespace AppElement {
 
   export type Element = {
     kind: Kind
+    appId: string
     id: string
   }
 
-  export const create = (id: string): Element => ({
+  export const create = (
+    id: string,
+    appId: string = crypto.randomUUID(),
+  ): Element => ({
     kind: 'app',
+    appId,
     id,
   })
 
@@ -42,7 +47,6 @@ namespace AppElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'identifier',

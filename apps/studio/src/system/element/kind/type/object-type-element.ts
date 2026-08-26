@@ -50,7 +50,6 @@ namespace ObjectTypeElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'pascalIdentifier',

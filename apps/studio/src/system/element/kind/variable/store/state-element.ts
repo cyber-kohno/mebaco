@@ -8,6 +8,7 @@ import ValueSource from '../../../../ui/input/value-source'
 import TypeCatalog from '../../type/type-catalog'
 import TypeExpression from '../../type/type-expression'
 import ValueTypeDefinition from '../../type/value-type-definition'
+import TypeDefaultLabel from '../../type/type-default-label'
 import StateScope from './state-scope'
 import TreeStore from '../../../../store/tree-store'
 
@@ -41,7 +42,6 @@ namespace StateElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'jsIdentifier',
@@ -53,11 +53,11 @@ namespace StateElement {
         type: 'valueType',
         key: 'valueType',
         label: 'Value Type',
-        readOnlyOnUpdate: true,
         required: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
         namedTypeOptions: options.namedTypeOptions ?? [],
+        resetWhenChanged: ['initial'],
       },
       {
         type: 'valueSource',
@@ -91,6 +91,17 @@ namespace StateElement {
             ),
           )
         },
+        getTypeDefaultLabel: (values) => {
+          const definition = ValueTypeDefinition.parse(values.valueType)
+          return definition == null
+            ? undefined
+            : TypeDefaultLabel.getFromOptions(
+                definition,
+                options.referenceOptions ?? [],
+                options.namedTypeOptions ?? [],
+              )
+        },
+        visibleWhenValid: 'valueType',
       },
     ],
     createPreview: () => create({

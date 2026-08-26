@@ -69,9 +69,6 @@
     })
   }
 
-  const formatLiteral = (
-    literal: SwitchValueType.Literal,
-  ): string => typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
 </script>
 
 <section

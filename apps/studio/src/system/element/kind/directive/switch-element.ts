@@ -44,7 +44,6 @@ namespace SwitchElement {
         type: 'switchValueType',
         key: 'valueType',
         label: 'Value Type',
-        readOnlyOnUpdate: true,
         defaultValue: SwitchValueType.stringify(SwitchValueType.createPrimitive()),
         literalUnionOptions: options.literalUnionOptions ?? [],
         caseValueType: options.caseValueType,
@@ -97,7 +96,7 @@ namespace SwitchElement {
           label: entry.element.id,
           valueType: definition.valueType,
           values: definition.values,
-          title: UnionDefinition.getTypeScriptType(definition, () => undefined).replaceAll('"', "'"),
+          title: UnionDefinition.getTypeScriptType(definition, () => undefined),
         }
       })
   )

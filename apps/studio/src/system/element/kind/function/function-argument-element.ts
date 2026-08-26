@@ -43,13 +43,11 @@ namespace FunctionArgumentElement {
     fields: [
       {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
-        readOnlyOnUpdate: true,
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
       {
         type: 'valueType', key: 'valueType', label: 'Value Type', required: true,
-        readOnlyOnUpdate: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
         namedTypeOptions: options.namedTypeOptions ?? [],

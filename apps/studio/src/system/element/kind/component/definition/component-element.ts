@@ -16,17 +16,26 @@ namespace ComponentElement {
 
   export type Element = {
     kind: Kind
+    componentId: string
     id: string
     local?: boolean
   }
 
-  export const create = (id: string): Element => ({
+  export const create = (
+    id: string,
+    componentId: string = crypto.randomUUID(),
+  ): Element => ({
     kind: 'component',
+    componentId,
     id,
   })
 
-  export const createLocal = (id: string): Element => ({
+  export const createLocal = (
+    id: string,
+    componentId: string = crypto.randomUUID(),
+  ): Element => ({
     kind: 'component',
+    componentId,
     id,
     local: true,
   })
@@ -48,7 +57,6 @@ namespace ComponentElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'pascalIdentifier',

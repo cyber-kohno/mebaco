@@ -1,5 +1,6 @@
 import type ObjectShape from './object-shape'
 import LiteralUnion from './literal-union'
+import TypeLiteralLabel from './type-literal-label'
 
 namespace UnionDefinition {
   export type LiteralValueType = 'string' | 'number'
@@ -117,7 +118,7 @@ namespace UnionDefinition {
     }
 
     return definition.valueType === 'string'
-      ? definition.values.map((value) => JSON.stringify(value)).join(' | ')
+      ? definition.values.map(TypeLiteralLabel.format).join(' | ')
       : definition.values.join(' | ')
   }
 }

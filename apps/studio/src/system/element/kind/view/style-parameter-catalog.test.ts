@@ -12,12 +12,14 @@ describe('element StyleParameterCatalog', () => {
       }),
     ])
 
-    expect(StyleParameterCatalog.createCatalog(root).resolve('base')).toEqual({
+    expect(StyleParameterCatalog.createCatalog(root).resolve(StyleFixture.styleId('base'))).toEqual({
       parameters: [{
-        parameterId: 'width',
+        parameterId: StyleFixture.parameterId('width'),
+        id: 'width',
         valueType: 'number',
         defaultValue: 10,
-        sourceStyleId: 'base',
+        sourceStyleId: StyleFixture.styleId('base'),
+        sourceStyleName: 'base',
         sourcePath: ['base'],
       }],
       issues: [],
@@ -46,9 +48,9 @@ describe('element StyleParameterCatalog', () => {
       StyleFixture.project([base, delegated, defaulted, valued]),
     )
 
-    expect(catalog.resolve('delegated').parameters.map((item) => item.parameterId)).toEqual(['width'])
-    expect(catalog.resolve('defaulted').parameters).toEqual([])
-    expect(catalog.resolve('valued').parameters).toEqual([])
+    expect(catalog.resolve(StyleFixture.styleId('delegated')).parameters.map((item) => item.id)).toEqual(['width'])
+    expect(catalog.resolve(StyleFixture.styleId('defaulted')).parameters).toEqual([])
+    expect(catalog.resolve(StyleFixture.styleId('valued')).parameters).toEqual([])
   })
 
   it('reports missing styles, cycles, and parameter conflicts', () => {
@@ -72,8 +74,8 @@ describe('element StyleParameterCatalog', () => {
       StyleFixture.project([alpha, beta, cycle, conflict]),
     )
 
-    expect(catalog.resolve('missing').issues[0]?.type).toBe('missing-style')
-    expect(catalog.resolve('alpha').issues.some((issue) => issue.type === 'cycle')).toBe(true)
-    expect(catalog.resolve('conflict').issues.some((issue) => issue.type === 'parameter-conflict')).toBe(true)
+    expect(catalog.resolve(StyleFixture.styleId('missing')).issues[0]?.type).toBe('missing-style')
+    expect(catalog.resolve(StyleFixture.styleId('alpha')).issues.some((issue) => issue.type === 'cycle')).toBe(true)
+    expect(catalog.resolve(StyleFixture.styleId('conflict')).issues.some((issue) => issue.type === 'parameter-conflict')).toBe(true)
   })
 })

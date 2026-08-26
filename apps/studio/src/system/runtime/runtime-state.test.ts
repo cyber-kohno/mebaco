@@ -20,7 +20,7 @@ const node = (
 describe('RuntimeState', () => {
   it('initializes nullable Object states with null', () => {
     const projectNode = node({ kind: 'project' })
-    const appNode = node({ kind: 'app', id: 'app' })
+    const appNode = node({ kind: 'app', appId: 'app-id', id: 'app' })
     const stateNode = node({
       kind: 'state',
       id: 'selectedUser',

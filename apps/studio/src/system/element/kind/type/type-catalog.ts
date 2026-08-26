@@ -6,6 +6,9 @@ import type ObjectShape from './object-shape'
 import TypeExpression from './type-expression'
 import UnionDefinition from './union-definition'
 import SignatureDefinition from './signature-definition'
+import TypeDefaultLabel from './type-default-label'
+import TypeLiteralLabel from './type-literal-label'
+import type ValueTypeDefinition from './value-type-definition'
 import ContentHost from '../../content-host'
 
 namespace TypeCatalog {
@@ -35,6 +38,7 @@ namespace TypeCatalog {
     title?: string
     preview?: string
     kind?: 'union' | 'signature'
+    defaultValueLabel?: string
   }
 
   export type ObjectOption = ObjectShape.ObjectOption
@@ -251,6 +255,37 @@ namespace TypeCatalog {
     typeId: string,
   ): string | undefined => findNamedType(rootNode, typeId)?.element.id
 
+  export const getDefaultValueLabel = (
+    rootNode: TreeNode.Node,
+    definition: ValueTypeDefinition.Definition,
+  ): string | undefined => TypeDefaultLabel.get(definition, {
+    resolveObjectName: (objectTypeId) => findObject(rootNode, objectTypeId)?.element.id,
+    resolveNamedType: (namedTypeId) => {
+      const entry = findNamedType(rootNode, namedTypeId)
+      if (entry?.element.kind === 'union-type') {
+        return {
+          kind: 'union',
+          typeId: entry.element.typeId,
+          name: entry.element.id,
+          definition: entry.element.definition,
+        }
+      }
+      if (entry?.element.kind === 'signature-type') {
+        return {
+          kind: 'signature',
+          typeId: entry.element.typeId,
+          name: entry.element.id,
+          definition: {
+            async: entry.element.async,
+            parameters: entry.element.parameters,
+            returnType: entry.element.returnType,
+          },
+        }
+      }
+      return undefined
+    },
+  })
+
   export const findOwnerObject = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
@@ -359,9 +394,13 @@ namespace TypeCatalog {
         title: UnionDefinition.getTypeScriptType(
           entry.element.definition,
           (objectTypeId) => findObject(rootNode, objectTypeId)?.element.id,
-        ).replaceAll('"', "'"),
+        ),
         label: entry.element.id,
         kind: 'union',
+        defaultValueLabel: getDefaultValueLabel(rootNode, {
+          valueType: TypeExpression.createNamed(entry.element.typeId, 'union'),
+          nullable: false,
+        }),
         literalValues: entry.element.definition.type === 'literal'
           ? entry.element.definition.values
           : undefined,
@@ -380,6 +419,10 @@ namespace TypeCatalog {
         preview,
         label: entry.element.id,
         kind: 'signature',
+        defaultValueLabel: getDefaultValueLabel(rootNode, {
+          valueType: TypeExpression.createNamed(entry.element.typeId, 'signature'),
+          nullable: false,
+        }),
       }
     }),
   ]
@@ -540,8 +583,64 @@ namespace TypeCatalog {
       case 'reference':
         return createDefaultObjectRec(rootNode, base.objectTypeIds[0] ?? '', visiting)
       case 'named':
-        return createDefaultNamedType(rootNode, base.namedTypeId)
+        return createDefaultNamedTypeRec(rootNode, base.namedTypeId, visiting)
     }
+  }
+
+  const defaultSignatureCache = new WeakMap<
+    TreeNode.Node,
+    Map<string, {
+      signature: SignatureEntry['element']
+      value: (...args: unknown[]) => unknown
+    }>
+  >()
+
+  const createDefaultSignature = (
+    rootNode: TreeNode.Node,
+    signature: SignatureEntry['element'],
+  ): ((...args: unknown[]) => unknown) => {
+    let projectCache = defaultSignatureCache.get(rootNode)
+    if (projectCache == null) {
+      projectCache = new Map()
+      defaultSignatureCache.set(rootNode, projectCache)
+    }
+    const cached = projectCache.get(signature.typeId)
+    if (cached?.signature === signature) return cached.value
+
+    const createReturnValue = (): unknown => {
+      if (signature.returnType == null) return undefined
+      if (signature.returnType.nullable) return null
+      return createDefaultValue(rootNode, signature.returnType.valueType, new Set())
+    }
+
+    const value = signature.async
+      ? async (..._args: unknown[]) => createReturnValue()
+      : (..._args: unknown[]) => createReturnValue()
+    projectCache.set(signature.typeId, { signature, value })
+    return value
+  }
+
+  const createDefaultNamedTypeRec = (
+    rootNode: TreeNode.Node,
+    namedTypeId: string,
+    visiting: ReadonlySet<string>,
+  ): unknown => {
+    const entry = findNamedType(rootNode, namedTypeId)
+    if (entry == null) return undefined
+    if (entry.element.kind === 'signature-type') {
+      return createDefaultSignature(rootNode, entry.element)
+    }
+    if (entry.element.kind !== 'union-type') return undefined
+    if (entry.element.definition.type === 'literal') {
+      return entry.element.definition.values[0] ?? (
+        entry.element.definition.valueType === 'number' ? 0 : ''
+      )
+    }
+    return createDefaultObjectRec(
+      rootNode,
+      entry.element.definition.objectTypeIds[0] ?? '',
+      visiting,
+    )
   }
 
   const createDefaultProperties = (
@@ -588,16 +687,7 @@ namespace TypeCatalog {
   export const createDefaultNamedType = (
     rootNode: TreeNode.Node,
     namedTypeId: string,
-  ): unknown => {
-    const entry = findUnion(rootNode, namedTypeId)
-    if (entry == null) return undefined
-    if (entry.element.definition.type === 'literal') {
-      return entry.element.definition.values[0] ?? (
-        entry.element.definition.valueType === 'number' ? 0 : ''
-      )
-    }
-    return createDefaultObject(rootNode, entry.element.definition.objectTypeIds[0] ?? '')
-  }
+  ): unknown => createDefaultNamedTypeRec(rootNode, namedTypeId, new Set())
 
   const getTypeScriptType = (
     rootNode: TreeNode.Node,
@@ -610,7 +700,7 @@ namespace TypeCatalog {
       case 'string':
         baseText = base.literals == null
           ? 'string'
-          : base.literals.map((literal) => JSON.stringify(literal)).join(' | ')
+          : base.literals.map(TypeLiteralLabel.format).join(' | ')
         break
       case 'number':
         baseText = base.literals == null

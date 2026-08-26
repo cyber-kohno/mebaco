@@ -1,4 +1,5 @@
 import LiteralUnion from './literal-union'
+import TypeLiteralLabel from './type-literal-label'
 
 namespace TypeExpression {
   export const primitiveTypes = ['string', 'number', 'boolean'] as const
@@ -151,7 +152,7 @@ namespace TypeExpression {
         return `${property.id}${property.optional ? '?' : ''}: ${propertyTypeText}${property.nullable ? ' | null' : ''};`
       }).join(' ')} }`
     } else if (base.type === 'string' && base.literals != null) {
-      baseText = base.literals.map((literal) => JSON.stringify(literal)).join(' | ')
+      baseText = base.literals.map(TypeLiteralLabel.format).join(' | ')
     } else if (base.type === 'number' && base.literals != null) {
       baseText = base.literals.join(' | ')
     } else {

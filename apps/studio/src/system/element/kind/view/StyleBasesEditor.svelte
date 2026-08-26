@@ -326,9 +326,9 @@
               {#each resolution.parameters as parameter (`${base.referenceId}-${parameter.sourceStyleId}-${parameter.parameterId}`)}
                 {@const argument = getArgument(base, parameter)}
                 <div class="parameter-name">
-                  <span class="parameter-id">{parameter.parameterId}</span>
+                  <span class="parameter-id">{parameter.id}</span>
                   <span class="parameter-type">{parameter.valueType}</span>
-                  <span class="parameter-source">from {parameter.sourceStyleId}</span>
+                  <span class="parameter-source">from {parameter.sourceStyleName}</span>
                 </div>
                 <select
                   value={argument.binding.type}
@@ -358,7 +358,7 @@
                       {#if argument.binding.value.type === 'formula'}
                         <CompactFormulaField
                           value={argument.binding.value.source}
-                          ariaLabel={`${parameter.parameterId} formula`}
+                          ariaLabel={`${parameter.id} formula`}
                           injectionSource={formulaInjectionSource}
                           expectedType={getFormulaExpectedType(parameter.valueType)}
                           onValueChange={(source) => updateArgument(base, parameter.parameterId, {

@@ -4,6 +4,7 @@
   import TypeExpression from './type-expression'
   import ObjectShape from './object-shape'
   import SignatureReferencePreview from './SignatureReferencePreview.svelte'
+  import TypeLiteralLabel from './type-literal-label'
 
   type Props = {
     objectId: string
@@ -338,10 +339,6 @@
     emit($state.snapshot(properties), next)
   }
 
-  const formatLiteral = (literal: string | number): string => (
-    typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
-  )
-
   const getArraySuffix = (property: TypeExpression.Property): string => (
     '[]'.repeat(TypeExpression.unwrapArray(property.valueType).depth)
   )
@@ -412,7 +409,7 @@
               {/if}
               {#each base.literals as literal, index}
                 {#if index > 0}<span class="type-symbol">&nbsp;|&nbsp;</span>{/if}
-                <span class="property-type">{formatLiteral(literal)}</span>
+                <span class="property-type">{TypeLiteralLabel.format(literal)}</span>
               {/each}
               {#if base.literals.length > 1 && getArraySuffix(row.property).length > 0}
                 <span class="type-symbol">)</span>

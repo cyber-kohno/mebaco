@@ -63,7 +63,6 @@ namespace FunctionElement {
     fields: [
       {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
-        readOnlyOnUpdate: true,
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
@@ -96,7 +95,6 @@ namespace FunctionElement {
       },
       {
         type: 'valueType', key: 'returnType', label: 'Return Type', required: true,
-        readOnlyOnUpdate: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],
         namedTypeOptions: options.namedTypeOptions ?? [],

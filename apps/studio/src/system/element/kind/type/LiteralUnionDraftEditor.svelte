@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Plus } from '@lucide/svelte'
   import LiteralUnion from './literal-union'
+  import TypeLiteralLabel from './type-literal-label'
 
   type LiteralValueType = 'string' | 'number'
   type Literal = string | number
@@ -43,15 +44,17 @@
     return values.includes(value) ? 'Literal is duplicated.' : null
   }
 
+  const draftEmpty = $derived(
+    valueType === 'number' ? draft.trim().length === 0 : draft.length === 0,
+  )
+  const draftError = $derived(draftEmpty ? null : getDraftError())
+  const canAdd = $derived(!draftEmpty && draftError == null)
+
   const addLiteral = () => {
-    if (getDraftError() != null) return
+    if (!canAdd) return
     onAdd(valueType === 'number' ? Number(draft) : draft)
     draft = ''
   }
-
-  const formatLiteral = (
-    literal: Literal,
-  ): string => typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
 </script>
 
 <div class="literal-draft-editor" class:labeled={label != null}>
@@ -65,8 +68,8 @@
         type={valueType === 'number' ? 'number' : 'text'}
         value={draft}
         aria-label="Literal Value"
-        aria-invalid={getDraftError() == null ? undefined : true}
-        title={getDraftError() ?? undefined}
+        aria-invalid={draftError == null ? undefined : true}
+        title={draftError ?? undefined}
         oninput={(event) => {
           draft = event.currentTarget.value
         }}
@@ -81,25 +84,25 @@
         type="button"
         title="Add Literal"
         aria-label="Add Literal"
-        disabled={getDraftError() != null}
+        disabled={!canAdd}
         onclick={addLiteral}
       >
         <Plus size={16} />
       </button>
     </div>
 
-    {#if getDraftError() != null}
-      <div class="draft-error">{getDraftError()}</div>
+    {#if draftError != null}
+      <div class="draft-error">{draftError}</div>
     {/if}
 
     <div class="chip-list">
       {#each values as literal, index}
         <span class="chip">
-          <span>{formatLiteral(literal)}</span>
+          <span>{TypeLiteralLabel.format(literal)}</span>
           <button
             type="button"
             title="Remove Literal"
-            aria-label={`Remove Literal ${formatLiteral(literal)}`}
+            aria-label={`Remove Literal ${TypeLiteralLabel.format(literal)}`}
             onclick={() => onRemove(index)}
           >x</button>
         </span>

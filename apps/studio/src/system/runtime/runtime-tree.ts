@@ -161,7 +161,7 @@ namespace RuntimeTree {
     if (entry?.kind !== 'entry' || entry.componentId == null) return null
 
     return runtime.componentNodes.find((node) => (
-      node.element.kind === 'component' && node.element.id === entry.componentId
+      node.element.kind === 'component' && node.element.componentId === entry.componentId
     )) ?? null
   }
 
@@ -209,7 +209,7 @@ namespace RuntimeTree {
     const styleMap = new Map<string, StyleElement.Element>()
     runtime.styleNodes.forEach((node) => {
       if (node.element.kind === 'style') {
-        styleMap.set(node.element.id, node.element)
+        styleMap.set(node.element.styleId, node.element)
       }
     })
     return styleMap

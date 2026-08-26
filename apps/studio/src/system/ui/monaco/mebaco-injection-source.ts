@@ -262,10 +262,10 @@ namespace MebacoInjectionSource {
     if (node?.element.kind !== 'style') return []
 
     return StyleParameterCatalog.createCatalog(rootNode)
-      .resolve(node.element.id)
+      .resolve(node.element.styleId)
       .parameters
       .map((parameter) => ({
-        id: parameter.parameterId,
+        id: parameter.id,
         valueType: parameter.valueType,
       }))
   }

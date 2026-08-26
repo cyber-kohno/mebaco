@@ -11,10 +11,14 @@ namespace SlotElement {
 
   export type Element = {
     kind: Kind
+    slotId: string
     id: string
   }
 
-  export const create = (id: string): Element => ({ kind: 'slot', id })
+  export const create = (
+    id: string,
+    slotId: string = crypto.randomUUID(),
+  ): Element => ({ kind: 'slot', slotId, id })
 
   export type CreateSchemaOptions = {
     reservedNames?: readonly string[]
@@ -29,7 +33,6 @@ namespace SlotElement {
       type: 'text',
       key: 'id',
       label: 'Id',
-      readOnlyOnUpdate: true,
       width: 'id',
       required: true,
       charset: 'jsIdentifier',

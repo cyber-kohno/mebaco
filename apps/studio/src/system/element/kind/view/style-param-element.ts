@@ -13,6 +13,7 @@ namespace StyleParamElement {
 
   export type Element = {
     kind: Kind
+    parameterId: string
     id: string
     valueType: ValueType
     defaultValue?: Literal
@@ -22,8 +23,10 @@ namespace StyleParamElement {
     id: string,
     valueType: ValueType,
     defaultValue?: Literal,
+    parameterId: string = crypto.randomUUID(),
   ): Element => ({
     kind: 'style-param',
+    parameterId,
     id,
     valueType,
     defaultValue,
@@ -43,7 +46,6 @@ namespace StyleParamElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'jsIdentifier',
@@ -55,10 +57,9 @@ namespace StyleParamElement {
         type: 'select',
         key: 'valueType',
         label: 'Value Type',
-        readOnlyOnUpdate: true,
         required: true,
         defaultValue: 'string',
-        clearWhenChanged: ['defaultValue'],
+        clearWhenChanged: ['hasDefaultValue', 'defaultValue'],
         options: valueTypes.map((valueType) => ({
           value: valueType,
           label: valueType,

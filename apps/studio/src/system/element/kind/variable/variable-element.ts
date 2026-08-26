@@ -61,7 +61,6 @@ namespace VariableElement {
     fields: [
       {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
-        readOnlyOnUpdate: true,
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
@@ -74,7 +73,6 @@ namespace VariableElement {
       },
       {
         type: 'valueType', key: 'valueType', label: 'Value Type',
-        readOnlyOnUpdate: true,
         required: true,
         defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
         objectOptions: options.referenceOptions ?? [],

@@ -14,6 +14,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('does not inject App State while editing a Common Style', () => {
     const commonStyleNode = node(8, {
       kind: 'style',
+      styleId: 'rect-style-id',
       id: 'rect',
       rules: [],
       bases: [],
@@ -21,6 +22,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       node(9, { kind: 'style-params' }, [
         node(10, {
           kind: 'style-param',
+          parameterId: 'width-parameter-id',
           id: 'width',
           valueType: 'number',
         }),
@@ -28,7 +30,7 @@ describe('MebacoInjectionSource Loop variables', () => {
     ])
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'apps' }, [
-        node(3, { kind: 'app', id: 'main' }, [
+        node(3, { kind: 'app', appId: 'main-common-app-id', id: 'main' }, [
           node(4, { kind: 'store' }, [
             node(5, { kind: 'states' }, [
               node(6, {
@@ -67,6 +69,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('injects color Style Parameters as strings', () => {
     const styleNode = node(2, {
       kind: 'style',
+      styleId: 'button-style-id',
       id: 'button',
       rules: [],
       bases: [],
@@ -74,6 +77,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       node(3, { kind: 'style-params' }, [
         node(4, {
           kind: 'style-param',
+          parameterId: 'accent-parameter-id',
           id: 'accent',
           valueType: 'color',
           defaultValue: '#66ccff',
@@ -158,7 +162,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       kind: 'text',
       source: { type: 'formula', value: '$launch.userId + $props.offset' },
     })
-    const componentNode = node(7, { kind: 'component', id: 'Main' }, [
+    const componentNode = node(7, { kind: 'component', componentId: 'main-component-id', id: 'Main' }, [
       node(8, { kind: 'props' }, [
         node(9, {
           kind: 'value-prop',
@@ -172,11 +176,12 @@ describe('MebacoInjectionSource Loop variables', () => {
     ])
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'apps' }, [
-        node(3, { kind: 'app', id: 'main' }, [
+        node(3, { kind: 'app', appId: 'main-app-id', id: 'main' }, [
           node(4, { kind: 'launch-options' }, [
             node(5, { kind: 'launch-arguments' }, [
               node(6, {
                 kind: 'launch-argument',
+                propId: 'user-id-prop-id',
                 id: 'userId',
                 valueType: TypeExpression.createPrimitive('string'),
                 nullable: false,
@@ -248,7 +253,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       kind: 'text',
       source: { type: 'formula', value: '$state.localCount' },
     })
-    const componentNode = node(3, { kind: 'component', id: 'Main' }, [
+    const componentNode = node(3, { kind: 'component', componentId: 'main-local-component-id', id: 'Main' }, [
       node(4, { kind: 'props' }),
       node(5, { kind: 'store' }, [
         node(6, { kind: 'states' }, [
@@ -266,7 +271,7 @@ describe('MebacoInjectionSource Loop variables', () => {
     ])
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'apps' }, [
-        node(11, { kind: 'app', id: 'main' }, [componentNode]),
+        node(11, { kind: 'app', appId: 'main-local-app-id', id: 'main' }, [componentNode]),
       ]),
     ])
 
@@ -398,7 +403,7 @@ describe('MebacoInjectionSource Function scope', () => {
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'common' }),
       node(3, { kind: 'apps' }, [
-        node(4, { kind: 'app', id: 'app' }, [
+        node(4, { kind: 'app', appId: 'refer-app-id', id: 'app' }, [
           node(5, { kind: 'declares' }, [
             node(9, { kind: 'types' }, [
               node(10, {
@@ -462,7 +467,7 @@ describe('MebacoInjectionSource Function scope', () => {
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'common' }),
       node(3, { kind: 'apps' }, [
-        node(4, { kind: 'app', id: 'app' }, [
+        node(4, { kind: 'app', appId: 'inline-app-id', id: 'app' }, [
           node(5, { kind: 'declares' }, [
             node(6, { kind: 'types' }, [
               node(16, {
@@ -528,12 +533,13 @@ describe('MebacoInjectionSource Function scope', () => {
 
   it('injects typed transition overloads for other Apps only', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
-    const currentApp = node(3, { kind: 'app', id: 'current' }, [target])
-    const otherApp = node(20, { kind: 'app', id: 'details' }, [
+    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current' }, [target])
+    const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'details' }, [
       node(21, { kind: 'launch-options' }, [
         node(22, { kind: 'launch-arguments' }, [
           node(23, {
             kind: 'launch-argument',
+            propId: 'details-user-id-prop-id',
             id: 'userId',
             valueType: { type: 'number' },
             nullable: false,
@@ -556,7 +562,7 @@ describe('MebacoInjectionSource Function scope', () => {
   it('does not inject transition when the current App has no peer App', () => {
     const target = node(4, { kind: 'action', comment: '', source: '' })
     const rootNode = node(1, { kind: 'project' }, [
-      node(2, { kind: 'apps' }, [node(3, { kind: 'app', id: 'only' }, [target])]),
+      node(2, { kind: 'apps' }, [node(3, { kind: 'app', appId: 'only-app-id', id: 'only' }, [target])]),
     ])
 
     const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')

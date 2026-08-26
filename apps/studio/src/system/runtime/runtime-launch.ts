@@ -41,19 +41,29 @@ namespace RuntimeLaunch {
     projectNode: TreeNode.Node,
     appId: string,
     launcherId: string,
-  ): LauncherElement.Element | null => collect(
-    projectNode,
-    (node) => node.element.kind === 'launcher',
-  )
-    .map((node) => node.element)
-    .filter((element): element is LauncherElement.Element => element.kind === 'launcher')
-    .find((launcher) => launcher.id === launcherId && launcher.appId === appId) ?? null
+  ): LauncherElement.Element | null => {
+    const app = collect(
+      projectNode,
+      (node) => node.element.kind === 'app' && node.element.id === appId,
+    )[0]?.element
+    if (app?.kind !== 'app') return null
+
+    return collect(
+      projectNode,
+      (node) => node.element.kind === 'launcher',
+    )
+      .map((node) => node.element)
+      .filter((element): element is LauncherElement.Element => element.kind === 'launcher')
+      .find((launcher) => (
+        launcher.id === launcherId && launcher.appId === app.appId
+      )) ?? null
+  }
 
   const toProps = (
     argumentsList: readonly LaunchArgumentElement.Element[],
   ): ValuePropElement.Element[] => argumentsList.map((argument) => ({
     kind: 'value-prop',
-    propId: argument.id,
+    propId: argument.propId,
     id: argument.id,
     valueType: argument.valueType,
     nullable: argument.nullable,
@@ -185,7 +195,7 @@ namespace RuntimeLaunch {
     result: Result,
     projectNode: TreeNode.Node,
   ): Result => {
-    const argumentIds = new Set(argumentsList.map((argument) => argument.id))
+    const argumentIds = new Set(argumentsList.map((argument) => argument.propId))
     const errors = [...result.errors]
 
     bindings.forEach((binding) => {

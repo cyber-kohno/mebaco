@@ -89,7 +89,7 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     return new Map(
       folder?.children
         .filter((child): child is TreeNode.Node & { element: SlotElement.Element } => child.element.kind === 'slot')
-        .map((child) => [child.element.id, child]) ?? [],
+        .map((child) => [child.element.slotId, child]) ?? [],
     )
   })
   const componentState = $derived.by(() => {

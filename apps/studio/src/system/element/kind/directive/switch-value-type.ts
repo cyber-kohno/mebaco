@@ -1,5 +1,6 @@
 import type UnionDefinition from '../type/union-definition'
 import LiteralUnion from '../type/literal-union'
+import TypeLiteralLabel from '../type/type-literal-label'
 
 namespace SwitchValueType {
   export type PrimitiveName = 'string' | 'number'
@@ -122,19 +123,9 @@ namespace SwitchValueType {
 
     const literalText = definition.literals == null
       ? ''
-      : ` ${definition.literals.map((literal) => (
-          typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
-        )).join(' | ')}`
+      : ` ${definition.literals.map(TypeLiteralLabel.format).join(' | ')}`
     return `${definition.primitive}${literalText}`
   }
-
-  const formatLiteral = (
-    literal: Literal,
-  ): string => (
-    typeof literal === 'string'
-      ? JSON.stringify(literal)
-      : String(literal)
-  )
 
   export const getTypeText = (
     definition: Definition,
@@ -146,12 +137,12 @@ namespace SwitchValueType {
       ))
       return option == null
         ? 'string | number'
-        : option.values.map(formatLiteral).join(' | ')
+        : option.values.map(TypeLiteralLabel.format).join(' | ')
     }
 
     return definition.literals == null
       ? definition.primitive
-      : definition.literals.map(formatLiteral).join(' | ')
+      : definition.literals.map(TypeLiteralLabel.format).join(' | ')
   }
 
   export const validate = (

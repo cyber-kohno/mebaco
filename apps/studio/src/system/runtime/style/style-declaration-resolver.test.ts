@@ -41,12 +41,12 @@ describe('runtime StyleDeclarationResolver', () => {
       { property: 'color', value: 'red', state: null },
     ])
     expect(result.declarations[0]?.source).toEqual({
-      styleId: 'base',
+      styleId: StyleFixture.styleId('base'),
       path: ['local', 'base'],
       valueType: 'formula',
     })
     expect(result.declarations[3]?.source).toEqual({
-      styleId: 'local',
+      styleId: StyleFixture.styleId('local'),
       path: ['local'],
       valueType: 'literal',
     })

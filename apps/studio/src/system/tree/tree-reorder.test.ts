@@ -11,6 +11,7 @@ const node = (
 
 const style = (id: string): TreeNode.Node['element'] => ({
   kind: 'style',
+  styleId: `${id}-style-id`,
   id,
   rules: [],
   bases: [],

@@ -42,6 +42,34 @@
     $elementDialogStore?.mode === 'update' && field.readOnlyOnUpdate === true
   )
 
+  const isFieldValid = (
+    key: string,
+  ): boolean => {
+    const dependency = $elementDialogStore?.schema.fields.find(
+      (candidate) => candidate.key === key,
+    )
+    return dependency != null && getError(dependency) == null
+  }
+
+  const isDisabledCheckbox = (
+    field: ElementEditSchema.CheckboxField,
+  ): boolean => {
+    if (isReadOnlyField(field)) return true
+    if (field.enabledWhenValid == null) return false
+    return !isFieldValid(field.enabledWhenValid)
+  }
+
+  const resetFields = (
+    keys: readonly string[],
+  ) => {
+    const fields = $elementDialogStore?.schema.fields ?? []
+    keys.forEach((key) => {
+      const target = fields.find((candidate) => candidate.key === key)
+      values[key] = target?.defaultValue ?? ''
+      touched[key] = false
+    })
+  }
+
   const assertReadOnlyFieldsUnchanged = (
     session: ElementDialogStore.UpdateSession,
   ) => {
@@ -143,6 +171,8 @@
   }
 
   const isVisibleField = (field: ElementEditSchema.Field): boolean => {
+    if (field.visibleWhenValid != null && !isFieldValid(field.visibleWhenValid)) return false
+
     if (
       field.visibleWhen != null
       && values[field.visibleWhen.key] !== field.visibleWhen.value
@@ -347,7 +377,7 @@
               rootNode={$rootNodeStore}
               nodeId={$elementDialogStore.mode === 'update' ? $elementDialogStore.nodeId : null}
               parentNodeId={$elementDialogStore.mode === 'create' ? $elementDialogStore.parentNodeId : null}
-              styleId={values[field.idKey] ?? ''}
+              styleName={values[field.idKey] ?? ''}
               rules={values[field.rulesKey] ?? '[]'}
               bases={values[field.basesKey] ?? '[]'}
             />
@@ -481,6 +511,7 @@
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
+                resetFields(field.resetWhenChanged ?? [])
                 touched[field.key] = true
               }}
             />
@@ -535,6 +566,7 @@
               literalOnly={field.literalOnly === true}
               literalOptions={field.getLiteralOptions?.(values) ?? []}
               expectedTypeText={field.getExpectedTypeText?.(values)}
+              typeDefaultLabel={field.getTypeDefaultLabel?.(values)}
               injectionSource={getInjectionSource('expression')}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -546,6 +578,7 @@
           <label
             class="field"
             class:checkbox-field={field.type === 'checkbox'}
+            class:disabled-checkbox-field={field.type === 'checkbox' && isDisabledCheckbox(field)}
             data-validation-severity={issue?.severity}
           >
             <span class="field-label">
@@ -651,7 +684,7 @@
                 class="checkbox-input"
                 class:read-only-control={isReadOnlyField(field)}
                 type="checkbox"
-                disabled={isReadOnlyField(field)}
+                disabled={isDisabledCheckbox(field)}
                 checked={values[field.key] === 'true'}
                 onchange={(event) => {
                   values[field.key] = String(event.currentTarget.checked)
@@ -851,6 +884,10 @@
     grid-column: 2;
     grid-row: 1;
     white-space: nowrap;
+  }
+
+  .checkbox-field.disabled-checkbox-field .field-label {
+    opacity: 0.45;
   }
 
   .checkbox-input {

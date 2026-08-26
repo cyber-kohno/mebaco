@@ -118,7 +118,7 @@ namespace EntryElement {
           .filter((element): element is ValuePropElement.Element => element.kind === 'value-prop')
           ?? []
         components.push({
-          componentId: node.element.id,
+          componentId: node.element.componentId,
           label: node.element.id,
           props,
         })

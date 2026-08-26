@@ -46,13 +46,14 @@ const signatureType = (
   id: string,
   parameters: SignatureDefinition.Parameter[] = [],
   async = false,
+  returnType: SignatureDefinition.Definition['returnType'] = null,
 ) => node({
   kind: 'signature-type',
   typeId,
   id,
   async,
   parameters,
-  returnType: null,
+  returnType,
 })
 
 const project = (
@@ -65,7 +66,7 @@ const project = (
     ]),
   ]),
   node({ kind: 'apps' }, [
-    node({ kind: 'app', id: 'app' }, [
+    node({ kind: 'app', appId: 'app-id', id: 'app' }, [
       node({ kind: 'declares' }, [
         node({ kind: 'types' }, appObjects),
       ]),
@@ -91,6 +92,7 @@ describe('TypeCatalog', () => {
         label: 'SaveHandler',
         kind: 'signature',
         preview: '(payload: string) => Promise<void>',
+        defaultValueLabel: 'async (payload) => {}',
       }),
     )
     expect(TypeCatalog.getNamedTypeOptions(root, target.id)
@@ -230,7 +232,7 @@ describe('TypeCatalog', () => {
     const declarations = TypeCatalog.createTypeScriptDeclarations(root, result.id)
 
     expect(declarations).toContain('owner: User | Admin;')
-    expect(declarations).toContain('status: "ready" | "done";')
+    expect(declarations).toContain("status: 'ready' | 'done';")
     expect(declarations).toContain('code?: 200 | 404;')
     expect(declarations).toContain('parent: User | null;')
     expect(TypeCatalog.createDefaultObject(root, 'result-type')).toEqual({
@@ -277,7 +279,7 @@ describe('TypeCatalog', () => {
     const root = project([user, admin, mode, result])
     const declarations = TypeCatalog.createTypeScriptDeclarations(root, result.id)
 
-    expect(declarations).toContain('type Mode = "maintenance" | "refer"')
+    expect(declarations).toContain("type Mode = 'maintenance' | 'refer'")
     expect(declarations).toContain('type Result = User | Admin')
   })
 
@@ -295,6 +297,87 @@ describe('TypeCatalog', () => {
       (typeId) => TypeCatalog.resolveTypeName(root, typeId),
     )).toBe('Mode')
     expect(TypeCatalog.createDefaultNamedType(root, 'mode-type')).toBe('maintenance')
+  })
+
+  it('creates no-op Signature defaults with type-default return values', async () => {
+    const result = objectType('result-type', 'Result', [
+      property('count', TypeExpression.createPrimitive('number')),
+    ])
+    const syncResult = signatureType(
+      'sync-result-type',
+      'SyncResult',
+      [{ id: 'ignored', valueType: TypeExpression.createPrimitive(), nullable: false }],
+      false,
+      {
+        valueType: TypeExpression.createReference(['result-type']),
+        nullable: false,
+      },
+    )
+    const asyncNumber = signatureType(
+      'async-number-type',
+      'AsyncNumber',
+      [],
+      true,
+      { valueType: TypeExpression.createPrimitive('number'), nullable: false },
+    )
+    const voidHandler = signatureType('void-handler-type', 'VoidHandler')
+    const nullableResult = signatureType(
+      'nullable-result-type',
+      'NullableResult',
+      [],
+      false,
+      { valueType: TypeExpression.createPrimitive('string'), nullable: true },
+    )
+    const recursive = signatureType(
+      'recursive-type',
+      'Recursive',
+      [],
+      false,
+      { valueType: TypeExpression.createNamed('recursive-type', 'signature'), nullable: false },
+    )
+    const root = project([
+      result,
+      syncResult,
+      asyncNumber,
+      voidHandler,
+      nullableResult,
+      recursive,
+    ])
+
+    const syncDefault = TypeCatalog.createDefaultNamedType(
+      root,
+      'sync-result-type',
+    ) as (...args: unknown[]) => unknown
+    const firstResult = syncDefault('ignored')
+    const secondResult = syncDefault('ignored')
+    expect(firstResult).toEqual({ count: 0 })
+    expect(secondResult).toEqual({ count: 0 })
+    expect(firstResult).not.toBe(secondResult)
+    expect(TypeCatalog.createDefaultNamedType(root, 'sync-result-type')).toBe(syncDefault)
+
+    const asyncDefault = TypeCatalog.createDefaultNamedType(
+      root,
+      'async-number-type',
+    ) as (...args: unknown[]) => Promise<unknown>
+    await expect(asyncDefault()).resolves.toBe(0)
+
+    const voidDefault = TypeCatalog.createDefaultNamedType(
+      root,
+      'void-handler-type',
+    ) as (...args: unknown[]) => unknown
+    expect(voidDefault()).toBeUndefined()
+
+    const nullableDefault = TypeCatalog.createDefaultNamedType(
+      root,
+      'nullable-result-type',
+    ) as (...args: unknown[]) => unknown
+    expect(nullableDefault()).toBeNull()
+
+    const recursiveDefault = TypeCatalog.createDefaultNamedType(
+      root,
+      'recursive-type',
+    ) as (...args: unknown[]) => unknown
+    expect(recursiveDefault()).toBe(recursiveDefault)
   })
 
   it('treats named unions used by State and Variable as active references', () => {
@@ -364,7 +447,7 @@ describe('TypeCatalog', () => {
         node({ kind: 'declares' }, [node({ kind: 'types' })]),
       ]),
       node({ kind: 'apps' }, [
-        node({ kind: 'app', id: 'app' }, [
+        node({ kind: 'app', appId: 'app-id', id: 'app' }, [
           node({ kind: 'declares' }, [node({ kind: 'types' }, [globalType])]),
           node({ kind: 'function', id: 'first', mode: 'inline', async: false, returnType: null }, [
             node({ kind: 'function-arguments' }),

@@ -48,7 +48,7 @@
   ): string => {
     const source = localStyleId != null && declaration.source.styleId === localStyleId
       ? 'Local'
-      : declaration.source.styleId
+      : declaration.source.path.at(-1) ?? declaration.source.styleId
     const state = declaration.state == null ? 'Default' : `:${declaration.state}`
     return `${source} (${state})`
   }
@@ -102,7 +102,7 @@
         <div class="unresolved-list">
           <strong>Unresolved Parameters</strong>
           {#each unresolved as parameter}
-            <span><b>{parameter.parameterId}</b> {parameter.valueType} from {parameter.sourceStyleId}</span>
+            <span><b>{parameter.id}</b> {parameter.valueType} from {parameter.sourceStyleName}</span>
           {/each}
         </div>
       {/if}
@@ -145,7 +145,7 @@
                 {#if isLocal}
                   <small class="local-origin">Local</small>
                 {:else}
-                  <span>{entry.source.styleId}</span>
+                  <span>{entry.source.path.at(-1) ?? entry.source.styleId}</span>
                 {/if}
                 {#if entry.state != null}
                   <small class="state-origin">:{entry.state}</small>

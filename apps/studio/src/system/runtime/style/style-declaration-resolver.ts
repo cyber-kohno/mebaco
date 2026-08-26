@@ -83,7 +83,7 @@ namespace StyleDeclarationResolver {
     const parameters = new Map<string, StyleParamElement.Element>()
     paramsNode?.children.forEach((child) => {
       if (child.element.kind === 'style-param') {
-        parameters.set(child.element.id, child.element)
+        parameters.set(child.element.parameterId, child.element)
       }
     })
     return parameters
@@ -108,6 +108,7 @@ namespace StyleDeclarationResolver {
     condition: StyleElement.FormulaSource | undefined,
     context: FormulaContext.Value,
     styleId: string,
+    styleName: string,
     referenceId: string,
     path: readonly string[],
   ): { apply: boolean; error?: Error } => {
@@ -119,7 +120,7 @@ namespace StyleDeclarationResolver {
         apply: false,
         error: {
           type: 'condition',
-          message: `Failed to evaluate the condition for style '${styleId}'.`,
+          message: `Failed to evaluate the condition for style '${styleName}'.`,
           styleId,
           referenceId,
           path: [...path],
@@ -132,7 +133,7 @@ namespace StyleDeclarationResolver {
         apply: false,
         error: {
           type: 'result-type',
-          message: `The condition for style '${styleId}' must return boolean.`,
+          message: `The condition for style '${styleName}' must return boolean.`,
           styleId,
           referenceId,
           path: [...path],
@@ -148,6 +149,7 @@ namespace StyleDeclarationResolver {
     callerParameters: Readonly<Record<string, unknown>>,
     context: FormulaContext.Value,
     styleId: string,
+    styleName: string,
     referenceId: string,
     path: readonly string[],
   ): ResolvedValue => {
@@ -155,7 +157,7 @@ namespace StyleDeclarationResolver {
     let resolved: unknown
 
     if (binding == null || binding.type === 'delegate') {
-      resolved = callerParameters[parameter.parameterId]
+      resolved = callerParameters[parameter.id]
     } else if (binding.type === 'default') {
       resolved = parameter.defaultValue
     } else if (binding.value.type === 'literal') {
@@ -167,7 +169,7 @@ namespace StyleDeclarationResolver {
           ok: false,
           error: {
             type: 'parameter',
-            message: `Failed to evaluate parameter '${parameter.parameterId}' for style '${styleId}'.`,
+            message: `Failed to evaluate parameter '${parameter.id}' for style '${styleName}'.`,
             styleId,
             referenceId,
             path: [...path],
@@ -184,7 +186,7 @@ namespace StyleDeclarationResolver {
         ok: false,
         error: {
           type: 'result-type',
-          message: `Parameter '${parameter.parameterId}' for style '${styleId}' must resolve to ${parameter.valueType}.`,
+          message: `Parameter '${parameter.id}' for style '${styleName}' must resolve to ${parameter.valueType}.`,
           styleId,
           referenceId,
           path: [...path],
@@ -201,8 +203,8 @@ namespace StyleDeclarationResolver {
   ): Catalog => {
     const records = new Map<string, StyleRecord>()
     const collect = (node: TreeNode.Node) => {
-      if (node.element.kind === 'style' && !records.has(node.element.id)) {
-        records.set(node.element.id, {
+      if (node.element.kind === 'style' && !records.has(node.element.styleId)) {
+        records.set(node.element.styleId, {
           element: node.element,
           parameters: collectParameters(node),
         })
@@ -221,6 +223,7 @@ namespace StyleDeclarationResolver {
       options: ResolveOptions,
     ): Result => {
       const nextPath = [...path, styleId]
+      const nextPathNames = nextPath.map((id) => records.get(id)?.element.id ?? id)
       const record = records.get(styleId)
       if (record == null) {
         return {
@@ -229,7 +232,7 @@ namespace StyleDeclarationResolver {
             type: 'structure',
             message: `Style '${styleId}' was not found.`,
             styleId,
-            path: nextPath,
+            path: nextPathNames,
           }],
         }
       }
@@ -238,9 +241,9 @@ namespace StyleDeclarationResolver {
           declarations: [],
           errors: [{
             type: 'structure',
-            message: `Style inheritance cycle: ${nextPath.join(' -> ')}.`,
+            message: `Style inheritance cycle: ${nextPathNames.join(' -> ')}.`,
             styleId,
-            path: nextPath,
+            path: nextPathNames,
           }],
         }
       }
@@ -254,8 +257,9 @@ namespace StyleDeclarationResolver {
           base.condition,
           context,
           base.styleId,
+          records.get(base.styleId)?.element.id ?? base.styleId,
           base.referenceId,
-          nextPath,
+          nextPathNames,
         )
         if (condition.error != null) errors.push(condition.error)
         if (!condition.apply) return
@@ -286,15 +290,16 @@ namespace StyleDeclarationResolver {
             parameters,
             context,
             base.styleId,
+            records.get(base.styleId)?.element.id ?? base.styleId,
             base.referenceId,
-            nextPath,
+            nextPathNames,
           )
           if (!result.ok) {
             errors.push(result.error)
             isValid = false
             return
           }
-          baseParameters[parameter.parameterId] = result.value
+          baseParameters[parameter.id] = result.value
         })
         if (!isValid) return
 
@@ -324,9 +329,9 @@ namespace StyleDeclarationResolver {
             ) {
               errors.push({
                 type: 'css-value',
-                message: `'${value}' is not supported for '${declaration.property}' in style '${styleId}'.`,
+                message: `'${value}' is not supported for '${declaration.property}' in style '${record.element.id}'.`,
                 styleId,
-                path: nextPath,
+                path: nextPathNames,
                 property: declaration.property,
               })
               return
@@ -338,7 +343,7 @@ namespace StyleDeclarationResolver {
               unresolved,
               source: {
                 styleId,
-                path: [...nextPath],
+                path: [...nextPathNames],
                 valueType: declaration.value.type,
               },
             })
@@ -353,9 +358,9 @@ namespace StyleDeclarationResolver {
           if (!result.ok) {
             const error = {
               type: 'formula',
-              message: `Failed to evaluate '${declaration.property}' in style '${styleId}'.`,
+              message: `Failed to evaluate '${declaration.property}' in style '${record.element.id}'.`,
               styleId,
-              path: nextPath,
+              path: nextPathNames,
               property: declaration.property,
               scriptError: result.error,
             } satisfies Error
@@ -372,9 +377,9 @@ namespace StyleDeclarationResolver {
           if (typeof result.value !== 'string') {
             const error = {
               type: 'result-type',
-              message: `'${declaration.property}' in style '${styleId}' must return string.`,
+              message: `'${declaration.property}' in style '${record.element.id}' must return string.`,
               styleId,
-              path: nextPath,
+              path: nextPathNames,
               property: declaration.property,
             } satisfies Error
             errors.push(error)
@@ -415,6 +420,7 @@ namespace StyleDeclarationResolver {
           application.condition,
           globalContext,
           application.styleId,
+          records.get(application.styleId)?.element.id ?? application.styleId,
           application.referenceId,
           [],
         )
@@ -447,6 +453,7 @@ namespace StyleDeclarationResolver {
             globalContext.$param,
             globalContext,
             application.styleId,
+            records.get(application.styleId)?.element.id ?? application.styleId,
             application.referenceId,
             [],
           )
@@ -455,7 +462,7 @@ namespace StyleDeclarationResolver {
             isValid = false
             return
           }
-          parameters[parameter.parameterId] = result.value
+          parameters[parameter.id] = result.value
         })
         if (!isValid) return
 

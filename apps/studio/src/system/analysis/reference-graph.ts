@@ -1,6 +1,7 @@
 import TypeScript from 'typescript'
 import type MebacoElement from '../element/element'
 import type TreeNode from '../tree/tree-node'
+import DefinitionCatalog from '../element/definition-catalog'
 
 namespace ReferenceGraph {
   export type Reference = {
@@ -27,7 +28,8 @@ namespace ReferenceGraph {
     nodeId: number
     kind: string
     label: string
-    aliases: ReadonlySet<string>
+    nameAliases: ReadonlySet<string>
+    definitionAliases: ReadonlySet<string>
     canBeReferenced: boolean
     isLoopAlias: boolean
   }
@@ -52,7 +54,7 @@ namespace ReferenceGraph {
     appId: ['app'],
     componentId: ['component'],
     functionId: ['function'],
-    propId: ['value-prop'],
+    propId: ['launch-argument', 'value-prop'],
     slotId: ['slot'],
     styleId: ['style'],
     parameterId: ['style-param'],
@@ -133,37 +135,42 @@ namespace ReferenceGraph {
     result: Target[] = [],
   ): Target[] => {
     const element = node.element
-    const aliases = new Set<string>()
+    const nameAliases = new Set<string>()
+    const definitionAliases = new Set<string>()
     const id = getElementId(element)
-    if (id != null) aliases.add(id)
+    if (id != null) nameAliases.add(id)
 
     const internalTypeId = (element as unknown as { typeId?: unknown }).typeId
-    if (typeof internalTypeId === 'string') aliases.add(internalTypeId)
+    if (typeof internalTypeId === 'string') definitionAliases.add(internalTypeId)
+    const definitionId = DefinitionCatalog.getDefinitionId(element)
+    if (definitionId != null) definitionAliases.add(definitionId)
 
     if (element.kind === 'loop') {
       const loop = element as unknown as { itemId?: unknown; indexId?: unknown }
-      if (typeof loop.itemId === 'string') aliases.add(loop.itemId)
-      if (typeof loop.indexId === 'string') aliases.add(loop.indexId)
+      if (typeof loop.itemId === 'string') nameAliases.add(loop.itemId)
+      if (typeof loop.indexId === 'string') nameAliases.add(loop.indexId)
     }
 
     if (element.kind === 'loop') {
-      aliases.forEach((alias) => {
+      nameAliases.forEach((alias) => {
         result.push({
           nodeId: node.id,
           kind: 'variable',
           label: `loop.${alias}`,
-          aliases: new Set([alias]),
+          nameAliases: new Set([alias]),
+          definitionAliases: new Set(),
           canBeReferenced: false,
           isLoopAlias: true,
         })
       })
-    } else if (aliases.size > 0) {
-      const firstAlias = id ?? [...aliases][0]
+    } else if (nameAliases.size > 0 || definitionAliases.size > 0) {
+      const firstAlias = id ?? [...definitionAliases][0]
       result.push({
         nodeId: node.id,
         kind: element.kind,
         label: getTargetLabel(element, firstAlias),
-        aliases,
+        nameAliases,
+        definitionAliases,
         canBeReferenced: true,
         isLoopAlias: false,
       })
@@ -210,15 +217,21 @@ namespace ReferenceGraph {
     value: string,
     kinds: readonly ReferenceKind[] | undefined,
     visibleLoopTargets: readonly Target[] = [],
+    aliasType: 'name' | 'definition' = 'definition',
   ): readonly Target[] => {
+    const hasAlias = (target: Target): boolean => (
+      aliasType === 'name'
+        ? target.nameAliases.has(value)
+        : target.definitionAliases.has(value)
+    )
     const globalTargets = targets.filter((target) => (
       !target.isLoopAlias
       && (kinds == null || kinds.includes(target.kind as ReferenceKind))
-      && target.aliases.has(value)
+      && hasAlias(target)
     ))
     const scopedTarget = [...visibleLoopTargets].reverse().find((target) => (
       (kinds == null || kinds.includes(target.kind as ReferenceKind))
-      && target.aliases.has(value)
+      && hasAlias(target)
     ))
     return scopedTarget == null ? globalTargets : [...globalTargets, scopedTarget]
   }
@@ -270,7 +283,7 @@ namespace ReferenceGraph {
     )
 
     const resolveExpression = (root: string, property: string) => {
-      getCandidates(targets, property, expressionRoots[root], visibleLoopTargets)
+      getCandidates(targets, property, expressionRoots[root], visibleLoopTargets, 'name')
         .forEach((target) => addReference(references, dependencies, sourceNode, sourceLabel, target))
     }
 
@@ -357,6 +370,10 @@ namespace ReferenceGraph {
 
     Object.entries(value).forEach(([key, child]) => {
       if (key === 'id' || key === 'typeId' || key === 'referenceId') return
+      if (
+        typeof child === 'string'
+        && child === DefinitionCatalog.getDefinitionId(sourceNode.element)
+      ) return
       const kinds = referenceKinds[key]
       if (kinds != null) {
         const values = Array.isArray(child) ? child : [child]

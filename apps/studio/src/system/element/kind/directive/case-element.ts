@@ -7,6 +7,7 @@ import TreeStore from '../../../store/tree-store'
 import SwitchValueType from './switch-value-type'
 import TypeCatalog from '../type/type-catalog'
 import type UnionDefinition from '../type/union-definition'
+import TypeLiteralLabel from '../type/type-literal-label'
 import FunctionActions from '../../function-actions'
 import type SwitchElement from './switch-element'
 
@@ -103,9 +104,7 @@ namespace CaseElement {
   }
 
   const getValueText = (element: Element): string => (
-    element.value.type === 'string'
-      ? JSON.stringify(element.value.value)
-      : String(element.value.value)
+    TypeLiteralLabel.format(element.value.value)
   )
 
   export const definition = {

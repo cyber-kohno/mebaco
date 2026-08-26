@@ -13,6 +13,7 @@ namespace StyleElement {
 
   export type Element = {
     kind: Kind
+    styleId: string
     id: string
     rules: Rule[]
     bases: Base[]
@@ -90,8 +91,10 @@ namespace StyleElement {
     id: string,
     rules: Rule[] = [],
     bases: Base[] = [],
+    styleId: string = crypto.randomUUID(),
   ): Element => ({
     kind: 'style',
+    styleId,
     id,
     rules,
     bases,
@@ -127,7 +130,6 @@ namespace StyleElement {
         tab: 'info',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'identifier',
@@ -197,7 +199,7 @@ namespace StyleElement {
     const collect = (node: TreeNode.Node) => {
       if (node.id !== excludedNodeId && node.element.kind === 'style') {
         options.push({
-          value: node.element.id,
+          value: node.element.styleId,
           label: node.element.id,
         })
       }
@@ -429,7 +431,7 @@ namespace StyleElement {
               reservedNames,
               styleOptions: getStyleOptions(context.rootNode, context.node.id),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
-              ownerStyleId: context.element.id,
+              ownerStyleId: context.element.styleId,
             }),
           )
         }),

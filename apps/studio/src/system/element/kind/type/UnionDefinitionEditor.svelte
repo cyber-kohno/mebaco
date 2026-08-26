@@ -97,9 +97,6 @@
     })
   }
 
-  const formatLiteral = (literal: string | number): string => (
-    typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
-  )
 </script>
 
 <div class="union-editor">

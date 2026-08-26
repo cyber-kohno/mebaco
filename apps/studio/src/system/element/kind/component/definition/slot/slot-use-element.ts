@@ -101,8 +101,8 @@ namespace SlotUseElement {
     return slots?.children
       .filter((node): node is TreeNode.Node & { element: SlotElement.Element } => node.element.kind === 'slot')
       .map((node) => ({
-        componentId: node.element.id,
-        value: node.element.id,
+        componentId: node.element.slotId,
+        value: node.element.slotId,
         label: node.element.id,
         props: node.children
           .find((child) => child.element.kind === 'props')?.children

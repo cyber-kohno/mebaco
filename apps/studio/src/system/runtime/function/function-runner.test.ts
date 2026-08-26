@@ -42,7 +42,7 @@ const project = (functions: TreeNode.Node[]) => node({ kind: 'project' }, [
     ]),
   ]),
   node({ kind: 'apps' }, [
-    node({ kind: 'app', id: 'app' }, [
+    node({ kind: 'app', appId: 'app-id', id: 'app' }, [
       node({ kind: 'declares' }, [
         node({ kind: 'types' }),
         node({ kind: 'functions' }, functions),

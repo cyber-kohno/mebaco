@@ -22,6 +22,7 @@ namespace ElementEditSchema {
     tab?: string
     visibleWhen?: FieldVisibility
     visibleWhenAll?: readonly FieldVisibility[]
+    visibleWhenValid?: string
     readOnlyOnUpdate?: boolean
     width?: 'id' | 'tagName' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
   }
@@ -88,6 +89,7 @@ namespace ElementEditSchema {
     key: string
     label: string
     defaultValue?: 'true' | 'false'
+    enabledWhenValid?: string
   } & FieldBase
 
   export type HeadingField = {
@@ -145,6 +147,7 @@ namespace ElementEditSchema {
     arrayDepthKey?: string
     valueTypeDefinitionKey?: string
     getExpectedTypeText?: (values: Readonly<Record<string, string>>) => string | undefined
+    getTypeDefaultLabel?: (values: Readonly<Record<string, string>>) => string | undefined
   } & FieldBase
 
   export type ValueTypeField = {
@@ -155,6 +158,7 @@ namespace ElementEditSchema {
     required?: boolean
     objectOptions: readonly SelectOption[]
     namedTypeOptions: readonly SelectOption[]
+    resetWhenChanged?: readonly string[]
   } & FieldBase
 
   export type StylePropsField = {
@@ -706,14 +710,14 @@ namespace ElementEditSchema {
       const conflictingParameter = exposedParameters.find((parameter, index) => (
         exposedParameters.some((candidate, candidateIndex) => (
           candidateIndex !== index
-          && candidate.parameterId === parameter.parameterId
+          && candidate.id === parameter.id
           && candidate.sourceStyleId !== parameter.sourceStyleId
         ))
       ))
 
       return conflictingParameter == null
         ? null
-        : `Parameter '${conflictingParameter.parameterId}' conflicts between inherited styles.`
+        : `Parameter '${conflictingParameter.id}' conflicts between inherited styles.`
     } catch {
       return 'Invalid inheritance.'
     }

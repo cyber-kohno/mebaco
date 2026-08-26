@@ -7,6 +7,9 @@ import type TreeNode from '../tree/tree-node'
 namespace StyleFixture {
   let nextNodeId = 1
 
+  export const styleId = (id: string): string => `style:${id}`
+  export const parameterId = (id: string): string => `parameter:${id}`
+
   export const resetNodeIds = () => {
     nextNodeId = 1
   }
@@ -31,6 +34,7 @@ namespace StyleFixture {
     defaultValue?: StyleParamElement.Literal,
   ): StyleParamElement.Element => ({
     kind: 'style-param',
+    parameterId: parameterId(id),
     id,
     valueType,
     defaultValue,
@@ -51,6 +55,7 @@ namespace StyleFixture {
 
     return node({
       kind: 'style',
+      styleId: styleId(id),
       id,
       rules: options.rules ?? [],
       bases: options.bases ?? [],
@@ -63,12 +68,12 @@ namespace StyleFixture {
     condition?: string,
   ): StyleElement.Base => ({
     referenceId: `${styleId}-${crypto.randomUUID()}`,
-    styleId,
+    styleId: StyleFixture.styleId(styleId),
     condition: condition == null
       ? undefined
       : { type: 'formula', source: condition },
     arguments: Object.entries(bindings).map(([parameterId, binding]) => ({
-      parameterId,
+      parameterId: StyleFixture.parameterId(parameterId),
       binding,
     })),
   })
@@ -106,12 +111,12 @@ namespace StyleFixture {
     condition?: string,
   ): TagElement.StyleApplication => ({
     referenceId: `${styleId}-${crypto.randomUUID()}`,
-    styleId,
+    styleId: StyleFixture.styleId(styleId),
     condition: condition == null
       ? undefined
       : { type: 'formula', source: condition },
     arguments: Object.entries(bindings).map(([parameterId, binding]) => ({
-      parameterId,
+      parameterId: StyleFixture.parameterId(parameterId),
       binding,
     })),
   })

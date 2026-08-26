@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type TreeNode from '../../tree/tree-node'
+  import TreeNode from '../../tree/tree-node'
   import StyleElement from '../../element/kind/view/style-element'
   import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
   import FormulaContext from '../formula/formula-context'
@@ -10,12 +10,12 @@
     rootNode: TreeNode.Node
     nodeId: number | null
     parentNodeId: number | null
-    styleId: string
+    styleName: string
     rules: string
     bases: string
   }
 
-  let { rootNode, nodeId, parentNodeId, styleId, rules, bases }: Props = $props()
+  let { rootNode, nodeId, parentNodeId, styleName, rules, bases }: Props = $props()
 
   const replaceStyle = (
     node: TreeNode.Node,
@@ -46,11 +46,18 @@
       : node.children.map((child) => appendStyle(child, targetParentNodeId, element)),
   })
 
+  const previewStyleId = $derived.by(() => {
+    if (nodeId == null) return 'style-monitor-preview'
+    const element = TreeNode.findNode(rootNode, nodeId)?.element
+    return element?.kind === 'style' ? element.styleId : 'style-monitor-preview'
+  })
+
   const preview = $derived.by(() => {
     const draft = StyleElement.create(
-      styleId,
+      styleName,
       StyleElement.parseRules(rules),
       StyleElement.parseBases(bases),
+      previewStyleId,
     )
     const previewRoot = nodeId != null
       ? replaceStyle(rootNode, nodeId, draft)
@@ -61,7 +68,7 @@
 
     const parameters = StyleParameterCatalog
       .createCatalog(previewRoot)
-      .resolve(styleId)
+      .resolve(previewStyleId)
     const unresolved = parameters.parameters
       .filter((parameter) => parameter.defaultValue === undefined)
 
@@ -75,7 +82,7 @@
 
     const application = {
       referenceId: 'style-monitor',
-      styleId,
+      styleId: previewStyleId,
       arguments: parameters.parameters.map((parameter) => ({
         parameterId: parameter.parameterId,
         binding: { type: 'default' as const },
@@ -99,5 +106,5 @@
   resolution={preview?.resolution ?? null}
   unresolved={preview?.unresolved ?? []}
   issues={preview?.issues ?? []}
-  localStyleId={styleId}
+  localStyleId={previewStyleId}
 />

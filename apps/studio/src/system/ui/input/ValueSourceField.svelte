@@ -14,6 +14,7 @@
     literalOptions?: readonly { value: string; label?: string }[]
     valueTypeDefinition?: ValueTypeDefinition.Definition
     expectedTypeText?: string
+    typeDefaultLabel?: string
     injectionSource?: string
     onValueChange: (value: string) => void
   }
@@ -26,6 +27,7 @@
     literalOptions = [],
     valueTypeDefinition,
     expectedTypeText,
+    typeDefaultLabel,
     injectionSource,
     onValueChange,
   }: Props = $props()
@@ -112,7 +114,9 @@
   </select>
 
   {#if source.type === 'default'}
-    <span class="default-value">Type default</span>
+    <span class="default-value" title={typeDefaultLabel ?? 'Type default'}>
+      {typeDefaultLabel ?? 'Type default'}
+    </span>
   {:else}
     <div
       class:formula-only={!literalAvailable}
@@ -215,13 +219,17 @@
   }
 
   .default-value {
-    display: flex;
-    align-items: center;
+    display: block;
+    min-width: 0;
     padding: 0 9px;
     border: 1px solid rgba(154, 203, 212, 0.58);
     border-radius: 6px;
     background: rgba(232, 242, 244, 0.75);
     color: #6d8990;
     font-size: 13px;
+    line-height: 30px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

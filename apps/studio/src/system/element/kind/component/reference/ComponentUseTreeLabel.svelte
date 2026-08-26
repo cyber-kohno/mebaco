@@ -10,6 +10,22 @@
 
   let { element, rootNode }: Props = $props()
 
+  const componentName = $derived.by(() => {
+    if (rootNode == null || element.componentId == null) return '-'
+    const findUseNode = (node: TreeNode.Node): TreeNode.Node | null => {
+      if (node.element === element) return node
+      for (const child of node.children) {
+        const found = findUseNode(child)
+        if (found != null) return found
+      }
+      return null
+    }
+    const useNode = findUseNode(rootNode)
+    if (useNode == null) return '-'
+    const componentNode = ComponentUseElement.findComponentNode(rootNode, useNode.id, element.componentId)
+    return componentNode?.element.kind === 'component' ? componentNode.element.id : '-'
+  })
+
   const tone = $derived.by(() => {
     if (rootNode == null || element.componentId == null) return 'item'
     const findUseNode = (node: TreeNode.Node): TreeNode.Node | null => {
@@ -28,4 +44,4 @@
   })
 </script>
 
-<NodeLabel {tone} kindText="Component" valuePrefix="component: [" valueReferenceText={element.componentId ?? '-'} valueSuffix="]" />
+<NodeLabel {tone} kindText="Component" valuePrefix="component: [" valueReferenceText={componentName} valueSuffix="]" />

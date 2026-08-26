@@ -1,11 +1,10 @@
 import type ElementDefinition from '../../../element-definition'
-import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import ValueSource from '../../../../ui/input/value-source'
 import TypeCatalog from '../../type/type-catalog'
 import TypeExpression from '../../type/type-expression'
-import ValueTypeDefinition from '../../type/value-type-definition'
+import TypedDefaultValueSchema from '../../shared/typed-default-value-schema'
 import ValuePropTreeLabel from './ValuePropTreeLabel.svelte'
 import TreeStore from '../../../../store/tree-store'
 
@@ -26,7 +25,7 @@ namespace ValuePropElement {
     valueType: TypeExpression.Expression = TypeExpression.createPrimitive(),
     nullable = false,
     defaultValue?: ValueSource.Value,
-    propId = crypto.randomUUID(),
+    propId: string = crypto.randomUUID(),
   ): Element => ({
     kind: 'value-prop',
     propId,
@@ -36,111 +35,21 @@ namespace ValuePropElement {
     defaultValue,
   })
 
-  export type CreateSchemaOptions = {
-    reservedNames?: readonly string[]
-    referenceOptions?: readonly TypeCatalog.Option[]
-    namedTypeOptions?: readonly TypeCatalog.Option[]
-  }
-
-  const createDefaultValue = (
-    values: Readonly<Record<string, string>>,
-  ): ValueSource.Value | undefined => {
-    if (values.hasDefaultValue !== 'true') return undefined
-    const source = ValueSource.parse(values.defaultValue)
-    return source?.type === 'literal' || source?.type === 'default'
-      ? source
-      : undefined
-  }
-
-  const parseValueType = (
-    values: Readonly<Record<string, string>>,
-  ): ValueTypeDefinition.Definition => (
-    ValueTypeDefinition.parse(values.valueType) ?? ValueTypeDefinition.create()
-  )
+  export type CreateSchemaOptions = TypedDefaultValueSchema.Options
 
   export const createSchema = (
     options: CreateSchemaOptions = {},
-  ): ElementEditSchema.Schema<Element> => ({
+  ) => TypedDefaultValueSchema.create<Element>({
     createTitle: 'Create Value Prop',
     updateTitle: 'Update Value Prop',
-    fields: [
-      {
-        type: 'text',
-        key: 'id',
-        label: 'Id',
-        readOnlyOnUpdate: true,
-        width: 'id',
-        required: true,
-        charset: 'jsIdentifier',
-        minLength: 1,
-        maxLength: 32,
-        reservedNames: options.reservedNames,
-      },
-      {
-        type: 'valueType',
-        key: 'valueType',
-        label: 'Value Type',
-        readOnlyOnUpdate: true,
-        required: true,
-        defaultValue: ValueTypeDefinition.stringify(ValueTypeDefinition.create()),
-        objectOptions: options.referenceOptions ?? [],
-        namedTypeOptions: options.namedTypeOptions ?? [],
-      },
-      {
-        type: 'checkbox',
-        key: 'hasDefaultValue',
-        label: 'Use Default Value',
-        defaultValue: 'false',
-      },
-      {
-        type: 'valueSource',
-        key: 'defaultValue',
-        label: 'Default Value',
-        defaultValue: ValueSource.stringify(ValueSource.createDefault()),
-        maxFormulaLength: 4000,
-        valueTypeDefinitionKey: 'valueType',
-        literalOnly: true,
-        getLiteralOptions: (values) => {
-          const definition = ValueTypeDefinition.parse(values.valueType)
-          const base = definition == null
-            ? null
-            : TypeExpression.unwrapArray(definition.valueType).base
-          if (base?.type !== 'named') return []
-          const option = options.namedTypeOptions?.find((candidate) => candidate.value === base.namedTypeId)
-          return option?.literalValues?.map((value) => ({
-            value: String(value),
-            label: String(value),
-          })) ?? []
-        },
-        visibleWhen: { key: 'hasDefaultValue', value: 'true' },
-      },
-    ],
     createPreview: () => create('...'),
-    getInitialValues: (element) => {
-      return {
-        id: element.id,
-        valueType: ValueTypeDefinition.stringify(
-          ValueTypeDefinition.create(element.valueType, element.nullable),
-        ),
-        hasDefaultValue: String(element.defaultValue !== undefined),
-        defaultValue: ValueSource.stringify(element.defaultValue ?? ValueSource.createDefault()),
-      }
-    },
-    create: (values) => {
-      const definition = parseValueType(values)
-      return create(values.id, definition.valueType, definition.nullable, createDefaultValue(values))
-    },
-    update: (element, values) => {
-      const definition = parseValueType(values)
-      return {
-        ...element,
-        id: values.id,
-        valueType: definition.valueType,
-        nullable: definition.nullable,
-        defaultValue: createDefaultValue(values),
-      }
-    },
-  })
+    createElement: (values) => create(
+      values.id,
+      values.valueType,
+      values.nullable,
+      values.defaultValue,
+    ),
+  }, options)
 
   export const definition = {
     kind: 'value-prop',

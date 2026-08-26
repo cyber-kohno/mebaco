@@ -13,9 +13,9 @@ namespace TransitionExecutor {
   const findApp = (
     node: TreeNode.Node,
     appId: string,
-  ): (TreeNode.Node & { element: { kind: 'app'; id: string } }) | null => {
-    if (node.element.kind === 'app' && node.element.id === appId) {
-      return node as TreeNode.Node & { element: { kind: 'app'; id: string } }
+  ): (TreeNode.Node & { element: AppElement.Element }) | null => {
+    if (node.element.kind === 'app' && node.element.appId === appId) {
+      return node as TreeNode.Node & { element: AppElement.Element }
     }
     for (const child of node.children) {
       const found = findApp(child, appId)
@@ -67,7 +67,7 @@ namespace TransitionExecutor {
           error: ScriptError.create('runtime', '$system.transition() is not available in this runtime.'),
         }
       }
-      context.$system.transition(element.appId, resolved.values)
+      context.$system.transition(appNode.element.id, resolved.values)
     } catch (error) {
       return {
         ok: false,

@@ -409,7 +409,7 @@ namespace TagElement {
     const collect = (node: TreeNode.Node) => {
       if (isStyleElement(node.element)) {
         options.push({
-          value: node.element.id,
+          value: node.element.styleId,
           label: node.element.id,
         })
       }

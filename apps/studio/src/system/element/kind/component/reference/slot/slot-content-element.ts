@@ -10,7 +10,7 @@ namespace SlotContentElement {
   export const create = (slotId: string): Element => ({ kind: 'slot-content', slotId })
 
   export const createSeed = (slotNode: TreeNode.Node): TreeNode.Seed => ({
-    element: create(slotNode.element.kind === 'slot' ? slotNode.element.id : ''),
+    element: create(slotNode.element.kind === 'slot' ? slotNode.element.slotId : ''),
   })
 
   export const definition = {

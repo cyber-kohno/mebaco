@@ -21,13 +21,13 @@ namespace LauncherElement {
     const argsNode = node.children.find((child) => child.element.kind === 'launch-options')?.children.find((child) => child.element.kind === 'launch-arguments')
     const props = (argsNode?.children ?? []).filter((child): child is TreeNode.Node & { element: LaunchArgumentElement.Element } => child.element.kind === 'launch-argument').map((child) => ({
       kind: 'value-prop',
-      propId: child.element.id,
+      propId: child.element.propId,
       id: child.element.id,
       valueType: child.element.valueType,
       nullable: child.element.nullable,
       defaultValue: child.element.defaultValue ?? (child.element.nullable ? ValueSource.createDefault() : undefined),
     } as ValuePropElement.Element))
-    return { componentId: node.element.id, label: node.element.id, props }
+    return { componentId: node.element.appId, label: node.element.id, props }
   }
   export const getAppOptions = (rootNode: TreeNode.Node): ComponentReference.Option[] => (
     apps(rootNode).map(getAppOption).filter((option): option is ComponentReference.Option => option != null)
@@ -38,7 +38,7 @@ namespace LauncherElement {
     return {
       createTitle: 'Create Launcher', updateTitle: 'Update Launcher',
       fields: [
-        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, readOnlyOnUpdate: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
+        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
         { type: 'text', key: 'name', label: 'Name', width: 'id', required: true, minLength: 1, maxLength: 64 },
         { type: 'select', key: 'appId', label: 'App', width: 'id', options: options.map((option) => ({ value: option.componentId, label: option.label })) , clearWhenChanged: ['argumentBindings'] },
         { type: 'componentBindings', key: 'argumentBindings', label: 'Arguments', defaultValue: '[]', required: true, componentIdKey: 'appId', components: options },

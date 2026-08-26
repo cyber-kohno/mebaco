@@ -192,9 +192,6 @@
     })
   }
 
-  const formatLiteral = (
-    literal: string | number,
-  ): string => typeof literal === 'string' ? JSON.stringify(literal) : String(literal)
 </script>
 
 <section class="value-type-editor" class:read-only-editor={readOnly} inert={readOnly}>

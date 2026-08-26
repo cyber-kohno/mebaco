@@ -20,7 +20,7 @@ describe('RuntimeTree', () => {
       componentId: 'Child',
       propBindings: [],
     })
-    const componentNode = node(1, { kind: 'component', id: 'Sample' }, [
+    const componentNode = node(1, { kind: 'component', componentId: 'sample-id', id: 'Sample' }, [
       node(2, { kind: 'props' }),
       node(3, { kind: 'retention' }),
       node(4, { kind: 'elements' }, [componentUseNode]),
@@ -30,17 +30,17 @@ describe('RuntimeTree', () => {
   })
 
   it('keeps local components out of app entry component nodes', () => {
-    const appNode = node(1, { kind: 'app', id: 'Main' }, [
-      node(2, { kind: 'component', id: 'Global' }),
+    const appNode = node(1, { kind: 'app', appId: 'main-app-id', id: 'Main' }, [
+      node(2, { kind: 'component', componentId: 'global-id', id: 'Global' }),
       node(3, { kind: 'retention' }, [
-        node(4, { kind: 'component', id: 'Local', local: true }),
+        node(4, { kind: 'component', componentId: 'local-id', id: 'Local', local: true }),
       ]),
     ])
 
     const runtime = RuntimeTree.createAppRuntime(appNode, node(10, { kind: 'project' }))
 
     expect(runtime.componentNodes.map((componentNode) => componentNode.element)).toEqual([
-      { kind: 'component', id: 'Global' },
+      { kind: 'component', componentId: 'global-id', id: 'Global' },
     ])
   })
 
@@ -52,7 +52,7 @@ describe('RuntimeTree', () => {
       styles: [],
       attributes: [],
     })
-    const componentNode = node(1, { kind: 'component', id: 'Sample' }, [
+    const componentNode = node(1, { kind: 'component', componentId: 'sample-id', id: 'Sample' }, [
       node(2, { kind: 'props' }),
       node(3, { kind: 'retention' }),
       node(4, { kind: 'elements' }, [tagNode]),
@@ -69,7 +69,7 @@ describe('RuntimeTree', () => {
       nullable: false,
       initial: { type: 'literal', value: '1' },
     })
-    const componentNode = node(1, { kind: 'component', id: 'Sample' }, [
+    const componentNode = node(1, { kind: 'component', componentId: 'sample-id', id: 'Sample' }, [
       node(2, { kind: 'props' }),
       node(3, { kind: 'store' }, [
         node(4, { kind: 'states' }, [stateNode]),
@@ -82,7 +82,7 @@ describe('RuntimeTree', () => {
   })
 
   it('reports App entry configuration errors separately from empty view content', () => {
-    const appNode = node(1, { kind: 'app', id: 'Main' }, [
+    const appNode = node(1, { kind: 'app', appId: 'main-app-id', id: 'Main' }, [
       node(2, { kind: 'entry', componentId: null, propBindings: [] }),
     ])
     const runtime = RuntimeTree.createAppRuntime(appNode, node(10, { kind: 'project' }))
@@ -93,12 +93,12 @@ describe('RuntimeTree', () => {
   })
 
   it('accepts an entry component even when it has no view elements', () => {
-    const componentNode = node(4, { kind: 'component', id: 'MainView' }, [
+    const componentNode = node(4, { kind: 'component', componentId: 'main-view-id', id: 'MainView' }, [
       node(5, { kind: 'elements' }),
     ])
-    const appNode = node(1, { kind: 'app', id: 'Main' }, [
+    const appNode = node(1, { kind: 'app', appId: 'main-app-id', id: 'Main' }, [
       componentNode,
-      node(6, { kind: 'entry', componentId: 'MainView', propBindings: [] }),
+      node(6, { kind: 'entry', componentId: 'main-view-id', propBindings: [] }),
     ])
     const runtime = RuntimeTree.createAppRuntime(appNode, node(10, { kind: 'project' }))
 

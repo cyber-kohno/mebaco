@@ -12,7 +12,7 @@ describe('StateScope', () => {
   it('collects App and ancestor Component State IDs', () => {
     const rootNode = node(1, { kind: 'project' }, [
       node(2, { kind: 'apps' }, [
-        node(3, { kind: 'app', id: 'Main' }, [
+        node(3, { kind: 'app', appId: 'main-app-id', id: 'Main' }, [
           node(4, { kind: 'store' }, [
             node(5, { kind: 'states' }, [
               node(6, {
@@ -24,7 +24,7 @@ describe('StateScope', () => {
               }),
             ]),
           ]),
-          node(7, { kind: 'component', id: 'Panel' }, [
+          node(7, { kind: 'component', componentId: 'panel-id', id: 'Panel' }, [
             node(8, { kind: 'store' }, [
               node(9, { kind: 'states' }, [
                 node(10, {

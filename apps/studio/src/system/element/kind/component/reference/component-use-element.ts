@@ -53,7 +53,7 @@ namespace ComponentUseElement {
         .map((child) => [(child.element as SlotContentElement.Element).slotId, child]),
     )
     slotsFolder.children = slotNodes.map((slotNode) => {
-      const contentNode = existing.get(slotNode.element.id)
+      const contentNode = existing.get(slotNode.element.slotId)
         ?? createNode(SlotContentElement.createSeed(slotNode))
       // Slot props are definition metadata and are injected into the caller's
       // slot scope; they are not editable children of the caller tree.
@@ -83,7 +83,7 @@ namespace ComponentUseElement {
   ): ComponentReference.Option | null => {
     if (componentNode.element.kind !== 'component') return null
     return {
-      componentId: componentNode.element.id,
+      componentId: componentNode.element.componentId,
       label: componentNode.element.id,
       detail,
       props: getProps(componentNode),
@@ -240,7 +240,7 @@ namespace ComponentUseElement {
     const local = localNodes.reverse().find((node) => (
       node.element.kind === 'component'
       && node.element.local === true
-      && node.element.id === componentId
+      && node.element.componentId === componentId
     ))
     if (local != null) return local
 
@@ -253,7 +253,7 @@ namespace ComponentUseElement {
       .flatMap((root) => collectComponents(root, (node) => (
         node.element.kind === 'component'
         && node.element.local !== true
-        && node.element.id === componentId
+        && node.element.componentId === componentId
       )))
       [0] ?? null
   }

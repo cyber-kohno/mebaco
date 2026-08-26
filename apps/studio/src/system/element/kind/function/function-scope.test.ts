@@ -36,7 +36,7 @@ const project = (
     node({ kind: 'declares' }, [node({ kind: 'functions' })]),
   ]),
   node({ kind: 'apps' }, [
-    node({ kind: 'app', id: 'app' }, [
+    node({ kind: 'app', appId: 'app-id', id: 'app' }, [
       node({ kind: 'declares' }, [node({ kind: 'functions' }, globalFunctions)]),
       ...appChildren,
     ]),
@@ -62,7 +62,7 @@ describe('FunctionScope', () => {
     nextNodeId = 1
     const local = fn('format')
     const action = node({ kind: 'action', comment: '', source: '' })
-    const host = node({ kind: 'component', id: 'Panel' }, [
+    const host = node({ kind: 'component', componentId: 'panel-id', id: 'Panel' }, [
       node({ kind: 'retention' }, [local]),
       node({ kind: 'elements' }, [action]),
     ])

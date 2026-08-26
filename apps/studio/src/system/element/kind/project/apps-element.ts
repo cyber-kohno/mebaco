@@ -40,15 +40,22 @@ namespace AppsElement {
     const entryNode = appNode.children.find((node) => node.element.kind === 'entry')
     if (componentsNode == null || entryNode?.element.kind !== 'entry') return
 
-    if (!componentsNode.children.some((node) => (
+    const existingMain = componentsNode.children.find((node) => (
       node.element.kind === 'component' && node.element.id === 'Main'
-    ))) {
-      TreeStore.addChild(componentsNode.id, ComponentElement.create('Main'))
+    ))
+    const componentId = existingMain?.element.kind === 'component'
+      ? existingMain.element.componentId
+      : ComponentElement.create('Main').componentId
+    if (existingMain == null) {
+      TreeStore.addChild(
+        componentsNode.id,
+        ComponentElement.create('Main', componentId),
+      )
     }
 
     TreeStore.updateElement(entryNode.id, {
       ...entryNode.element,
-      componentId: 'Main',
+      componentId,
       propBindings: [],
     })
   }

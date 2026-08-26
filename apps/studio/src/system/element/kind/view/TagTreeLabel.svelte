@@ -1,15 +1,20 @@
 <script lang="ts">
   import TagCatalog from './tag-catalog'
   import type TagElement from './tag-element'
+  import TreeStore from '../../../store/tree-store'
+  import DefinitionCatalog from '../../definition-catalog'
 
   type Props = {
     element: TagElement.Element
   }
 
   let { element }: Props = $props()
+  const rootNodeStore = TreeStore.rootNode
 
   const tone = $derived(TagCatalog.getTone(element.tagName))
-  const styleIds = $derived([...new Set(element.styles.map((style) => style.styleId))])
+  const styleNames = $derived([...new Set(element.styles.map((style) => (
+    DefinitionCatalog.resolveName($rootNodeStore, style.styleId, new Set(['style'])) ?? '-'
+  )))])
   const attributeNames = $derived([...new Set(element.attributes.map((attribute) => attribute.name))])
   const refKeyText = $derived(element.refKey == null
     ? null
@@ -18,7 +23,7 @@
       : `ƒ ${element.refKey.source}`)
   const hasDetails = $derived(
     element.comment.length > 0
-    || styleIds.length > 0
+    || styleNames.length > 0
     || attributeNames.length > 0
     || refKeyText != null,
   )
@@ -33,11 +38,11 @@
       {#if element.comment.length > 0}
         <span class="tag-comment">&lt;!-- {element.comment} --&gt;</span>
       {/if}
-      {#if styleIds.length > 0}
+      {#if styleNames.length > 0}
         <span class="tag-token-list">
           <span class="tag-detail-label">Styles:</span>
-          {#each styleIds as styleId}
-            <span class="tag-token style-token">{styleId}</span>
+          {#each styleNames as styleName}
+            <span class="tag-token style-token">{styleName}</span>
           {/each}
         </span>
       {/if}

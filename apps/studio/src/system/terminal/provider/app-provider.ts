@@ -97,9 +97,9 @@ const createAppProvider = () => ({
       arguments: argumentsList,
       configurationError: configurationError ?? undefined,
       launchers: configurationError == null
-        ? findLaunchers(
+          ? findLaunchers(
             context.rootNode,
-            (appNode.element as AppElement.Element).id,
+            (appNode.element as AppElement.Element).appId,
           )
         : [],
     })]

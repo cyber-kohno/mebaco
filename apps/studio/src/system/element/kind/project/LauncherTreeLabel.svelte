@@ -1,11 +1,17 @@
 <script lang="ts">
   import type LauncherElement from './launcher-element'
+  import TreeStore from '../../../store/tree-store'
+  import DefinitionCatalog from '../../definition-catalog'
   let { element }: { element: LauncherElement.Element } = $props()
+  const rootNodeStore = TreeStore.rootNode
+  const appName = $derived(element.appId == null
+    ? ''
+    : DefinitionCatalog.resolveName($rootNodeStore, element.appId, new Set(['app'])) ?? '-')
 </script>
 
 <span class="node-label">
   <span class="node-kind">Launcher</span>
-  <span class="node-value"><span class="id">{element.id}</span><span class="name">&nbsp;[{element.name}]</span><span class="separator">:&nbsp;</span><span class="app">{element.appId ?? ''}</span></span>
+  <span class="node-value"><span class="id">{element.id}</span><span class="name">&nbsp;[{element.name}]</span><span class="separator">:&nbsp;</span><span class="app">{appName}</span></span>
 </span>
 
 <style>

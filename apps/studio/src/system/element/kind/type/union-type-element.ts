@@ -45,7 +45,6 @@ namespace UnionTypeElement {
         type: 'text',
         key: 'id',
         label: 'Id',
-        readOnlyOnUpdate: true,
         width: 'id',
         required: true,
         charset: 'pascalIdentifier',

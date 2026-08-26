@@ -17,7 +17,7 @@ describe('SwitchValueType', () => {
       type: 'primitive',
       primitive: 'string',
       literals: ['ready', 'done'],
-    })).toBe('"ready" | "done"')
+    })).toBe("'ready' | 'done'")
     expect(SwitchValueType.getTypeText({
       type: 'primitive',
       primitive: 'number',
@@ -33,9 +33,9 @@ describe('SwitchValueType', () => {
         label: 'Status',
         valueType: 'string',
         values: ['ready', 'done'],
-        title: '"ready" | "done"',
+        title: "'ready' | 'done'",
       }],
-    )).toBe('"ready" | "done"')
+    )).toBe("'ready' | 'done'")
   })
 
   it('resolves primitive names for literal union options', () => {
@@ -46,7 +46,7 @@ describe('SwitchValueType', () => {
         label: 'Status',
         valueType: 'string',
         values: ['ready', 'done'],
-        title: '"ready" | "done"',
+        title: "'ready' | 'done'",
       }],
     )).toBe('string')
 

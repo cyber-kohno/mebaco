@@ -5,9 +5,11 @@ import type StyleParamElement from './style-param-element'
 namespace StyleParameterCatalog {
   export type Parameter = {
     parameterId: string
+    id: string
     valueType: StyleParamElement.ValueType
     defaultValue?: StyleParamElement.Literal
     sourceStyleId: string
+    sourceStyleName: string
     sourcePath: string[]
   }
 
@@ -27,6 +29,7 @@ namespace StyleParameterCatalog {
     | {
         type: 'parameter-conflict'
         parameterId: string
+        parameterName: string
         sourceStyleIds: string[]
         path: string[]
         message: string
@@ -76,7 +79,7 @@ namespace StyleParameterCatalog {
     const issues: Issue[] = []
 
     parameters.forEach((parameter) => {
-      const existing = merged.find((item) => item.parameterId === parameter.parameterId)
+      const existing = merged.find((item) => item.id === parameter.id)
       if (existing == null) {
         merged.push(parameter)
         return
@@ -90,15 +93,16 @@ namespace StyleParameterCatalog {
       ]))
       if (issues.some((issue) => (
         issue.type === 'parameter-conflict'
-        && issue.parameterId === parameter.parameterId
+        && issue.parameterName === parameter.id
       ))) return
 
       issues.push({
         type: 'parameter-conflict',
         parameterId: parameter.parameterId,
+        parameterName: parameter.id,
         sourceStyleIds,
         path: [...path],
-        message: `Parameter '${parameter.parameterId}' is exposed by multiple styles: ${sourceStyleIds.join(', ')}.`,
+        message: `Parameter '${parameter.id}' is exposed by multiple styles: ${[existing.sourceStyleName, parameter.sourceStyleName].join(', ')}.`,
       })
     })
 
@@ -111,8 +115,8 @@ namespace StyleParameterCatalog {
     const records = new Map<string, StyleRecord>()
 
     const collect = (node: TreeNode.Node) => {
-      if (node.element.kind === 'style' && !records.has(node.element.id)) {
-        records.set(node.element.id, {
+      if (node.element.kind === 'style' && !records.has(node.element.styleId)) {
+        records.set(node.element.styleId, {
           element: node.element,
           parameters: getStyleParameters(node),
         })
@@ -126,14 +130,15 @@ namespace StyleParameterCatalog {
       ancestorStyleIds: readonly string[] = [],
     ): Result => {
       const path = [...ancestorStyleIds, styleId]
+      const pathNames = path.map((id) => records.get(id)?.element.id ?? id)
       if (ancestorStyleIds.includes(styleId)) {
         return {
           parameters: [],
           issues: [{
             type: 'cycle',
             styleId,
-            path,
-            message: `Style inheritance cycle: ${path.join(' -> ')}.`,
+            path: pathNames,
+            message: `Style inheritance cycle: ${pathNames.join(' -> ')}.`,
           }],
         }
       }
@@ -145,7 +150,7 @@ namespace StyleParameterCatalog {
           issues: [{
             type: 'missing-style',
             styleId,
-            path,
+            path: pathNames,
             message: `Style '${styleId}' was not found.`,
           }],
         }
@@ -167,15 +172,17 @@ namespace StyleParameterCatalog {
       })
 
       const ownParameters = record.parameters.map((parameter): Parameter => ({
-        parameterId: parameter.id,
+        parameterId: parameter.parameterId,
+        id: parameter.id,
         valueType: parameter.valueType,
         defaultValue: parameter.defaultValue,
         sourceStyleId: styleId,
-        sourcePath: path,
+        sourceStyleName: record.element.id,
+        sourcePath: pathNames,
       }))
       const merged = mergeParameters(
         [...inheritedParameters, ...ownParameters],
-        path,
+        pathNames,
       )
 
       return {
@@ -188,11 +195,13 @@ namespace StyleParameterCatalog {
       styleIds: Array.from(records.keys()),
       getDirectParameters: (styleId) => (
         records.get(styleId)?.parameters.map((parameter) => ({
-          parameterId: parameter.id,
+          parameterId: parameter.parameterId,
+          id: parameter.id,
           valueType: parameter.valueType,
           defaultValue: parameter.defaultValue,
           sourceStyleId: styleId,
-          sourcePath: [styleId],
+          sourceStyleName: records.get(styleId)?.element.id ?? styleId,
+          sourcePath: [records.get(styleId)?.element.id ?? styleId],
         })) ?? []
       ),
       resolve,
