@@ -247,7 +247,11 @@
     } else {
       assertReadOnlyFieldsUnchanged(session)
       const element = session.schema.update(session.element, values)
-      TreeStore.updateElement(session.nodeId, element)
+      if (session.schema.commitUpdate == null) {
+        TreeStore.updateElement(session.nodeId, element)
+      } else {
+        await session.schema.commitUpdate(session.nodeId, session.element, element)
+      }
     }
 
     ElementDialog.close()

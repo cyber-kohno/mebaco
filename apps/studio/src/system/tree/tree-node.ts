@@ -107,6 +107,64 @@ namespace TreeNode {
     return null
   }
 
+  export const findPath = (
+    rootNode: Node,
+    nodeId: number,
+    path: Node[] = [],
+  ): Node[] | null => {
+    const nextPath = [...path, rootNode]
+    if (rootNode.id === nodeId) return nextPath
+
+    for (const child of rootNode.children) {
+      const found = findPath(child, nodeId, nextPath)
+      if (found != null) return found
+    }
+
+    return null
+  }
+
+  export const findParent = (
+    rootNode: Node,
+    nodeId: number,
+  ): Node | null => {
+    for (const child of rootNode.children) {
+      if (child.id === nodeId) return rootNode
+      const found = findParent(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
+
+  export const isDescendantOrSelf = (
+    rootNode: Node,
+    ancestorNodeId: number,
+    targetNodeId: number,
+  ): boolean => {
+    const path = findPath(rootNode, targetNodeId)
+    return path?.some((node) => node.id === ancestorNodeId) === true
+  }
+
+  export const openPath = (
+    rootNode: Node,
+    fromNodeId: number,
+    targetNodeId: number,
+  ): boolean => {
+    const path = findPath(rootNode, targetNodeId)
+    if (path == null) return false
+
+    const fromIndex = path.findIndex((node) => node.id === fromNodeId)
+    if (fromIndex < 0) return false
+
+    let changed = false
+    path.slice(fromIndex, -1).forEach((node) => {
+      if (node.children.length > 0 && !node.isOpen) {
+        node.isOpen = true
+        changed = true
+      }
+    })
+    return changed
+  }
+
   export const getSelectionRelations = (
     rootNode: Node,
     selectedNodeId: number,

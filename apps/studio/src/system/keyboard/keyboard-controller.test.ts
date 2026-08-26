@@ -31,6 +31,11 @@ const createContext = (
     },
     canReorder: () => false,
     reorder: vi.fn(),
+    setSelectedAsCriteria: vi.fn(),
+    raiseCriteria: vi.fn(),
+    lowerCriteria: vi.fn(),
+    goBack: vi.fn(),
+    goForward: vi.fn(),
     getContextMenu: () => [],
   }
 }
@@ -120,6 +125,56 @@ describe('KeyboardController disabled shortcut', () => {
     KeyboardController.handleKeydown(event, context)
 
     expect(reorder).toHaveBeenCalledWith(selectedNode.id, -1)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it('sets Criteria with Q', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const event = createEvent({ key: 'q' })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(context.setSelectedAsCriteria).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
+  it('always consumes Alt+ArrowLeft even when there is no history', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const event = createEvent({ key: 'ArrowLeft', altKey: true })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(context.goBack).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it('always consumes Alt+ArrowRight even when there is no history', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const event = createEvent({ key: 'ArrowRight', altKey: true })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(context.goForward).toHaveBeenCalledOnce()
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(event.stopPropagation).toHaveBeenCalledOnce()
   })

@@ -69,14 +69,14 @@ const hasStructuredArguments = (argumentsList: ReturnType<typeof getLaunchArgume
 const findLaunchers = (
   node: TreeNode.Node,
   appId: string,
-  result: { id: string; name: string }[] = [],
-): { id: string; name: string }[] => {
+  result: { launcherId: string; id: string; name: string }[] = [],
+): { launcherId: string; id: string; name: string }[] => {
   if (
     node.element.kind === 'launcher'
     && (node.element as LauncherElement.Element).appId === appId
   ) {
     const launcher = node.element as LauncherElement.Element
-    result.push({ id: launcher.id, name: launcher.name })
+    result.push({ launcherId: launcher.launcherId, id: launcher.id, name: launcher.name })
   }
 
   node.children.forEach((child) => findLaunchers(child, appId, result))

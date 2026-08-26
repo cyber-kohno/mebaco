@@ -153,6 +153,36 @@ namespace ShortcutRegistry {
       run: toggleDisabled,
     },
     {
+      id: 'set-selected-as-criteria',
+      key: { key: 'q' },
+      when: canUseSelectedRow,
+      run: (context) => context.setSelectedAsCriteria(),
+    },
+    {
+      id: 'raise-criteria',
+      key: { key: 'ArrowLeft', ctrl: true },
+      when: canUseSelectedRow,
+      run: (context) => context.raiseCriteria(),
+    },
+    {
+      id: 'lower-criteria',
+      key: { key: 'ArrowRight', ctrl: true },
+      when: canUseSelectedRow,
+      run: (context) => context.lowerCriteria(),
+    },
+    {
+      id: 'navigate-back',
+      key: { key: 'ArrowLeft', alt: true },
+      when: () => true,
+      run: (context) => context.goBack(),
+    },
+    {
+      id: 'navigate-forward',
+      key: { key: 'ArrowRight', alt: true },
+      when: () => true,
+      run: (context) => context.goForward(),
+    },
+    {
       id: 'move-selection-up',
       key: { key: 'ArrowUp' },
       when: canUseSelectedRow,

@@ -119,7 +119,7 @@ namespace RetentionActions {
     parentNodeId: number,
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Add Action', () => ElementDialog.openCreate(
+    return action('Action', () => ElementDialog.openCreate(
       parentNodeId,
       ActionElement.createSchema(),
     ))
@@ -134,6 +134,17 @@ namespace RetentionActions {
       parentNodeId,
       TransitionElement.createSchema(rootNode),
     ))
+  }
+
+  export const createAddStatementMenu = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+  ): ActionMenuState.ParentItem => {
+    const { parent } = ActionMenu.createFactory()
+    return parent('Add statement', [
+      createAddActionItem(parentNodeId),
+      createAddTransitionItem(parentNodeId, rootNode),
+    ])
   }
 
   export const createAddControlMenu = (

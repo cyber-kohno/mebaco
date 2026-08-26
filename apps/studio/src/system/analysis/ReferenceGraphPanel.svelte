@@ -4,6 +4,7 @@
   import { commandSessionStore } from '../terminal/command-session-store'
   import TreeStore from '../store/tree-store'
   import TreeNode from '../tree/tree-node'
+  import TreeNavigationController from '../tree/tree-navigation-controller'
   import ReferenceGraph from './reference-graph'
   import ReferenceGraphController from './reference-graph-controller'
 
@@ -50,6 +51,11 @@
       ? { kind: label, id: '' }
       : { kind: label.slice(0, separator), id: label.slice(separator + 1) }
   }
+
+  const navigateToNode = (nodeId: number) => {
+    TreeNavigationController.jumpToNode(nodeId)
+    ReferenceGraphController.close()
+  }
 </script>
 
 {#if $referenceGraphNodeId != null && selectedNode != null && graph != null}
@@ -72,7 +78,12 @@
             <ul>
               {#each graph.references as reference}
                 <li>
-                  <span class="node-id">node-{reference.sourceNodeId}</span>:
+                  <button
+                    type="button"
+                    class="node-link"
+                    aria-label={`Navigate to node-${reference.sourceNodeId}`}
+                    onclick={() => navigateToNode(reference.sourceNodeId)}
+                  >node-{reference.sourceNodeId}</button>:
                   <span class="reference-label">{reference.sourceLabel}</span>
                 </li>
               {/each}
@@ -93,7 +104,12 @@
               {#each graph.dependencies as dependency}
                 {@const target = splitTargetLabel(dependency.targetLabel)}
                 <li>
-                  <span class="node-id">node-{dependency.targetNodeId}</span>:
+                  <button
+                    type="button"
+                    class="node-link"
+                    aria-label={`Navigate to node-${dependency.targetNodeId}`}
+                    onclick={() => navigateToNode(dependency.targetNodeId)}
+                  >node-{dependency.targetNodeId}</button>:
                   <span>{target.kind}{target.id.length > 0 ? '.' : ''}</span><span class="dependency-id">{target.id}</span>
                 </li>
               {/each}
@@ -200,8 +216,26 @@
     color: #fff;
   }
 
-  .node-id {
+  .node-link {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #de5a5a;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .node-link:hover {
+    color: #ff8b8b;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .node-link:focus-visible {
+    border-radius: 2px;
+    outline: 2px solid #79e6f4;
+    outline-offset: 2px;
   }
 
   .reference-label {

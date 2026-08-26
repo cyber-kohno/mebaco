@@ -4,11 +4,14 @@ import type TreeNode from '../tree/tree-node'
 import DefinitionCatalog from '../element/definition-catalog'
 
 namespace ReferenceGraph {
+  export type ReferenceSourceType = 'structural' | 'expression'
+
   export type Reference = {
     sourceNodeId: number
     sourceLabel: string
     targetNodeId: number
     targetLabel: string
+    sourceType: ReferenceSourceType
   }
 
   export type Dependency = {
@@ -248,16 +251,18 @@ namespace ReferenceGraph {
     sourceNode: TreeNode.Node,
     sourceLabel: string,
     target: Target,
+    sourceType: ReferenceSourceType,
   ) => {
     const formattedSourceLabel = `${sourceNode.element.kind}#${sourceLabel}`
-    const key = createEdgeKey(sourceNode.id, formattedSourceLabel, target)
-    references.set(key, {
+    const dependencyKey = createEdgeKey(sourceNode.id, formattedSourceLabel, target)
+    references.set(`${dependencyKey}:${sourceType}`, {
       sourceNodeId: sourceNode.id,
       sourceLabel: formattedSourceLabel,
       targetNodeId: target.nodeId,
       targetLabel: target.label,
+      sourceType,
     })
-    dependencies.set(key, {
+    dependencies.set(dependencyKey, {
       sourceNodeId: sourceNode.id,
       targetNodeId: target.nodeId,
       targetLabel: target.label,
@@ -283,8 +288,17 @@ namespace ReferenceGraph {
     )
 
     const resolveExpression = (root: string, property: string) => {
-      getCandidates(targets, property, expressionRoots[root], visibleLoopTargets, 'name')
-        .forEach((target) => addReference(references, dependencies, sourceNode, sourceLabel, target))
+      const kinds = expressionRoots[root]
+      if (kinds == null) return
+      getCandidates(targets, property, kinds, visibleLoopTargets, 'name')
+        .forEach((target) => addReference(
+          references,
+          dependencies,
+          sourceNode,
+          sourceLabel,
+          target,
+          'expression',
+        ))
     }
 
     const visit = (node: TypeScript.Node) => {
@@ -299,6 +313,25 @@ namespace ReferenceGraph {
           && TypeScript.isStringLiteral(node.argumentExpression)
         ) {
           resolveExpression(node.expression.text, node.argumentExpression.text)
+        }
+      } else if (
+        TypeScript.isCallExpression(node)
+        && TypeScript.isPropertyAccessExpression(node.expression)
+        && TypeScript.isIdentifier(node.expression.expression)
+        && node.expression.expression.text === '$system'
+        && node.expression.name.text === 'transition'
+      ) {
+        const appId = node.arguments[0]
+        if (appId != null && TypeScript.isStringLiteral(appId)) {
+          getCandidates(targets, appId.text, ['app'], visibleLoopTargets, 'name')
+            .forEach((target) => addReference(
+              references,
+              dependencies,
+              sourceNode,
+              sourceLabel,
+              target,
+              'expression',
+            ))
         }
       }
 
@@ -387,6 +420,7 @@ namespace ReferenceGraph {
                 sourceNode,
                 getReferenceFieldName(sourceNode.element, [...path, key]),
                 target,
+                'structural',
               )
             })
           })

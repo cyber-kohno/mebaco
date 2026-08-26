@@ -11,8 +11,10 @@ import ValueSource from '../../../ui/input/value-source'
 
 namespace LauncherElement {
   export type Kind = 'launcher'
-  export type Element = { kind: Kind; id: string; name: string; appId: string | null; argumentBindings: ComponentReference.Binding[] }
-  export const create = (): Element => ({ kind: 'launcher', id: '...', name: '...', appId: null, argumentBindings: [] })
+  export type Element = { kind: Kind; launcherId: string; id: string; name: string; appId: string | null; argumentBindings: ComponentReference.Binding[] }
+  export const create = (
+    launcherId: string = crypto.randomUUID(),
+  ): Element => ({ kind: 'launcher', launcherId, id: '...', name: '...', appId: null, argumentBindings: [] })
   const apps = (node: TreeNode.Node): TreeNode.Node[] => [
     ...(node.element.kind === 'app' ? [node] : []), ...node.children.flatMap(apps),
   ]
@@ -38,14 +40,14 @@ namespace LauncherElement {
     return {
       createTitle: 'Create Launcher', updateTitle: 'Update Launcher',
       fields: [
-        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
+        { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames, readOnlyOnUpdate: true },
         { type: 'text', key: 'name', label: 'Name', width: 'id', required: true, minLength: 1, maxLength: 64 },
         { type: 'select', key: 'appId', label: 'App', width: 'id', options: options.map((option) => ({ value: option.componentId, label: option.label })) , clearWhenChanged: ['argumentBindings'] },
         { type: 'componentBindings', key: 'argumentBindings', label: 'Arguments', defaultValue: '[]', required: true, componentIdKey: 'appId', components: options },
       ],
       createPreview: create,
       getInitialValues: (e) => ({ id: e.id, name: e.name, appId: e.appId ?? '', argumentBindings: ComponentReference.stringifyBindings(e.argumentBindings) }),
-      create: (values) => ({ kind: 'launcher', id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
+      create: (values) => ({ ...create(), id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
       update: (e, values) => ({ ...e, id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
     }
   }

@@ -10,7 +10,7 @@ export type LaunchArgumentSpec = CommandInputSpec & {
   structured: boolean
 }
 
-type Launcher = { id: string; name: string }
+type Launcher = { launcherId: string; id: string; name: string }
 
 const createRunCatalog = (options: {
   hasLaunchArguments: boolean
@@ -33,14 +33,14 @@ const createRunCatalog = (options: {
       context.appendOutput('danger', `App configuration error: ${options.configurationError}`)
       return
     }
-    const launcherId = args[0]?.trim()
-    if (launcherId != null && launcherId.length > 0) {
-      const launcher = options.launchers.find((candidate) => candidate.id === launcherId)
+    const launcherDisplayId = args[0]?.trim()
+    if (launcherDisplayId != null && launcherDisplayId.length > 0) {
+      const launcher = options.launchers.find((candidate) => candidate.id === launcherDisplayId)
       if (launcher == null) {
-        context.appendOutput('danger', `Launcher not found: ${launcherId}`)
+        context.appendOutput('danger', `Launcher not found: ${launcherDisplayId}`)
         return
       }
-      if (context.openPreview(launcher.id)) {
+      if (context.openPreview(launcher.launcherId)) {
         context.close()
       }
       return
@@ -49,7 +49,7 @@ const createRunCatalog = (options: {
       const openLauncherChoice = () => context.requestChoice(
         'Select a launcher:',
         options.launchers.map((launcher) => ({
-          id: launcher.id,
+          id: launcher.launcherId,
           label: launcher.id,
           detail: launcher.name,
         })),

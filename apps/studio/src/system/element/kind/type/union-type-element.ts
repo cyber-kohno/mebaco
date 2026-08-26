@@ -51,6 +51,7 @@ namespace UnionTypeElement {
         minLength: 1,
         maxLength: 32,
         reservedNames: options.reservedNames,
+        readOnlyOnUpdate: true,
       },
       {
         type: 'unionDefinition',

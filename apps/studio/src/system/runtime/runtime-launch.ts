@@ -42,12 +42,6 @@ namespace RuntimeLaunch {
     appId: string,
     launcherId: string,
   ): LauncherElement.Element | null => {
-    const app = collect(
-      projectNode,
-      (node) => node.element.kind === 'app' && node.element.id === appId,
-    )[0]?.element
-    if (app?.kind !== 'app') return null
-
     return collect(
       projectNode,
       (node) => node.element.kind === 'launcher',
@@ -55,7 +49,7 @@ namespace RuntimeLaunch {
       .map((node) => node.element)
       .filter((element): element is LauncherElement.Element => element.kind === 'launcher')
       .find((launcher) => (
-        launcher.id === launcherId && launcher.appId === app.appId
+        launcher.launcherId === launcherId && launcher.appId === appId
       )) ?? null
   }
 
@@ -249,7 +243,7 @@ namespace RuntimeLaunch {
         : resolveDirectValues(argumentsList, {}, options.projectNode)
     }
 
-    const launcher = getLauncher(options.projectNode, options.appNode.element.id, options.launcherId)
+    const launcher = getLauncher(options.projectNode, options.appNode.element.appId, options.launcherId)
     if (launcher == null) {
       return { values: {}, errors: [`Launcher '${options.launcherId}' was not found for App '${options.appNode.element.id}'.`] }
     }

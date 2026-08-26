@@ -26,6 +26,11 @@ namespace ShortcutCommand {
     toggleDisabled: (nodeId: number) => void
     canReorder: (nodeId: number, direction: -1 | 1) => boolean
     reorder: (nodeId: number, direction: -1 | 1) => void
+    setSelectedAsCriteria: () => void
+    raiseCriteria: () => void
+    lowerCriteria: () => void
+    goBack: () => void
+    goForward: () => void
     getContextMenu: (node: TreeNode.Node, parentNode: TreeNode.Node | null) => ActionMenuState.Item[]
   }
 

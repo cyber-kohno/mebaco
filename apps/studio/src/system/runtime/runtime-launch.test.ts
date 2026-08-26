@@ -73,4 +73,75 @@ describe('RuntimeLaunch Signature defaults', () => {
       (result.values.endProcess as () => Promise<unknown>)(),
     ).resolves.toBeUndefined()
   })
+
+  it('resolves a Launcher by its stable UUID rather than its display Id', () => {
+    const appNode = {
+      id: 2,
+      element: { kind: 'app', appId: 'sample-app-uuid', id: 'sample' },
+      isOpen: true,
+      children: [{
+        id: 3,
+        element: { kind: 'launch-options' },
+        isOpen: true,
+        children: [{
+          id: 4,
+          element: { kind: 'launch-arguments' },
+          isOpen: true,
+          children: [{
+            id: 5,
+            element: {
+              kind: 'launch-argument',
+              propId: 'environment-prop-uuid',
+              id: 'environment',
+              valueType: { type: 'string' },
+              nullable: false,
+            },
+            isOpen: true,
+            children: [],
+          }],
+        }],
+      }],
+    } as TreeNode.Node & { element: AppElement.Element }
+    const projectNode = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [
+        appNode,
+        {
+          id: 6,
+          element: {
+            kind: 'launcher',
+            launcherId: 'production-launcher-uuid',
+            id: 'hoge_honban',
+            name: 'Production',
+            appId: 'sample-app-uuid',
+            argumentBindings: [{
+              propId: 'environment-prop-uuid',
+              kind: 'value',
+              source: { type: 'literal', value: 'production' },
+            }],
+          },
+          isOpen: true,
+          children: [],
+        },
+      ],
+    } as TreeNode.Node
+
+    const resolved = RuntimeLaunch.resolve({
+      appNode,
+      projectNode,
+      launcherId: 'production-launcher-uuid',
+      baseContext: FormulaContext.createEmpty(),
+    })
+    const displayIdResult = RuntimeLaunch.resolve({
+      appNode,
+      projectNode,
+      launcherId: 'hoge_honban',
+      baseContext: FormulaContext.createEmpty(),
+    })
+
+    expect(resolved).toEqual({ values: { environment: 'production' }, errors: [] })
+    expect(displayIdResult.errors).toHaveLength(1)
+  })
 })

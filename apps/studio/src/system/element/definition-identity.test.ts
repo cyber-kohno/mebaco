@@ -24,12 +24,21 @@ const node = (
 ): TreeNode.Node => ({ id, element, children, isOpen: true })
 
 describe('stable definition identities', () => {
+  it('creates a stable UUID for each Launcher', () => {
+    const first = LauncherElement.create()
+    const second = LauncherElement.create()
+
+    expect(first.launcherId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    expect(second.launcherId).not.toBe(first.launcherId)
+  })
+
   it('preserves definition UUIDs when editable names change', () => {
     const app = AppElement.create('Before', 'app-uuid')
     const component = ComponentElement.create('Before', 'component-uuid')
     const slot = SlotElement.create('before', 'slot-uuid')
     const style = StyleElement.create('before', [], [], 'style-uuid')
     const parameter = StyleParamElement.create('before', 'string', undefined, 'parameter-uuid')
+    const launcher = LauncherElement.create('launcher-uuid')
 
     expect(AppElement.createSchema().update(app, { id: 'After' })).toMatchObject({
       appId: 'app-uuid', id: 'After',
@@ -46,6 +55,9 @@ describe('stable definition identities', () => {
     expect(StyleParamElement.createSchema().update(parameter, {
       id: 'after', valueType: 'string', hasDefaultValue: 'false', defaultValue: '',
     })).toMatchObject({ parameterId: 'parameter-uuid', id: 'after' })
+    expect(LauncherElement.createSchema(node(1, { kind: 'project' })).update(launcher, {
+      id: 'after', name: 'After', appId: '', argumentBindings: '[]',
+    })).toMatchObject({ launcherId: 'launcher-uuid', id: 'after' })
   })
 
   it('uses UUIDs as option values and resolves the current names', () => {

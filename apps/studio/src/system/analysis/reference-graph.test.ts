@@ -33,6 +33,7 @@ describe('ReferenceGraph', () => {
         sourceLabel: 'component-use#componentId',
         targetNodeId: component.id,
         targetLabel: 'component.RenamedCard',
+        sourceType: 'structural',
       },
     ])
 
@@ -88,18 +89,21 @@ describe('ReferenceGraph', () => {
         sourceLabel: 'tag#attribute',
         targetNodeId: 3,
         targetLabel: 'state.data',
+        sourceType: 'expression',
       },
       {
         sourceNodeId: 33,
         sourceLabel: 'if#condition',
         targetNodeId: 3,
         targetLabel: 'state.data',
+        sourceType: 'expression',
       },
       {
         sourceNodeId: 41,
         sourceLabel: 'loop#count',
         targetNodeId: 3,
         targetLabel: 'state.data',
+        sourceType: 'expression',
       },
     ])
 
@@ -132,5 +136,23 @@ describe('ReferenceGraph', () => {
         targetLabel: 'loop.index',
       },
     ])
+  })
+
+  it('collects app references from system transitions', () => {
+    const app = node(2, { kind: 'app', appId: 'app-uuid', id: 'detail' })
+    const action = node(3, {
+      kind: 'action',
+      comment: '',
+      source: "$system.transition('detail', {})",
+    })
+    const root = node(1, { kind: 'project' }, [app, action])
+
+    expect(ReferenceGraph.build(root, app.id).references).toEqual([{
+      sourceNodeId: action.id,
+      sourceLabel: 'action#source',
+      targetNodeId: app.id,
+      targetLabel: 'app.detail',
+      sourceType: 'expression',
+    }])
   })
 })

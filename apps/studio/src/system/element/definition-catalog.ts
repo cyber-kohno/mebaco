@@ -13,6 +13,8 @@ namespace DefinitionCatalog {
       case 'launch-argument':
       case 'value-prop':
         return element.propId
+      case 'launcher':
+        return element.launcherId
       case 'slot':
         return element.slotId
       case 'style':

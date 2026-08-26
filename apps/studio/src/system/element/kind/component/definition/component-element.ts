@@ -8,6 +8,7 @@ import PropsElement from './props-element'
 import RetentionElement from './retention-element'
 import SlotsElement from './slot/slots-element'
 import TreeStore from '../../../../store/tree-store'
+import ElementDeletionController from '../../../deletion/element-deletion-controller'
 import StoreElement from '../../variable/store/store-element'
 import StatesElement from '../../variable/store/states-element'
 
@@ -63,6 +64,7 @@ namespace ComponentElement {
         minLength: 1,
         maxLength: 32,
         reservedNames: options.reservedNames,
+        readOnlyOnUpdate: true,
       },
     ],
     createPreview: () => (options.local === true ? createLocal('...') : create('...')),
@@ -127,6 +129,17 @@ namespace ComponentElement {
             createSchema({ reservedNames, local: isLocal(context.element) }),
           )
         }),
+        action('Delete', () => {
+          void ElementDeletionController.requestDelete({
+            rootNode: context.rootNode,
+            node: context.node,
+            policy: {
+              label: 'Component',
+              structuralReferences: 'block',
+            },
+            deleteNode: () => TreeStore.removeNode(context.node.id),
+          })
+        }, 'danger'),
       ]
     },
     contentHost: {

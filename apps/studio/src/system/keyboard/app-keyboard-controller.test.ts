@@ -50,6 +50,18 @@ vi.mock('../terminal/command-session-store', () => ({
 vi.mock('../tree/tree-node', () => ({
   default: {},
 }))
+vi.mock('../tree/tree-navigation-controller', () => ({
+  default: { goBack: vi.fn(), goForward: vi.fn() },
+}))
+vi.mock('../tree/tree-viewport-controller', () => ({
+  default: {
+    state: { value: { viewRootNodeId: null } },
+    resolveDisplayRoot: vi.fn(),
+    setSelectedAsCriteria: vi.fn(),
+    raiseCriteria: vi.fn(),
+    lowerCriteria: vi.fn(),
+  },
+}))
 vi.mock('./keyboard-controller', () => ({
   default: { handleKeydown: mocks.handleKeydown },
 }))

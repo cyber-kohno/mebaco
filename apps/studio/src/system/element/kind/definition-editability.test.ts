@@ -31,13 +31,13 @@ const emptyRoot: TreeNode.Node = {
   children: [],
 }
 
-const expectEditable = (
+const expectReadOnly = (
   schema: { fields: readonly ElementEditSchema.Field[] },
   key: string,
 ) => {
   const field = schema.fields.find((candidate) => candidate.key === key)
   expect(field, `${key} field was not found`).toBeDefined()
-  expect(field?.readOnlyOnUpdate).not.toBe(true)
+  expect(field?.readOnlyOnUpdate).toBe(true)
 }
 
 describe('definition update editability', () => {
@@ -59,8 +59,8 @@ describe('definition update editability', () => {
     ['Style Parameter', StyleParamElement.createSchema()],
   ]
 
-  it.each(idSchemas)('allows updating the %s Id', (_name, schema) => {
-    expectEditable(schema, 'id')
+  it.each(idSchemas)('keeps the %s Id read-only during ordinary updates', (_name, schema) => {
+    expectReadOnly(schema, 'id')
   })
 
   const valueTypeSchemas: Array<[string, { fields: readonly ElementEditSchema.Field[] }, string]> = [
@@ -75,7 +75,8 @@ describe('definition update editability', () => {
   ]
 
   it.each(valueTypeSchemas)('allows updating the %s Value Type', (_name, schema, key) => {
-    expectEditable(schema, key)
+    const field = schema.fields.find((candidate) => candidate.key === key)
+    expect(field?.readOnlyOnUpdate).not.toBe(true)
   })
 
   it('resets the Style Parameter default settings when its Value Type changes', () => {

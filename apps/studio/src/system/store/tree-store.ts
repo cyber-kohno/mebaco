@@ -5,6 +5,13 @@ import TreeNode from '../tree/tree-node'
 import TreeReorder from '../tree/tree-reorder'
 
 namespace TreeStore {
+  export type LifecycleEvent =
+    | { type: 'remove'; parentNodeId: number | null }
+    | { type: 'change' }
+    | { type: 'replace' }
+
+  export type LifecycleListener = (event: LifecycleEvent) => void
+
   export type NodeTransformer = (
     node: TreeNode.Node,
     createNode: (seed: TreeNode.Seed) => TreeNode.Node,
@@ -14,6 +21,18 @@ namespace TreeStore {
   export const selectedNodeId = writable<number>(1)
 
   let nextNodeId = 10
+  const lifecycleListeners = new Set<LifecycleListener>()
+
+  export const onLifecycle = (
+    listener: LifecycleListener,
+  ): (() => void) => {
+    lifecycleListeners.add(listener)
+    return () => lifecycleListeners.delete(listener)
+  }
+
+  const notifyLifecycle = (event: LifecycleEvent) => {
+    lifecycleListeners.forEach((listener) => listener(event))
+  }
 
   const findMaxNodeId = (node: TreeNode.Node): number => (
     node.children.reduce(
@@ -176,6 +195,16 @@ namespace TreeStore {
       return nextRoot
     })
     selectedNodeId.set(nodeId)
+    notifyLifecycle({ type: 'change' })
+  }
+
+  export const commitRootChange = (
+    nextRootNode: TreeNode.Node,
+  ) => {
+    const nextRoot = TreeNode.clone(nextRootNode)
+    rootNode.set(nextRoot)
+    nextNodeId = Math.max(nextNodeId, findMaxNodeId(nextRoot) + 1)
+    notifyLifecycle({ type: 'change' })
   }
 
   export const removeNode = (
@@ -190,6 +219,7 @@ namespace TreeStore {
     })
 
     if (parentNodeId != null) selectedNodeId.set(parentNodeId)
+    notifyLifecycle({ type: 'remove', parentNodeId })
   }
 
   export const toggleDisabled = (nodeId: number) => {
@@ -218,7 +248,10 @@ namespace TreeStore {
       return changed ? nextRoot : root
     })
 
-    if (changed) selectedNodeId.set(nodeId)
+    if (changed) {
+      selectedNodeId.set(nodeId)
+      notifyLifecycle({ type: 'change' })
+    }
     return changed
   }
 
@@ -244,7 +277,10 @@ namespace TreeStore {
       ))
       return changed ? nextRoot : root
     })
-    if (changed) selectedNodeId.set(nodeId)
+    if (changed) {
+      selectedNodeId.set(nodeId)
+      notifyLifecycle({ type: 'change' })
+    }
     return changed
   }
 
@@ -253,6 +289,7 @@ namespace TreeStore {
     rootNode.set(nextRoot)
     selectedNodeId.set(nextRoot.id)
     nextNodeId = findMaxNodeId(nextRoot) + 1
+    notifyLifecycle({ type: 'replace' })
   }
 }
 

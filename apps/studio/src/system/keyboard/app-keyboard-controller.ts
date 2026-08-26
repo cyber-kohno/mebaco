@@ -8,6 +8,9 @@ import RuntimeSessionStore from '../runtime/runtime-session-store'
 import { appAreaStore } from '../navigation/app-area-store'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
+import TreeNavigationController from '../tree/tree-navigation-controller'
+import IdRefactoring from '../refactoring/id-refactoring'
+import TreeViewportController from '../tree/tree-viewport-controller'
 import CommandController from '../terminal/command-controller'
 import { commandSessionStore } from '../terminal/command-session-store'
 import ReferenceGraphController from '../analysis/reference-graph-controller'
@@ -81,9 +84,13 @@ namespace AppKeyboardController {
     ) return
 
     const rootNode = get(TreeStore.rootNode)
+    const displayRootNode = TreeViewportController.resolveDisplayRoot(
+      rootNode,
+      get(TreeViewportController.state),
+    )
     KeyboardController.handleKeydown(event, {
       rootNode,
-      visibleNodes: TreeNode.getVisibleNodes(rootNode),
+      visibleNodes: TreeNode.getVisibleNodes(displayRootNode),
       selectedNodeId: get(TreeStore.selectedNodeId),
       selectNode: (nodeId) => {
         TreeStore.selectedNodeId.set(nodeId)
@@ -95,13 +102,33 @@ namespace AppKeyboardController {
       toggleDisabled: TreeStore.toggleDisabled,
       canReorder: (nodeId, direction) => TreeStore.canMoveNode(nodeId, direction),
       reorder: (nodeId, direction) => TreeStore.moveNode(nodeId, direction),
+      setSelectedAsCriteria: () => {
+        TreeViewportController.setSelectedAsCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      raiseCriteria: () => {
+        TreeViewportController.raiseCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      lowerCriteria: () => {
+        TreeViewportController.lowerCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      goBack: TreeNavigationController.goBack,
+      goForward: TreeNavigationController.goForward,
       getContextMenu: (node, parentNode) => (
-        ElementRegistry.get(node.element.kind).getContextMenu({
+        IdRefactoring.add(ElementRegistry.get(node.element.kind).getContextMenu({
           element: node.element,
           node,
           parentNode,
           rootNode,
-        })
+        }), { element: node.element, node, parentNode, rootNode })
       ),
     })
   }

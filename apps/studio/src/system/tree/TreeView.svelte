@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import ActionMenu from '../action-menu/action-menu-controller'
   import DisabledActionMenu from '../element/disabled-action-menu'
   import ElementTreeLabel from '../element/ElementTreeLabel.svelte'
@@ -6,8 +7,10 @@
   import { elementDialogStore } from '../element-dialog/element-dialog-store'
   import TreeStore from '../store/tree-store'
   import ExpressionVerificationActions from '../validation/expression-verification-actions'
+  import IdRefactoring from '../refactoring/id-refactoring'
   import ExpressionVerificationStore from '../validation/expression-verification-store'
   import TreeNode from './tree-node'
+  import TreeViewportController from './tree-viewport-controller'
 
   type VisibleNode = {
     node: TreeNode.Node
@@ -21,10 +24,58 @@
   const rootNodeStore = TreeStore.rootNode
   const selectedNodeIdStore = TreeStore.selectedNodeId
   const expressionVerificationEntries = ExpressionVerificationStore.entries
+  const treeViewportState = TreeViewportController.state
+  const treeRevealRequest = TreeViewportController.revealRequest
+  let treeViewElement: HTMLDivElement | undefined = $state()
   let altPressed = $state(false)
-  const selectionRelations = $derived(
-    TreeNode.getSelectionRelations($rootNodeStore, $selectedNodeIdStore),
+  const displayRootNode = $derived(
+    TreeViewportController.resolveDisplayRoot($rootNodeStore, $treeViewportState),
   )
+  const selectionRelations = $derived(
+    TreeNode.getSelectionRelations(displayRootNode, $selectedNodeIdStore),
+  )
+
+  const revealNode = async (nodeId: number) => {
+    await tick()
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+    const viewport = treeViewElement
+    const row = viewport?.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`)
+    if (viewport == null || row == null) return
+
+    const viewportRect = viewport.getBoundingClientRect()
+    const rowRect = row.getBoundingClientRect()
+    const desiredTop = viewport.scrollTop
+      + rowRect.top
+      - viewportRect.top
+      - viewport.clientHeight * 0.35
+    viewport.scrollTop = Math.max(
+      0,
+      Math.min(desiredTop, viewport.scrollHeight - viewport.clientHeight),
+    )
+
+    const label = row.querySelector<HTMLElement>('.element-tree-label')
+    if (label == null) return
+
+    const margin = 12
+    const labelRect = label.getBoundingClientRect()
+    if (labelRect.left < viewportRect.left + margin) {
+      viewport.scrollLeft = Math.max(
+        0,
+        viewport.scrollLeft + labelRect.left - viewportRect.left - margin,
+      )
+    } else if (labelRect.right > viewportRect.right - margin) {
+      viewport.scrollLeft = Math.min(
+        viewport.scrollWidth - viewport.clientWidth,
+        viewport.scrollLeft + labelRect.right - viewportRect.right + margin,
+      )
+    }
+  }
+
+  $effect(() => {
+    const request = $treeRevealRequest
+    if (request != null) void revealNode(request.nodeId)
+  })
 
   const toggleNode = (node: TreeNode.Node) => {
     if (node.children.length === 0) return
@@ -68,7 +119,13 @@
       rootNode: $rootNodeStore,
     })
 
-    const withVerification = ExpressionVerificationActions.add(items, $rootNodeStore, node)
+    const withRefactoring = IdRefactoring.add(items, {
+      element: node.element,
+      node,
+      parentNode,
+      rootNode: $rootNodeStore,
+    })
+    const withVerification = ExpressionVerificationActions.add(withRefactoring, $rootNodeStore, node)
     return definition.canDisable
       ? DisabledActionMenu.add(withVerification, node.disabled === true, () => {
           TreeStore.toggleDisabled(node.id)
@@ -141,9 +198,9 @@
   onblur={handleWindowBlur}
 />
 
-<div class="tree-view" role="tree" aria-label="Tree prototype">
+<div bind:this={treeViewElement} class="tree-view" role="tree" aria-label="Tree prototype">
   <div class="tree-content">
-    {#each buildVisibleNodes($rootNodeStore) as row (row.node.id)}
+    {#each buildVisibleNodes(displayRootNode) as row (row.node.id)}
       {@const verificationEntry = $expressionVerificationEntries[row.node.id]}
       {@const verificationStatus = ExpressionVerificationStore.getStatus(
         $rootNodeStore,
@@ -160,6 +217,7 @@
           && $selectedNodeIdStore === row.node.id
           && ElementRegistry.get(row.node.element.kind).reorderGroup != null}
         class="tree-row"
+        data-node-id={row.node.id}
         role="treeitem"
         aria-expanded={row.node.children.length > 0 ? row.node.isOpen : undefined}
         aria-selected={$selectedNodeIdStore === row.node.id}
@@ -224,6 +282,7 @@
         <ElementTreeLabel element={row.node.element} parentNode={row.parentNode} rootNode={$rootNodeStore} disabled={row.node.disabled} />
       </div>
     {/each}
+    <div class="tree-tail-space" aria-hidden="true"></div>
   </div>
 </div>
 
@@ -240,6 +299,12 @@
     display: inline-block;
     min-width: 100%;
     padding: 8px;
+  }
+
+  .tree-tail-space {
+    width: 1px;
+    height: 320px;
+    pointer-events: none;
   }
 
   .tree-row {

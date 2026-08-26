@@ -92,16 +92,19 @@ namespace BlockElement {
       if (isInFunctionProcedure(context.rootNode, context.node.id)) {
         items.push(
           FunctionActions.createAddDeclareMenu(context.node.id, context.rootNode),
-          FunctionActions.createAddActionItem(context.node.id),
-          FunctionActions.createAddTransitionItem(context.node.id, context.rootNode),
+          FunctionActions.createAddStatementMenu(
+            context.node.id,
+            context.rootNode,
+            undefined,
+            false,
+          ),
           FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
           FunctionActions.createAddBlockItem(context.node.id),
         )
       } else if (isInRetention(context.rootNode, context.node.id)) {
         items.push(
           RetentionActions.createAddDeclareMenu(context.node.id, context.rootNode),
-          RetentionActions.createAddActionItem(context.node.id),
-          RetentionActions.createAddTransitionItem(context.node.id, context.rootNode),
+          RetentionActions.createAddStatementMenu(context.node.id, context.rootNode),
           RetentionActions.createAddControlMenu(context.node.id, context.rootNode),
           ContentActions.createAddBlockItem(context.node.id),
         )
