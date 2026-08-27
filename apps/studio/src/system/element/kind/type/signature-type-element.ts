@@ -50,7 +50,6 @@ namespace SignatureTypeElement {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
         charset: 'pascalIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
-        readOnlyOnUpdate: true,
       },
       {
         type: 'signatureDefinition',

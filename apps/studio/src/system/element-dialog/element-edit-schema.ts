@@ -305,11 +305,6 @@ namespace ElementEditSchema {
     create(values: Record<string, string>): TElement
     afterCreate?(element: TElement, nodeId: number): void | Promise<void>
     update(element: TElement, values: Record<string, string>): TElement
-    commitUpdate?(
-      nodeId: number,
-      previousElement: TElement,
-      nextElement: TElement,
-    ): void | Promise<void>
   }
 
   export const validateText = (

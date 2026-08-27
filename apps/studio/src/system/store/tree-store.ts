@@ -189,13 +189,21 @@ namespace TreeStore {
     nodeId: number,
     element: MebacoElement.Element,
   ) => {
-    rootNode.update((root) => {
-      const nextRoot = TreeNode.clone(root)
-      updateElementRec(nextRoot, nodeId, element, nextRoot)
-      return nextRoot
-    })
+    rootNode.update((root) => createUpdatedRoot(root, nodeId, element))
     selectedNodeId.set(nodeId)
     notifyLifecycle({ type: 'change' })
+  }
+
+  export const createUpdatedRoot = (
+    root: TreeNode.Node,
+    nodeId: number,
+    element: MebacoElement.Element,
+  ): TreeNode.Node => {
+    const nextRoot = TreeNode.clone(root)
+    if (!updateElementRec(nextRoot, nodeId, element, nextRoot)) {
+      throw new Error(`node-${nodeId} was not found.`)
+    }
+    return nextRoot
   }
 
   export const commitRootChange = (

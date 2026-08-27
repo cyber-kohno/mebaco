@@ -28,6 +28,8 @@
   import FunctionScope from '../element/kind/function/function-scope'
   import FunctionElement from '../element/kind/function/function-element'
   import SignatureReferencePreview from '../element/kind/type/SignatureReferencePreview.svelte'
+  import ElementUpdateTransaction from './element-update-transaction'
+  import ConfirmDialogController from '../feedback/confirm/confirm-dialog-controller'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -245,12 +247,40 @@
       await session.schema.afterCreate?.(element, nodeId)
       return
     } else {
-      assertReadOnlyFieldsUnchanged(session)
-      const element = session.schema.update(session.element, values)
-      if (session.schema.commitUpdate == null) {
-        TreeStore.updateElement(session.nodeId, element)
-      } else {
-        await session.schema.commitUpdate(session.nodeId, session.element, element)
+      try {
+        assertReadOnlyFieldsUnchanged(session)
+        const element = session.schema.update(session.element, values)
+        const result = ElementUpdateTransaction.commit(
+          $rootNodeStore,
+          session.nodeId,
+          session.element,
+          element,
+        )
+
+        ElementDialog.close()
+        const messages: string[] = []
+        if (result.updatedOccurrenceCount > 0) {
+          messages.push(
+            `Expression references updated: ${result.updatedReferenceNodeIds.length} elements / ${result.updatedOccurrenceCount} occurrences.`,
+          )
+        }
+        if (result.verificationReset) {
+          messages.push('Verification status reset: all elements.')
+        }
+        if (messages.length > 0) {
+          void ConfirmDialogController.openNotice({
+            title: 'Update Completed',
+            message: messages,
+          })
+        }
+        return
+      } catch (error) {
+        console.error('Failed to update element:', error)
+        await ConfirmDialogController.openNotice({
+          title: 'Update Failed',
+          message: error instanceof Error ? error.message : 'The element could not be updated.',
+        })
+        return
       }
     }
 

@@ -2,6 +2,7 @@ import type ElementDefinition from '../../element-definition'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import StyleParamElement from './style-param-element'
+import TreeStore from '../../../store/tree-store'
 
 namespace StyleParamsElement {
   export type Kind = 'style-params'
@@ -35,6 +36,7 @@ namespace StyleParamsElement {
             StyleParamElement.createSchema({ reservedNames }),
           )
         }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

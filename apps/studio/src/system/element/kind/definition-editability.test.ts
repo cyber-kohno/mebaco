@@ -31,13 +31,13 @@ const emptyRoot: TreeNode.Node = {
   children: [],
 }
 
-const expectReadOnly = (
+const expectEditable = (
   schema: { fields: readonly ElementEditSchema.Field[] },
   key: string,
 ) => {
   const field = schema.fields.find((candidate) => candidate.key === key)
   expect(field, `${key} field was not found`).toBeDefined()
-  expect(field?.readOnlyOnUpdate).toBe(true)
+  expect(field?.readOnlyOnUpdate).not.toBe(true)
 }
 
 describe('definition update editability', () => {
@@ -59,8 +59,8 @@ describe('definition update editability', () => {
     ['Style Parameter', StyleParamElement.createSchema()],
   ]
 
-  it.each(idSchemas)('keeps the %s Id read-only during ordinary updates', (_name, schema) => {
-    expectReadOnly(schema, 'id')
+  it.each(idSchemas)('allows updating the %s Id through Modify', (_name, schema) => {
+    expectEditable(schema, 'id')
   })
 
   const valueTypeSchemas: Array<[string, { fields: readonly ElementEditSchema.Field[] }, string]> = [

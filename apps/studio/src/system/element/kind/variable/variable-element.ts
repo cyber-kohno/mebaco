@@ -63,7 +63,6 @@ namespace VariableElement {
         type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
-        readOnlyOnUpdate: true,
       },
       {
         type: 'checkbox', key: 'mutable', label: 'Mutable', defaultValue: 'false',

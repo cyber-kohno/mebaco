@@ -9,7 +9,6 @@ import { appAreaStore } from '../navigation/app-area-store'
 import TreeStore from '../store/tree-store'
 import TreeNode from '../tree/tree-node'
 import TreeNavigationController from '../tree/tree-navigation-controller'
-import IdRefactoring from '../refactoring/id-refactoring'
 import TreeViewportController from '../tree/tree-viewport-controller'
 import CommandController from '../terminal/command-controller'
 import { commandSessionStore } from '../terminal/command-session-store'
@@ -123,12 +122,12 @@ namespace AppKeyboardController {
       goBack: TreeNavigationController.goBack,
       goForward: TreeNavigationController.goForward,
       getContextMenu: (node, parentNode) => (
-        IdRefactoring.add(ElementRegistry.get(node.element.kind).getContextMenu({
+        ElementRegistry.get(node.element.kind).getContextMenu({
           element: node.element,
           node,
           parentNode,
           rootNode,
-        }), { element: node.element, node, parentNode, rootNode })
+        })
       ),
     })
   }

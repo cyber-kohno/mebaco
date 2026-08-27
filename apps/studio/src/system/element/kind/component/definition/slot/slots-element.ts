@@ -27,14 +27,15 @@ namespace SlotsElement {
         .filter((element): element is SlotElement.Element => element.kind === 'slot')
         .map((element) => element.id)
 
-      return [action('Add Slot', () => {
-        ElementDialog.openCreate(
-          context.node.id,
-          SlotElement.createSchema({ reservedNames }),
-        )
-      }), action('Remove Slots', () => {
-        if (context.node.children.length === 0) TreeStore.removeNode(context.node.id)
-      }, 'danger')]
+      return [
+        action('Add Slot', () => {
+          ElementDialog.openCreate(
+            context.node.id,
+            SlotElement.createSchema({ reservedNames }),
+          )
+        }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+      ]
     },
     childSlots: [],
     canDisable: false,

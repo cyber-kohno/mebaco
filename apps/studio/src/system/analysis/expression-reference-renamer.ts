@@ -25,6 +25,17 @@ namespace ExpressionReferenceRenamer {
     }
   }
 
+  export class ReferenceCaptureError extends Error {
+    constructor(
+      readonly sourceNodeId: number,
+      readonly expressionRoot: string,
+      readonly referenceId: string,
+    ) {
+      super(`Renaming to '${referenceId}' would change the reference target of '${expressionRoot}.${referenceId}' at node-${sourceNodeId}.`)
+      this.name = 'ReferenceCaptureError'
+    }
+  }
+
   const expressionKinds: Readonly<Record<string, readonly MebacoElement.Kind[]>> = {
     $args: ['function-argument'],
     $function: ['function'],
@@ -249,6 +260,10 @@ namespace ExpressionReferenceRenamer {
       if (referenceId !== oldId || expressionKinds[expressionRoot] == null) return
       const resolved = resolveTargetNode(rootNode, sourceNode, expressionRoot, referenceId)
       if (resolved?.id !== targetNodeId) return
+      const captured = resolveTargetNode(rootNode, sourceNode, expressionRoot, nextId)
+      if (captured != null && captured.id !== targetNodeId) {
+        throw new ReferenceCaptureError(sourceNode.id, expressionRoot, nextId)
+      }
       replacements.push({ start, end, text })
     }
 

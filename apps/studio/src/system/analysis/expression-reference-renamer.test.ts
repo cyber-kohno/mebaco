@@ -87,4 +87,24 @@ describe('ExpressionReferenceRenamer', () => {
       .toBe('$state.data != null')
     expect(result.changedNodeIds).toEqual([])
   })
+
+  it('rejects a rename that would capture a reference in a narrower scope', () => {
+    const appState = node(5, { kind: 'state', id: 'data', initial: { type: 'default' } })
+    const localState = node(12, { kind: 'state', id: 'result', initial: { type: 'default' } })
+    const expression = node(15, { kind: 'if', condition: '$state.data != null' })
+    const component = node(10, { kind: 'component', componentId: 'component-uuid', id: 'Card' }, [
+      node(11, { kind: 'store' }, [node(13, { kind: 'states' }, [localState])]),
+      expression,
+    ])
+    const app = node(2, { kind: 'app', appId: 'app-uuid', id: 'app' }, [
+      node(3, { kind: 'store' }, [node(4, { kind: 'states' }, [appState])]),
+      component,
+    ])
+    const root = node(1, { kind: 'project' }, [app])
+
+    expect(() => ExpressionReferenceRenamer.rename(root, appState.id, 'result'))
+      .toThrow(ExpressionReferenceRenamer.ReferenceCaptureError)
+    expect((appState.element as { id: string }).id).toBe('data')
+    expect((expression.element as { condition: string }).condition).toBe('$state.data != null')
+  })
 })

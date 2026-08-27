@@ -7,7 +7,6 @@
   import { elementDialogStore } from '../element-dialog/element-dialog-store'
   import TreeStore from '../store/tree-store'
   import ExpressionVerificationActions from '../validation/expression-verification-actions'
-  import IdRefactoring from '../refactoring/id-refactoring'
   import ExpressionVerificationStore from '../validation/expression-verification-store'
   import TreeNode from './tree-node'
   import TreeViewportController from './tree-viewport-controller'
@@ -119,13 +118,7 @@
       rootNode: $rootNodeStore,
     })
 
-    const withRefactoring = IdRefactoring.add(items, {
-      element: node.element,
-      node,
-      parentNode,
-      rootNode: $rootNodeStore,
-    })
-    const withVerification = ExpressionVerificationActions.add(withRefactoring, $rootNodeStore, node)
+    const withVerification = ExpressionVerificationActions.add(items, $rootNodeStore, node)
     return definition.canDisable
       ? DisabledActionMenu.add(withVerification, node.disabled === true, () => {
           TreeStore.toggleDisabled(node.id)

@@ -64,7 +64,6 @@ namespace ComponentElement {
         minLength: 1,
         maxLength: 32,
         reservedNames: options.reservedNames,
-        readOnlyOnUpdate: true,
       },
     ],
     createPreview: () => (options.local === true ? createLocal('...') : create('...')),
@@ -111,17 +110,21 @@ namespace ComponentElement {
         .filter((element): element is Element => element.kind === 'component')
         .map((element) => element.id)
 
+      const slotsNode = context.node.children.find((node) => node.element.kind === 'slots')
+      const slotsAction = slotsNode == null
+        ? action('Use slots', () => {
+            const propsIndex = context.node.children.findIndex((node) => node.element.kind === 'props')
+            TreeStore.addChild(
+              context.node.id,
+              SlotsElement.create(),
+              propsIndex < 0 ? undefined : propsIndex + 1,
+            )
+          })
+        : action('Remove slots', () => {
+            TreeStore.removeNode(slotsNode.id)
+          })
+
       return [
-        ...((context.node.children.some((node) => node.element.kind === 'slots'))
-          ? []
-          : [action('Use slots', () => {
-              const propsIndex = context.node.children.findIndex((node) => node.element.kind === 'props')
-              TreeStore.addChild(
-                context.node.id,
-                SlotsElement.create(),
-                propsIndex < 0 ? undefined : propsIndex + 1,
-              )
-            })]),
         action('Modify', () => {
           ElementDialog.openUpdate(
             context.node.id,
@@ -129,6 +132,7 @@ namespace ComponentElement {
             createSchema({ reservedNames, local: isLocal(context.element) }),
           )
         }),
+        slotsAction,
         action('Delete', () => {
           void ElementDeletionController.requestDelete({
             rootNode: context.rootNode,
