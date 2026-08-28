@@ -155,4 +155,165 @@ describe('ReferenceGraph', () => {
       sourceType: 'expression',
     }])
   })
+
+  it('collects Style UUID references from Tags and inherited Styles', () => {
+    const baseStyle = node(2, {
+      kind: 'style',
+      styleId: 'base-style-uuid',
+      id: 'base',
+      rules: [],
+      bases: [],
+    })
+    const derivedStyle = node(3, {
+      kind: 'style',
+      styleId: 'derived-style-uuid',
+      id: 'derived',
+      rules: [],
+      bases: [{
+        referenceId: 'base-reference-uuid',
+        styleId: 'base-style-uuid',
+        arguments: [],
+      }],
+    })
+    const tag = node(4, {
+      kind: 'tag',
+      tagName: 'div',
+      comment: '',
+      attributes: [],
+      styles: [{
+        referenceId: 'style-application-uuid',
+        styleId: 'base-style-uuid',
+        arguments: [],
+      }],
+    })
+    const root = node(1, { kind: 'project' }, [baseStyle, derivedStyle, tag])
+
+    expect(ReferenceGraph.build(root, baseStyle.id).references).toEqual([
+      {
+        sourceNodeId: derivedStyle.id,
+        sourceLabel: 'style#bases',
+        targetNodeId: baseStyle.id,
+        targetLabel: 'style.base',
+        sourceType: 'structural',
+      },
+      {
+        sourceNodeId: tag.id,
+        sourceLabel: 'tag#style',
+        targetNodeId: baseStyle.id,
+        targetLabel: 'style.base',
+        sourceType: 'structural',
+      },
+    ])
+  })
+
+  it('resolves $param references only through the owning Style parameter scope', () => {
+    const baseParameter = node(4, {
+      kind: 'style-param',
+      parameterId: 'base-color-parameter',
+      id: 'color',
+      valueType: 'color',
+    })
+    const otherParameter = node(8, {
+      kind: 'style-param',
+      parameterId: 'other-color-parameter',
+      id: 'color',
+      valueType: 'color',
+    })
+    const baseStyle = node(2, {
+      kind: 'style',
+      styleId: 'base-style',
+      id: 'base',
+      rules: [{
+        type: 'declaration',
+        property: 'color',
+        value: { type: 'formula', source: '$param.color' },
+      }],
+      bases: [],
+    }, [node(3, { kind: 'style-params' }, [baseParameter])])
+    const derivedStyle = node(5, {
+      kind: 'style',
+      styleId: 'derived-style',
+      id: 'derived',
+      rules: [{
+        type: 'declaration',
+        property: 'background-color',
+        value: { type: 'formula', source: '$param.color' },
+      }],
+      bases: [{ referenceId: 'base-ref', styleId: 'base-style', arguments: [] }],
+    })
+    const otherStyle = node(6, {
+      kind: 'style',
+      styleId: 'other-style',
+      id: 'other',
+      rules: [{
+        type: 'declaration',
+        property: 'color',
+        value: { type: 'formula', source: '$param.color' },
+      }],
+      bases: [],
+    }, [node(7, { kind: 'style-params' }, [otherParameter])])
+    const root = node(1, { kind: 'project' }, [baseStyle, derivedStyle, otherStyle])
+
+    expect(ReferenceGraph.build(root, baseParameter.id).references
+      .filter((reference) => reference.sourceType === 'expression'))
+      .toEqual([
+        expect.objectContaining({ sourceNodeId: baseStyle.id, targetNodeId: baseParameter.id }),
+        expect.objectContaining({ sourceNodeId: derivedStyle.id, targetNodeId: baseParameter.id }),
+      ])
+    expect(ReferenceGraph.build(root, otherParameter.id).references
+      .filter((reference) => reference.sourceType === 'expression'))
+      .toEqual([
+        expect.objectContaining({ sourceNodeId: otherStyle.id, targetNodeId: otherParameter.id }),
+      ])
+  })
+
+  it('resolves $props references only within the owning Component', () => {
+    const firstProp = node(4, {
+      kind: 'value-prop',
+      propId: 'first-name-prop',
+      id: 'name',
+      valueType: { type: 'string' },
+      nullable: false,
+    })
+    const firstExpression = node(5, {
+      kind: 'if',
+      condition: '$props.name.length > 0',
+    })
+    const secondProp = node(8, {
+      kind: 'value-prop',
+      propId: 'second-name-prop',
+      id: 'name',
+      valueType: { type: 'string' },
+      nullable: false,
+    })
+    const secondExpression = node(9, {
+      kind: 'if',
+      condition: '$props.name.length > 1',
+    })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'component', componentId: 'first-component', id: 'First' }, [
+        node(3, { kind: 'props' }, [firstProp]),
+        firstExpression,
+      ]),
+      node(6, { kind: 'component', componentId: 'second-component', id: 'Second' }, [
+        node(7, { kind: 'props' }, [secondProp]),
+        secondExpression,
+      ]),
+    ])
+
+    expect(ReferenceGraph.build(root, firstProp.id).references).toEqual([{
+      sourceNodeId: firstExpression.id,
+      sourceLabel: 'if#condition',
+      targetNodeId: firstProp.id,
+      targetLabel: 'value-prop.name',
+      sourceType: 'expression',
+    }])
+    expect(ReferenceGraph.build(root, secondProp.id).references).toEqual([{
+      sourceNodeId: secondExpression.id,
+      sourceLabel: 'if#condition',
+      targetNodeId: secondProp.id,
+      targetLabel: 'value-prop.name',
+      sourceType: 'expression',
+    }])
+  })
 })

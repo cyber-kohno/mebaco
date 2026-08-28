@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import StyleParamTreeLabel from './StyleParamTreeLabel.svelte'
+import StyleParameterDeletion from './style-parameter-deletion'
 
 namespace StyleParamElement {
   export type Kind = 'style-param'
@@ -142,6 +143,14 @@ namespace StyleParamElement {
             createSchema({ reservedNames }),
           )
         }),
+        action('Delete', () => {
+          StyleParameterDeletion.request(
+            context.rootNode,
+            context.node,
+            [context.node],
+            `Style Parameter '${context.element.id}'`,
+          )
+        }, 'danger'),
       ]
     },
     childSlots: [],

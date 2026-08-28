@@ -3,6 +3,8 @@ import type MebacoElement from '../element/element'
 import ElementRegistry from '../element/element-registry'
 import TreeNode from '../tree/tree-node'
 import TreeReorder from '../tree/tree-reorder'
+import ComponentPropBindingSync from '../element/kind/component/shared/component-prop-binding-sync'
+import StyleParameterBindingSync from '../element/kind/view/style-parameter-binding-sync'
 
 namespace TreeStore {
   export type LifecycleEvent =
@@ -170,6 +172,11 @@ namespace TreeStore {
           nextRoot,
           createNode,
         )
+        if (addedNode.element.kind === 'value-prop') {
+          ComponentPropBindingSync.add(nextRoot, addedNode.id, addedNode.element)
+        } else if (addedNode.element.kind === 'style-param') {
+          StyleParameterBindingSync.add(nextRoot, addedNode.id, addedNode.element)
+        }
       }
       return nextRoot
     })
@@ -199,9 +206,15 @@ namespace TreeStore {
     nodeId: number,
     element: MebacoElement.Element,
   ): TreeNode.Node => {
+    const previousElement = TreeNode.findNode(root, nodeId)?.element
     const nextRoot = TreeNode.clone(root)
     if (!updateElementRec(nextRoot, nodeId, element, nextRoot)) {
       throw new Error(`node-${nodeId} was not found.`)
+    }
+    if (previousElement?.kind === 'value-prop' && element.kind === 'value-prop') {
+      ComponentPropBindingSync.update(nextRoot, nodeId, previousElement, element)
+    } else if (previousElement?.kind === 'style-param' && element.kind === 'style-param') {
+      StyleParameterBindingSync.update(nextRoot, nodeId, previousElement, element)
     }
     return nextRoot
   }
@@ -222,6 +235,24 @@ namespace TreeStore {
 
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
+      const removedNode = TreeNode.findNode(nextRoot, nodeId)
+      const removedElement = removedNode?.element
+      if (removedElement?.kind === 'value-prop') {
+        ComponentPropBindingSync.remove(nextRoot, nodeId, removedElement.propId)
+      }
+      if (removedNode != null) {
+        const parameterIds: string[] = []
+        const collectParameterIds = (node: TreeNode.Node) => {
+          if (node.element.kind === 'style-param') {
+            parameterIds.push(node.element.parameterId)
+          }
+          node.children.forEach(collectParameterIds)
+        }
+        collectParameterIds(removedNode)
+        if (parameterIds.length > 0) {
+          StyleParameterBindingSync.remove(nextRoot, parameterIds)
+        }
+      }
       parentNodeId = removeNodeRec(nextRoot, nodeId)
       return nextRoot
     })

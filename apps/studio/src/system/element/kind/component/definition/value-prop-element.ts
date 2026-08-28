@@ -7,6 +7,8 @@ import TypeExpression from '../../type/type-expression'
 import TypedDefaultValueSchema from '../../shared/typed-default-value-schema'
 import ValuePropTreeLabel from './ValuePropTreeLabel.svelte'
 import TreeStore from '../../../../store/tree-store'
+import ElementDeletionController from '../../../deletion/element-deletion-controller'
+import TreeNode from '../../../../tree/tree-node'
 
 namespace ValuePropElement {
   export type Kind = 'value-prop'
@@ -51,6 +53,11 @@ namespace ValuePropElement {
     ),
   }, options)
 
+  const isComponentProp = (
+    rootNode: TreeNode.Node,
+    nodeId: number,
+  ): boolean => TreeNode.findPath(rootNode, nodeId)?.at(-3)?.element.kind === 'component'
+
   export const definition = {
     kind: 'value-prop',
     treeLabel: {
@@ -81,7 +88,22 @@ namespace ValuePropElement {
             createSchema({ reservedNames, referenceOptions, namedTypeOptions }),
           )
         }),
-        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+        action('Delete', () => {
+          if (!isComponentProp(context.rootNode, context.node.id)) {
+            TreeStore.removeNode(context.node.id)
+            return
+          }
+          void ElementDeletionController.requestDelete({
+            rootNode: context.rootNode,
+            node: context.node,
+            policy: {
+              label: `Prop '${context.element.id}'`,
+              structuralReferences: 'ignore',
+              expressionReferences: 'confirm',
+            },
+            deleteNode: () => TreeStore.removeNode(context.node.id),
+          })
+        }, 'danger'),
       ]
     },
     childSlots: [],

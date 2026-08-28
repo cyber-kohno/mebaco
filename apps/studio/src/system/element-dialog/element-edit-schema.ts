@@ -9,6 +9,7 @@ import SignatureDefinition from '../element/kind/type/signature-definition'
 import type ComponentReference from '../element/kind/component/shared/component-reference'
 import SwitchValueType from '../element/kind/directive/switch-value-type'
 import ValueTypeDefinition from '../element/kind/type/value-type-definition'
+import StyleParameterValue from '../element/kind/view/style-parameter-value'
 
 namespace ElementEditSchema {
   export type TextCharset = 'identifier' | 'pascalIdentifier' | 'jsIdentifier' | 'any'
@@ -377,8 +378,9 @@ namespace ElementEditSchema {
 
     switch (values[field.valueTypeKey]) {
       case 'string':
-      case 'color':
         return null
+      case 'color':
+        return StyleParameterValue.validateColor(value)
       case 'number':
         return value.length > 0 && Number.isFinite(Number(value))
           ? null

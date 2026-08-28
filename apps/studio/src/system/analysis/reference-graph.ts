@@ -2,6 +2,7 @@ import TypeScript from 'typescript'
 import type MebacoElement from '../element/element'
 import type TreeNode from '../tree/tree-node'
 import DefinitionCatalog from '../element/definition-catalog'
+import StyleParameterCatalog from '../element/kind/view/style-parameter-catalog'
 
 namespace ReferenceGraph {
   export type ReferenceSourceType = 'structural' | 'expression'
@@ -35,7 +36,15 @@ namespace ReferenceGraph {
     definitionAliases: ReadonlySet<string>
     canBeReferenced: boolean
     isLoopAlias: boolean
+    propsScope: string | null
   }
+
+  type PropsScopes = {
+    sources: ReadonlyMap<number, string>
+    targets: ReadonlyMap<number, string>
+  }
+
+  type StyleParameterScopes = ReadonlyMap<number, ReadonlySet<number>>
 
   type ReferenceKind =
     | 'app'
@@ -133,8 +142,83 @@ namespace ReferenceGraph {
     alias?: string,
   ): string => `${element.kind}.${getElementId(element) ?? alias ?? '?'}`
 
+  const createPropsScopes = (
+    rootNode: TreeNode.Node,
+  ): PropsScopes => {
+    const sources = new Map<number, string>()
+    const targets = new Map<number, string>()
+
+    const visit = (
+      node: TreeNode.Node,
+      componentScope: string | null,
+      slotScope: string | null,
+      parentNode: TreeNode.Node | null,
+      grandparentNode: TreeNode.Node | null,
+    ) => {
+      const nextComponentScope = node.element.kind === 'component'
+        ? `component:${node.id}`
+        : componentScope
+      const nextSlotScope = node.element.kind === 'component'
+        ? null
+        : node.element.kind === 'slot-content'
+          ? `slot:${node.element.slotId}`
+          : slotScope
+      const sourceScope = nextSlotScope ?? nextComponentScope
+      if (sourceScope != null) sources.set(node.id, sourceScope)
+
+      if (node.element.kind === 'value-prop' && parentNode?.element.kind === 'props') {
+        if (grandparentNode?.element.kind === 'component') {
+          targets.set(node.id, `component:${grandparentNode.id}`)
+        } else if (grandparentNode?.element.kind === 'slot') {
+          targets.set(node.id, `slot:${grandparentNode.element.slotId}`)
+        }
+      }
+
+      node.children.forEach((child) => visit(
+        child,
+        nextComponentScope,
+        nextSlotScope,
+        node,
+        parentNode,
+      ))
+    }
+    visit(rootNode, null, null, null, null)
+    return { sources, targets }
+  }
+
+  const createStyleParameterScopes = (
+    rootNode: TreeNode.Node,
+  ): StyleParameterScopes => {
+    const targetNodeIds = new Map<string, number>()
+    const collectTargets = (node: TreeNode.Node) => {
+      if (node.element.kind === 'style-param') {
+        targetNodeIds.set(node.element.parameterId, node.id)
+      }
+      node.children.forEach(collectTargets)
+    }
+    collectTargets(rootNode)
+
+    const catalog = StyleParameterCatalog.createCatalog(rootNode)
+    const sources = new Map<number, ReadonlySet<number>>()
+    const visit = (
+      node: TreeNode.Node,
+      inheritedTargets: ReadonlySet<number>,
+    ) => {
+      const visibleTargets = node.element.kind === 'style'
+        ? new Set(catalog.resolve(node.element.styleId).parameters
+            .map((parameter) => targetNodeIds.get(parameter.parameterId))
+            .filter((nodeId): nodeId is number => nodeId != null))
+        : inheritedTargets
+      sources.set(node.id, visibleTargets)
+      node.children.forEach((child) => visit(child, visibleTargets))
+    }
+    visit(rootNode, new Set())
+    return sources
+  }
+
   const collectTargets = (
     node: TreeNode.Node,
+    propsScopes: PropsScopes,
     result: Target[] = [],
   ): Target[] => {
     const element = node.element
@@ -164,6 +248,7 @@ namespace ReferenceGraph {
           definitionAliases: new Set(),
           canBeReferenced: false,
           isLoopAlias: true,
+          propsScope: null,
         })
       })
     } else if (nameAliases.size > 0 || definitionAliases.size > 0) {
@@ -176,10 +261,11 @@ namespace ReferenceGraph {
         definitionAliases,
         canBeReferenced: true,
         isLoopAlias: false,
+        propsScope: propsScopes.targets.get(node.id) ?? null,
       })
     }
 
-    node.children.forEach((child) => collectTargets(child, result))
+    node.children.forEach((child) => collectTargets(child, propsScopes, result))
     return result
   }
 
@@ -275,6 +361,8 @@ namespace ReferenceGraph {
     sourceLabel: string,
     targets: readonly Target[],
     visibleLoopTargets: readonly Target[],
+    propsScope: string | null,
+    styleParameterTargetIds: ReadonlySet<number>,
     references: Map<string, Reference>,
     dependencies: Map<string, Dependency>,
   ) => {
@@ -290,7 +378,21 @@ namespace ReferenceGraph {
     const resolveExpression = (root: string, property: string) => {
       const kinds = expressionRoots[root]
       if (kinds == null) return
-      getCandidates(targets, property, kinds, visibleLoopTargets, 'name')
+      const candidates = root === '$props'
+        ? targets.filter((target) => (
+            target.kind === 'value-prop'
+            && target.propsScope != null
+            && target.propsScope === propsScope
+            && target.nameAliases.has(property)
+          ))
+        : root === '$param'
+          ? targets.filter((target) => (
+              target.kind === 'style-param'
+              && styleParameterTargetIds.has(target.nodeId)
+              && target.nameAliases.has(property)
+            ))
+        : getCandidates(targets, property, kinds, visibleLoopTargets, 'name')
+      candidates
         .forEach((target) => addReference(
           references,
           dependencies,
@@ -347,6 +449,8 @@ namespace ReferenceGraph {
     sourceNode: TreeNode.Node,
     targets: readonly Target[],
     visibleLoopTargets: readonly Target[],
+    propsScope: string | null,
+    styleParameterTargetIds: ReadonlySet<number>,
     references: Map<string, Reference>,
     dependencies: Map<string, Dependency>,
     visited: Set<unknown>,
@@ -356,7 +460,18 @@ namespace ReferenceGraph {
       const key = path[path.length - 1] ?? ''
       const parsed = jsonFields.has(key) ? parseJson(value) : null
       if (parsed != null) {
-        collectValue(parsed, path, sourceNode, targets, visibleLoopTargets, references, dependencies, visited)
+        collectValue(
+          parsed,
+          path,
+          sourceNode,
+          targets,
+          visibleLoopTargets,
+          propsScope,
+          styleParameterTargetIds,
+          references,
+          dependencies,
+          visited,
+        )
       } else if (expressionFields.has(key)) {
         analyzeExpression(
           value,
@@ -364,6 +479,8 @@ namespace ReferenceGraph {
           getExpressionFieldName(sourceNode.element, path),
           targets,
           visibleLoopTargets,
+          propsScope,
+          styleParameterTargetIds,
           references,
           dependencies,
         )
@@ -380,6 +497,8 @@ namespace ReferenceGraph {
         sourceNode,
         targets,
         visibleLoopTargets,
+        propsScope,
+        styleParameterTargetIds,
         references,
         dependencies,
         visited,
@@ -396,6 +515,8 @@ namespace ReferenceGraph {
         getExpressionFieldName(sourceNode.element, path),
         targets,
         visibleLoopTargets,
+        propsScope,
+        styleParameterTargetIds,
         references,
         dependencies,
       )
@@ -432,6 +553,8 @@ namespace ReferenceGraph {
         sourceNode,
         targets,
         visibleLoopTargets,
+        propsScope,
+        styleParameterTargetIds,
         references,
         dependencies,
         visited,
@@ -474,7 +597,9 @@ namespace ReferenceGraph {
     rootNode: TreeNode.Node,
     selectedNodeId: number,
   ): Result => {
-    const targets = collectTargets(rootNode)
+    const propsScopes = createPropsScopes(rootNode)
+    const styleParameterScopes = createStyleParameterScopes(rootNode)
+    const targets = collectTargets(rootNode, propsScopes)
     const references = new Map<string, Reference>()
     const dependencies = new Map<string, Dependency>()
     const selectedNode = findNode(rootNode, selectedNodeId)
@@ -500,6 +625,8 @@ namespace ReferenceGraph {
         node,
         targets,
         visibleLoopTargets,
+        propsScopes.sources.get(node.id) ?? null,
+        styleParameterScopes.get(node.id) ?? new Set(),
         references,
         dependencies,
         new Set(),

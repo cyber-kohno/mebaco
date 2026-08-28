@@ -10,6 +10,7 @@
   import FormulaModeToggle from '../../../ui/formula/FormulaModeToggle.svelte'
   import StyleElement from './style-element'
   import type StyleParameterCatalog from './style-parameter-catalog'
+  import StyleParameterValue from './style-parameter-value'
 
   type Props = {
     value: string
@@ -130,7 +131,7 @@
       binding: usage === 'inheritance'
         ? { type: 'delegate' }
         : parameter.defaultValue === undefined
-          ? { type: 'value', value: { type: 'literal', value: '' } }
+          ? { type: 'value', value: createLiteral(parameter.valueType) }
           : { type: 'default' },
     }
   )
@@ -143,7 +144,7 @@
     return getResolution(styleId).parameters.map((parameter) => ({
       parameterId: parameter.parameterId,
       binding: parameter.defaultValue === undefined
-        ? { type: 'value', value: { type: 'literal', value: '' } }
+        ? { type: 'value', value: createLiteral(parameter.valueType) }
         : { type: 'default' },
     }))
   }
@@ -171,23 +172,15 @@
 
   const createLiteral = (
     valueType: StyleParameterCatalog.Parameter['valueType'],
-  ): StyleElement.ParameterValue => {
-    switch (valueType) {
-      case 'number':
-        return { type: 'literal', value: 0 }
-      case 'boolean':
-        return { type: 'literal', value: false }
-      case 'color':
-      case 'string':
-        return { type: 'literal', value: '' }
-    }
-  }
+  ): StyleElement.ParameterValue => ({
+    type: 'literal',
+    value: StyleParameterValue.createTypeDefault(valueType),
+  })
 
   const getFormulaExpectedType = (
     valueType: StyleParameterCatalog.Parameter['valueType'],
-  ): 'string' | 'number' | 'boolean' => (
-    valueType === 'color' ? 'string' : valueType
-  )
+  ): 'string' | 'number' | 'boolean' => StyleParameterValue
+    .getFormulaExpectedType(valueType)
 
   const updateBinding = (
     base: StyleElement.Base,

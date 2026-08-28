@@ -63,6 +63,23 @@ describe('ElementEditSchema number field', () => {
   })
 })
 
+describe('ElementEditSchema Style Parameter literal', () => {
+  const literalField: ElementEditSchema.LiteralField = {
+    type: 'literal',
+    key: 'defaultValue',
+    label: 'Default Value',
+    valueTypeKey: 'valueType',
+    enabledWhen: { key: 'hasDefaultValue', value: 'true' },
+  }
+
+  it('rejects an empty Color and accepts the Color type default', () => {
+    const values = { valueType: 'color', hasDefaultValue: 'true' }
+    expect(ElementEditSchema.validateLiteral(literalField, '', values))
+      .toBe('Enter a valid color.')
+    expect(ElementEditSchema.validateLiteral(literalField, '#000', values)).toBeNull()
+  })
+})
+
 describe('ElementEditSchema formula field', () => {
   const injectionSource = 'declare var $state: { count: number; title: string; users: { name: string }[]; };'
 

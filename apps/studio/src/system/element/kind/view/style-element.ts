@@ -7,6 +7,8 @@ import StyleParamsElement from './style-params-element'
 import TreeStore from '../../../store/tree-store'
 import type TreeNode from '../../../tree/tree-node'
 import StyleParameterCatalog from './style-parameter-catalog'
+import ElementDeletionController from '../../deletion/element-deletion-controller'
+import StyleParameterDeletion from './style-parameter-deletion'
 
 namespace StyleElement {
   export type Kind = 'style'
@@ -419,7 +421,12 @@ namespace StyleElement {
             TreeStore.addChild(context.node.id, StyleParamsElement.create())
           })
         : action('Remove parameters', () => {
-            TreeStore.removeNode(paramsNode.id)
+            StyleParameterDeletion.request(
+              context.rootNode,
+              paramsNode,
+              paramsNode.children.filter((node) => node.element.kind === 'style-param'),
+              'Style Parameters',
+            )
           })
 
       return [
@@ -436,7 +443,17 @@ namespace StyleElement {
           )
         }),
         parameterAction,
-        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+        action('Delete', () => {
+          void ElementDeletionController.requestDelete({
+            rootNode: context.rootNode,
+            node: context.node,
+            policy: {
+              label: 'Style',
+              structuralReferences: 'block',
+            },
+            deleteNode: () => TreeStore.removeNode(context.node.id),
+          })
+        }, 'danger'),
       ]
     },
     childSlots: [],
