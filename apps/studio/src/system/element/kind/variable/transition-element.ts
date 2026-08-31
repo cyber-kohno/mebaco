@@ -7,6 +7,7 @@ import type TreeNode from '../../../tree/tree-node'
 import ComponentReference from '../component/shared/component-reference'
 import LauncherElement from '../project/launcher-element'
 import TransitionTreeLabel from './TransitionTreeLabel.svelte'
+import TransitionImportCatalog from '../app/import/transition-import-catalog'
 
 namespace TransitionElement {
   export type Kind = 'transition'
@@ -24,8 +25,14 @@ namespace TransitionElement {
 
   export const createSchema = (
     rootNode: TreeNode.Node,
+    targetNodeId: number,
   ): ElementEditSchema.Schema<Element> => {
-    const options = LauncherElement.getAppOptions(rootNode)
+    const ownerApp = TransitionImportCatalog.findOwnerApp(rootNode, targetNodeId)
+    const options = ownerApp == null
+      ? []
+      : TransitionImportCatalog.getImportedApps(rootNode, ownerApp)
+          .map(LauncherElement.getAppOption)
+          .filter((option): option is ComponentReference.Option => option != null)
     const parse = (values: Readonly<Record<string, string>>): ComponentReference.Binding[] => (
       ComponentReference.normalizeBindings(
         ComponentReference.parseBindings(values.argumentBindings) ?? [],
@@ -86,7 +93,7 @@ namespace TransitionElement {
           ElementDialog.openUpdate(
             context.node.id,
             context.element,
-            createSchema(context.rootNode),
+            createSchema(context.rootNode, context.node.id),
           )
         }),
         action(

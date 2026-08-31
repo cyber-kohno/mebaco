@@ -180,6 +180,25 @@ describe('ReferenceGraph', () => {
     }])
   })
 
+  it('collects App references from imported Transitions', () => {
+    const targetApp = node(2, { kind: 'app', appId: 'target-app-id', id: 'target' })
+    const imports = node(6, { kind: 'transitions', appIds: ['target-app-id'] })
+    const sourceApp = node(3, { kind: 'app', appId: 'source-app-id', id: 'source' }, [
+      node(4, { kind: 'launch-options' }, [
+        node(5, { kind: 'imports' }, [imports]),
+      ]),
+    ])
+    const root = node(1, { kind: 'project' }, [sourceApp, targetApp])
+
+    expect(ReferenceGraph.build(root, targetApp.id).references).toContainEqual({
+      sourceNodeId: imports.id,
+      sourceLabel: 'transitions#App',
+      targetNodeId: targetApp.id,
+      targetLabel: 'app.target',
+      sourceType: 'structural',
+    })
+  })
+
   it('collects direct transition argument object keys for the target App', () => {
     const argument = node(5, {
       kind: 'launch-argument', propId: 'user-id-prop', id: 'userId',

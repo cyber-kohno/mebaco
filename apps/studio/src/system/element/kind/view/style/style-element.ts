@@ -450,12 +450,11 @@ namespace StyleElement {
 
       const localsAction = localsNode == null
         ? action('Use locals', () => {
-            const localsNodeId = TreeStore.addChildAndGetId(
+            TreeStore.addChild(
               context.node.id,
               StyleLocalsElement.create(),
               getContainerInsertIndex(context.node, 'style-locals'),
             )
-            StyleLocalsElement.openVariableCreate(localsNodeId)
           })
         : action('Remove locals', () => {
             StyleLocalsElement.requestDelete(context.rootNode, localsNode)

@@ -17,6 +17,7 @@ namespace ReferenceLanguage {
 
   export const structuralFields: Readonly<Record<string, readonly Kind[]>> = {
     appId: ['app'],
+    appIds: ['app'],
     componentId: ['component'],
     functionId: ['function'],
     propId: ['launch-argument', 'value-prop'],

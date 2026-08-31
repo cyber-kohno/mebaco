@@ -225,7 +225,7 @@ namespace FunctionRunner {
         )
         if (promiseFailure != null) return promiseFailure
       } else if (child.element.kind === 'transition') {
-        const executed = TransitionExecutor.execute(child.element, context, projectNode)
+        const executed = TransitionExecutor.execute(child.id, child.element, context, projectNode)
         if (!executed.ok) return failure(child.id, executed.error)
       } else if (child.element.kind === 'variable') {
         const policyError = ScriptPolicy.validate(child.element.source, {
@@ -306,7 +306,7 @@ namespace FunctionRunner {
         )
         if (promiseFailure != null) return promiseFailure
       } else if (child.element.kind === 'transition') {
-        const executed = TransitionExecutor.execute(child.element, context, projectNode)
+        const executed = TransitionExecutor.execute(child.id, child.element, context, projectNode)
         if (!executed.ok) return failure(child.id, executed.error)
       } else if (child.element.kind === 'variable') {
         const policyError = ScriptPolicy.validate(child.element.source, {

@@ -285,6 +285,14 @@ namespace ElementEditSchema {
     caseValues?: readonly SwitchValueType.Literal[]
   } & FieldBase
 
+  export type TransitionImportsField = {
+    type: 'transitionImports'
+    key: string
+    label: string
+    defaultValue?: string
+    options: readonly SelectOption[]
+  } & FieldBase
+
   export type CodeField = {
     type: 'code'
     key: string
@@ -314,6 +322,7 @@ namespace ElementEditSchema {
     | StylePropsField
     | StyleApplicationsField
     | StyleBasesField
+    | TransitionImportsField
     | StyleMonitorField
     | TagStyleMonitorField
     | TagAttributesField

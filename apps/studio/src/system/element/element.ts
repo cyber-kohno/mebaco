@@ -3,6 +3,8 @@ import EntryElement from './kind/app/entry-element'
 import LaunchOptionsElement from './kind/app/launch/launch-options-element'
 import LaunchArgumentsElement from './kind/app/launch/launch-arguments-element'
 import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
+import ImportsElement from './kind/app/import/imports-element'
+import TransitionsElement from './kind/app/import/transitions-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -66,6 +68,8 @@ namespace MebacoElement {
     | LaunchOptionsElement.Kind
     | LaunchArgumentsElement.Kind
     | LaunchArgumentElement.Kind
+    | ImportsElement.Kind
+    | TransitionsElement.Kind
     | LauncherElement.Kind
     | ComponentElement.Kind
     | ComponentUseElement.Kind
@@ -126,6 +130,8 @@ namespace MebacoElement {
     | LaunchOptionsElement.Element
     | LaunchArgumentsElement.Element
     | LaunchArgumentElement.Element
+    | ImportsElement.Element
+    | TransitionsElement.Element
     | LauncherElement.Element
     | ComponentElement.Element
     | ComponentUseElement.Element

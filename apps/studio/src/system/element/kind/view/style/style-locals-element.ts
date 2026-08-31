@@ -1,4 +1,3 @@
-import { get } from 'svelte/store'
 import type ElementDefinition from '../../../element-definition'
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
@@ -28,17 +27,6 @@ namespace StyleLocalsElement {
     referenceOptions: TypeCatalog.getReferenceOptions(rootNode, scopeNodeId),
     namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, scopeNodeId),
   })
-
-  export const openVariableCreate = (
-    localsNodeId: number,
-    reservedNames: readonly string[] = [],
-  ) => {
-    const rootNode = get(TreeStore.rootNode)
-    ElementDialog.openCreate(
-      localsNodeId,
-      createVariableSchema(rootNode, localsNodeId, reservedNames),
-    )
-  }
 
   export const requestDelete = (
     rootNode: Parameters<typeof ElementDeletionController.requestDelete>[0]['rootNode'],

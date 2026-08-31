@@ -17,25 +17,37 @@ describe('TransitionNamespace', () => {
   it('creates camelCase accessors for peer Apps and requests by UUID', () => {
     const request = vi.fn()
     const project = node(1, { kind: 'project' }, [
-      node(2, { kind: 'app', appId: 'main-uuid', id: 'main-app' }),
+      node(2, { kind: 'app', appId: 'main-uuid', id: 'main-app' }, [
+        node(4, { kind: 'launch-options' }, [
+          node(5, { kind: 'imports' }, [
+            node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
+          ]),
+        ]),
+      ]),
       node(3, { kind: 'app', appId: 'target-uuid', id: 'user-settings' }),
     ])
 
-    const namespace = TransitionNamespace.create(project, request)
+    const namespace = TransitionNamespace.create(project, project.children[0], request)
     namespace.userSettings?.({ tab: 'profile' })
 
-    expect(Object.keys(namespace)).toEqual(['mainApp', 'userSettings'])
+    expect(Object.keys(namespace)).toEqual(['userSettings'])
     expect(request).toHaveBeenCalledWith('target-uuid', { tab: 'profile' })
   })
 
   it('uses an empty launch value object when the argument is omitted', () => {
     const request = vi.fn()
     const project = node(1, { kind: 'project' }, [
-      node(2, { kind: 'app', appId: 'main-uuid', id: 'main' }),
+      node(2, { kind: 'app', appId: 'main-uuid', id: 'main' }, [
+        node(4, { kind: 'launch-options' }, [
+          node(5, { kind: 'imports' }, [
+            node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
+          ]),
+        ]),
+      ]),
       node(3, { kind: 'app', appId: 'target-uuid', id: 'target' }),
     ])
 
-    TransitionNamespace.create(project, request).target?.()
+    TransitionNamespace.create(project, project.children[0], request).target?.()
 
     expect(request).toHaveBeenCalledWith('target-uuid', {})
   })

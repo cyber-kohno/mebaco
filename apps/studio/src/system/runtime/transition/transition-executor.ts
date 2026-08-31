@@ -4,6 +4,7 @@ import type TreeNode from '../../tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import RuntimeLaunch from '../runtime-launch'
 import ScriptError from '../script/script-error'
+import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
 
 namespace TransitionExecutor {
   export type Result =
@@ -25,6 +26,7 @@ namespace TransitionExecutor {
   }
 
   export const execute = (
+    transitionNodeId: number,
     element: TransitionElement.Element,
     context: FormulaContext.Value,
     projectNode: TreeNode.Node,
@@ -33,6 +35,20 @@ namespace TransitionExecutor {
       return {
         ok: false,
         error: ScriptError.create('runtime', 'Transition target App is not configured.'),
+      }
+    }
+
+    const ownerApp = TransitionImportCatalog.findOwnerApp(projectNode, transitionNodeId)
+    if (
+      ownerApp == null
+      || !TransitionImportCatalog.canTransition(projectNode, ownerApp, element.appId)
+    ) {
+      return {
+        ok: false,
+        error: ScriptError.create(
+          'runtime',
+          `Transition target App '${element.appId}' is not imported by the current App.`,
+        ),
       }
     }
 

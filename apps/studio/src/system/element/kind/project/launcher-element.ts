@@ -17,7 +17,7 @@ namespace LauncherElement {
   const apps = (node: TreeNode.Node): TreeNode.Node[] => [
     ...(node.element.kind === 'app' ? [node] : []), ...node.children.flatMap(apps),
   ]
-  const getAppOption = (node: TreeNode.Node): ComponentReference.Option | null => {
+  export const getAppOption = (node: TreeNode.Node): ComponentReference.Option | null => {
     if (node.element.kind !== 'app') return null
     const argsNode = node.children.find((child) => child.element.kind === 'launch-options')?.children.find((child) => child.element.kind === 'launch-arguments')
     const props = (argsNode?.children ?? [])

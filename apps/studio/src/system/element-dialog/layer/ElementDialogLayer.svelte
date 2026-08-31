@@ -2,6 +2,7 @@
   import TreeStore from '../../store/tree-store'
   import StylePropsEditor from '../../element/kind/view/style/StylePropsEditor.svelte'
   import StyleBasesEditor from '../../element/kind/view/style/StyleBasesEditor.svelte'
+  import TransitionImportsEditor from '../../element/kind/app/import/TransitionImportsEditor.svelte'
   import StyleMonitorEditor from '../../runtime/style/StyleMonitorEditor.svelte'
   import TagStyleMonitorEditor from '../../runtime/style/TagStyleMonitorEditor.svelte'
   import TagAttributesEditor from '../../element/kind/view/tag/TagAttributesEditor.svelte'
@@ -143,6 +144,7 @@
         return ElementEditSchema.validateStyleBases(field, value)
       case 'styleMonitor':
       case 'tagStyleMonitor':
+      case 'transitionImports':
         return null
       case 'tagAttributes':
         return ElementEditSchema.validateTagAttributes(value)
@@ -327,6 +329,7 @@
     class="dialog"
     class:wide-dialog={$elementDialogStore.schema.fields.some((field) => (
       field.type === 'objectShape' || field.type === 'signatureDefinition'
+      || field.type === 'transitionImports'
     ))}
     aria-label={title}
   >
@@ -347,6 +350,7 @@
         || field.type === 'tagStyleMonitor'
         || field.type === 'objectShape'
         || field.type === 'signatureDefinition'
+        || field.type === 'transitionImports'
       ))}
     >
       <h2>{title}</h2>
@@ -602,6 +606,18 @@
               value={values[field.key] ?? ''}
               injectionSource={getInjectionSource('action')}
               allowAwait={getAllowAwait(field)}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'transitionImports'}
+          <div class="field contained-editor-field">
+            <span class="field-label">{field.label}</span>
+            <TransitionImportsEditor
+              value={values[field.key] ?? '[]'}
+              options={field.options}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

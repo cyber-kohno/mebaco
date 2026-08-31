@@ -284,6 +284,7 @@ namespace ReferenceGraph {
       (element.kind === 'launcher' || element.kind === 'transition')
       && key === 'argumentBindings'
     ) return 'argument'
+    if (element.kind === 'transitions' && key === 'appIds') return 'App'
     return key.replace(/Source$/, '') || 'expression'
   }
 

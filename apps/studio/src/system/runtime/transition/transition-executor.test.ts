@@ -28,7 +28,16 @@ describe('TransitionExecutor', () => {
         ]),
       ]),
     ])
-    const project = node({ kind: 'project' }, [target])
+    const transitionNode = node({ kind: 'transition-placeholder' })
+    const source = node({ kind: 'app', appId: 'source-app-id', id: 'Source' }, [
+      node({ kind: 'launch-options' }, [
+        node({ kind: 'imports' }, [
+          node({ kind: 'transitions', appIds: ['target-app-id'] }),
+        ]),
+      ]),
+      transitionNode,
+    ])
+    const project = node({ kind: 'project' }, [source, target])
     const element = {
       kind: 'transition',
       appId: 'target-app-id',
@@ -39,6 +48,7 @@ describe('TransitionExecutor', () => {
       }],
     } as TransitionElement.Element
     const result = TransitionExecutor.execute(
+      transitionNode.id,
       element,
       FormulaContext.create({
         $state: { count: 2 },
@@ -49,5 +59,28 @@ describe('TransitionExecutor', () => {
 
     expect(result).toEqual({ ok: true })
     expect(request).toEqual({ appId: 'target-app-id', values: { count: 3 } })
+  })
+
+  it('rejects a target that is not imported by the current App', () => {
+    const transitionNode = node({ kind: 'transition-placeholder' })
+    const source = node({ kind: 'app', appId: 'source-app-id', id: 'Source' }, [
+      node({ kind: 'launch-options' }, [
+        node({ kind: 'imports' }, [
+          node({ kind: 'transitions', appIds: [] }),
+        ]),
+      ]),
+      transitionNode,
+    ])
+    const target = node({ kind: 'app', appId: 'target-app-id', id: 'Target' })
+    const project = node({ kind: 'project' }, [source, target])
+    const result = TransitionExecutor.execute(
+      transitionNode.id,
+      { kind: 'transition', appId: 'target-app-id', argumentBindings: [] },
+      FormulaContext.create(),
+      project,
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.message).toContain('is not imported')
   })
 })

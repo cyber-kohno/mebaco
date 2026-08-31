@@ -15,6 +15,7 @@ import type LaunchArgumentElement from '../../element/kind/app/launch/launch-arg
 import FunctionDefinition from '../../element/kind/function/function-definition'
 import AppId from '../../element/kind/app/app-id'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
+import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
 
 namespace MebacoInjectionSource {
   export type CreateOptions = {
@@ -102,15 +103,6 @@ namespace MebacoInjectionSource {
       ?? []
   }
 
-  const collectApps = (
-    node: TreeNode.Node,
-    result: TreeNode.Node[] = [],
-  ): TreeNode.Node[] => {
-    if (node.element.kind === 'app') result.push(node)
-    node.children.forEach((child) => collectApps(child, result))
-    return result
-  }
-
   const collectScopedStates = (
     targetNode: TreeNode.Node | null,
     rootNode: TreeNode.Node,
@@ -158,8 +150,9 @@ namespace MebacoInjectionSource {
     targetNodeId: number,
   ): string | null => {
     const ownerAppNode = findOwnerApp(rootNode, targetNodeId)
-    const targetApps = collectApps(rootNode)
-      .filter((appNode) => ownerAppNode == null || appNode.id !== ownerAppNode.id)
+    const targetApps = ownerAppNode == null
+      ? []
+      : TransitionImportCatalog.getImportedApps(rootNode, ownerAppNode)
     if (targetApps.length === 0) return null
 
     const accessors = new Set<string>()

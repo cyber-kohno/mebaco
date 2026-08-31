@@ -55,6 +55,7 @@
   })
   const runtimeTransition = $derived(TransitionNamespace.create(
     projectNode,
+    appNode,
     requestTransition,
   ))
 

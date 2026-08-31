@@ -154,7 +154,7 @@ namespace FunctionActions {
     const { action } = ActionMenu.createFactory()
     return action('Transition', () => ElementDialog.openCreate(
       parentNodeId,
-      TransitionElement.createSchema(rootNode),
+      TransitionElement.createSchema(rootNode, parentNodeId),
       insertIndex,
     ))
   }

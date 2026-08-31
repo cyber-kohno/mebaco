@@ -633,7 +633,14 @@ describe('MebacoInjectionSource Function scope', () => {
 
   it('injects typed transition accessors for other Apps in Actions only', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
-    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [target])
+    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [
+      node(4, { kind: 'launch-options' }, [
+        node(5, { kind: 'imports' }, [
+          node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
+        ]),
+      ]),
+      target,
+    ])
     const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'user-details' }, [
       node(21, { kind: 'launch-options' }, [
         node(22, { kind: 'launch-arguments' }, [
@@ -678,7 +685,14 @@ describe('MebacoInjectionSource Function scope', () => {
 
   it('makes defaulted and nullable transition arguments optional', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
-    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [target])
+    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [
+      node(4, { kind: 'launch-options' }, [
+        node(5, { kind: 'imports' }, [
+          node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
+        ]),
+      ]),
+      target,
+    ])
     const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'user-details' }, [
       node(21, { kind: 'launch-options' }, [
         node(22, { kind: 'launch-arguments' }, [

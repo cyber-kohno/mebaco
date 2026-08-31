@@ -5,6 +5,8 @@ import EntryElement from './kind/app/entry-element'
 import LaunchOptionsElement from './kind/app/launch/launch-options-element'
 import LaunchArgumentsElement from './kind/app/launch/launch-arguments-element'
 import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
+import ImportsElement from './kind/app/import/imports-element'
+import TransitionsElement from './kind/app/import/transitions-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -72,6 +74,8 @@ namespace ElementRegistry {
     'launch-options': LaunchOptionsElement.definition,
     'launch-arguments': LaunchArgumentsElement.definition,
     'launch-argument': LaunchArgumentElement.definition,
+    imports: ImportsElement.definition,
+    transitions: TransitionsElement.definition,
     launcher: LauncherElement.definition,
     component: ComponentElement.definition,
     'component-use': ComponentUseElement.definition,

@@ -70,6 +70,7 @@ namespace RetentionResolver {
 
         if (child.element.kind === 'transition') {
           const executed = TransitionExecutor.execute(
+            child.id,
             child.element,
             nextContext,
             projectNode,
