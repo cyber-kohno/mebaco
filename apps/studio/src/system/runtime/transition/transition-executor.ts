@@ -61,13 +61,7 @@ namespace TransitionExecutor {
     }
 
     try {
-      if (context.$system.transition == null) {
-        return {
-          ok: false,
-          error: ScriptError.create('runtime', '$system.transition() is not available in this runtime.'),
-        }
-      }
-      context.$system.transition(appNode.element.id, resolved.values)
+      context.requestTransition(appNode.element.appId, resolved.values)
     } catch (error) {
       return {
         ok: false,

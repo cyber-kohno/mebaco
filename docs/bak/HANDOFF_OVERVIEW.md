@@ -193,7 +193,7 @@ Front Driven では文字列置換のプレースホルダ方式でしたが、M
 
 - TypeScript 風の式を書ける。
 - 小さい入力欄から全画面 Monaco へ展開できる。
-- `$state`, `$param`, `$props`, `$args`, `$function`, `$system`, `$var`, `$event` などの注入スコープを使う。
+- `$state`, `$param`, `$props`, `$args`, `$fn`, `$system`, `$var`, `$event` などの注入スコープを使う。
 - Monaco 補完・型情報も注入する。
 - ランタイム評価は `system/runtime/formula` と `system/runtime/script` に分離する。
 - 設計支援や補完用の情報生成は UI 側、実行時評価は runtime 側に寄せる。

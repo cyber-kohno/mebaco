@@ -8,6 +8,8 @@ import VariableTreeLabel from './VariableTreeLabel.svelte'
 import ValueTypeDefinition from '../type/value-type-definition'
 import TreeStore from '../../../store/tree-store'
 import FunctionScope from '../function/function-scope'
+import ElementDeletionController from '../../deletion/element-deletion-controller'
+import StyleLocalScope from '../view/style/style-local-scope'
 
 namespace VariableElement {
   export type Kind = 'variable'
@@ -39,6 +41,7 @@ namespace VariableElement {
     reservedNames?: readonly string[]
     referenceOptions?: readonly TypeCatalog.Option[]
     namedTypeOptions?: readonly TypeCatalog.Option[]
+    allowMutable?: boolean
   }
 
   const createTypeSetting = (
@@ -64,9 +67,14 @@ namespace VariableElement {
         charset: 'jsIdentifier', minLength: 1, maxLength: 32,
         reservedNames: options.reservedNames,
       },
-      {
-        type: 'checkbox', key: 'mutable', label: 'Mutable', defaultValue: 'false',
-      },
+      ...(options.allowMutable === false
+        ? []
+        : [{
+            type: 'checkbox' as const,
+            key: 'mutable',
+            label: 'Mutable',
+            defaultValue: 'false' as const,
+          }]),
       {
         type: 'checkbox', key: 'explicitType', label: 'Specify Value Type',
         defaultValue: 'false',
@@ -87,9 +95,12 @@ namespace VariableElement {
           return ValueTypeDefinition.getTypeText(
             definition,
             (id) => (
-              options.referenceOptions?.find((option) => option.value === id)?.label
-              ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
-              ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
+              TypeCatalog.toTypeScriptName(
+                options.referenceOptions?.find((option) => option.value === id)?.label
+                ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
+                ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
+                ?? 'MissingType',
+              )
             ),
           )
         },
@@ -115,13 +126,13 @@ namespace VariableElement {
     },
     create: (values) => create(
       values.id,
-      values.mutable === 'true' ? 'let' : 'const',
+      options.allowMutable !== false && values.mutable === 'true' ? 'let' : 'const',
       createTypeSetting(values),
       values.source,
     ),
     update: (_element, values) => create(
       values.id,
-      values.mutable === 'true' ? 'let' : 'const',
+      options.allowMutable !== false && values.mutable === 'true' ? 'let' : 'const',
       createTypeSetting(values),
       values.source,
     ),
@@ -138,6 +149,10 @@ namespace VariableElement {
     treeLabel: { type: 'component', Component: VariableTreeLabel },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
+      const isStyleLocal = StyleLocalScope.isLocalVariable(
+        context.rootNode,
+        context.node.id,
+      )
       const frameNode = FunctionScope.findFrameNode(context.rootNode, context.node.id)
       const reservedNames = frameNode == null
         ? context.parentNode?.children.flatMap((child) => (
@@ -162,9 +177,21 @@ namespace VariableElement {
               context.rootNode,
               context.node.id,
             ),
+            allowMutable: !isStyleLocal,
           }),
         )),
-        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+        action('Delete', () => {
+          void ElementDeletionController.requestDelete({
+            rootNode: context.rootNode,
+            node: context.node,
+            policy: {
+              label: `Variable '${context.element.id}'`,
+              structuralReferences: 'ignore',
+              expressionReferences: 'confirm',
+            },
+            deleteNode: () => TreeStore.removeNode(context.node.id),
+          })
+        }, 'danger'),
       ]
     },
     childSlots: [],

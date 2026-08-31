@@ -1,7 +1,8 @@
 import type StateElement from '../../element/kind/variable/store/state-element'
+import StateScope from '../../element/kind/variable/store/state-scope'
 import type TreeNode from '../../tree/tree-node'
-import type StyleParamElement from '../../element/kind/view/style-param-element'
-import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
+import type StyleParamElement from '../../element/kind/view/style/style-param-element'
+import StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
 import MonacoInjection from './monaco-injection'
 import TypeCatalog from '../../element/kind/type/type-catalog'
 import TypeExpression from '../../element/kind/type/type-expression'
@@ -10,10 +11,18 @@ import ExpressionTypeInference from '../../element/kind/type/expression-type-inf
 import ContentHost from '../../element/content-host'
 import FunctionScope from '../../element/kind/function/function-scope'
 import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
-import type LaunchArgumentElement from '../../element/kind/app/launch-argument-element'
+import type LaunchArgumentElement from '../../element/kind/app/launch/launch-argument-element'
 import FunctionDefinition from '../../element/kind/function/function-definition'
+import AppId from '../../element/kind/app/app-id'
+import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
 
 namespace MebacoInjectionSource {
+  export type CreateOptions = {
+    includeTargetScope?: boolean
+    eventType?: string
+    includeObjectPropertyIdentityMarkers?: boolean
+  }
+
   const findNode = (
     node: TreeNode.Node,
     nodeId: number,
@@ -81,42 +90,6 @@ namespace MebacoInjectionSource {
     return null
   }
 
-  const findOwnerCommon = (
-    node: TreeNode.Node,
-    targetNodeId: number,
-    ownerCommonNode: TreeNode.Node | null = null,
-  ): TreeNode.Node | null => {
-    const nextOwnerCommonNode = node.element.kind === 'common'
-      ? node
-      : ownerCommonNode
-
-    if (node.id === targetNodeId) return nextOwnerCommonNode
-
-    for (const child of node.children) {
-      const found = findOwnerCommon(child, targetNodeId, nextOwnerCommonNode)
-      if (found != null) return found
-    }
-
-    return null
-  }
-
-  const getStatesFromStore = (
-    ownerNode: TreeNode.Node,
-  ): StateElement.Element[] => {
-    const storeNode = ownerNode.children.find((child) => child.element.kind === 'store')
-    const statesNode = storeNode?.children.find((child) => child.element.kind === 'states')
-    return statesNode?.children
-      .map((child) => child.element)
-      .filter((element): element is StateElement.Element => element.kind === 'state')
-      ?? []
-  }
-
-  const getDirectStates = (
-    ownerNode: TreeNode.Node,
-  ): StateElement.Element[] => ownerNode.children
-    .map((child) => child.element)
-    .filter((element): element is StateElement.Element => element.kind === 'state')
-
   const getLaunchArguments = (
     ownerAppNode: TreeNode.Node | null,
   ): LaunchArgumentElement.Element[] => {
@@ -141,32 +114,17 @@ namespace MebacoInjectionSource {
   const collectScopedStates = (
     targetNode: TreeNode.Node | null,
     rootNode: TreeNode.Node,
-  ): StateElement.Element[] => {
-    if (targetNode == null) return []
-
-    const ownerAppNode = findOwnerApp(rootNode, targetNode.id)
-    if (ownerAppNode == null) {
-      const ownerCommonNode = findOwnerCommon(rootNode, targetNode.id)
-      return ownerCommonNode == null ? getDirectStates(rootNode) : getStatesFromStore(ownerCommonNode)
-    }
-
-    const states = new Map<string, StateElement.Element>()
-    getStatesFromStore(ownerAppNode).forEach((state) => states.set(state.id, state))
-    const path = findPath(rootNode, targetNode.id) ?? []
-    path
-      .filter((node) => node.element.kind === 'component')
-      .forEach((componentNode) => {
-        getStatesFromStore(componentNode).forEach((state) => states.set(state.id, state))
-      })
-    return [...states.values()]
-  }
+  ): StateElement.Element[] => targetNode == null
+    ? []
+    : StateScope.collectVisible(rootNode, targetNode.id)
+        .map((entry) => entry.element)
 
   const getValueType = (
     state: Pick<StateElement.Element, 'valueType' | 'nullable'>,
     rootNode: TreeNode.Node,
   ): string => `${TypeExpression.getTypeText(
     state.valueType,
-    (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+    (typeId) => TypeCatalog.resolveTypeScriptName(rootNode, typeId),
   )}${state.nullable ? ' | null' : ''}`
 
   const createStateDeclaration = (
@@ -204,21 +162,27 @@ namespace MebacoInjectionSource {
       .filter((appNode) => ownerAppNode == null || appNode.id !== ownerAppNode.id)
     if (targetApps.length === 0) return null
 
+    const accessors = new Set<string>()
     const methods = targetApps.map((appNode) => {
       const appId = appNode.element.kind === 'app' ? appNode.element.id : ''
-      const fields = getLaunchArguments(appNode)
-        .map((argument) => (
-          `    ${argument.id}: ${getValueType(argument, rootNode)};`
-        ))
-      const launchValuesType = fields.length === 0
-        ? '{}'
-        : ['{', ...fields, '  }'].join('\n')
-      return [
-        `  transition(appId: ${JSON.stringify(appId)}, launchValues: ${launchValuesType}): void;`,
-      ].join('\n')
+      const accessor = AppId.toTransitionAccessor(appId)
+      if (accessors.has(accessor)) {
+        throw new Error(`Duplicate transition accessor '${accessor}'.`)
+      }
+      accessors.add(accessor)
+      const launchArguments = getLaunchArguments(appNode)
+      const fields = launchArguments.map((argument) => (
+        `    ${argument.id}${argument.defaultValue != null || argument.nullable ? '?' : ''}: ${getValueType(argument, rootNode)};`
+      ))
+      if (fields.length === 0) return `  ${accessor}(): void;`
+      const launchValuesType = ['{', ...fields, '  }'].join('\n')
+      const optional = launchArguments.every((argument) => (
+        argument.defaultValue != null || argument.nullable
+      ))
+      return `  ${accessor}(launchValues${optional ? '?' : ''}: ${launchValuesType}): void;`
     })
 
-    return methods.join('\n')
+    return ['declare var $transition: {', ...methods, '};'].join('\n')
   }
 
   const collectValueProps = (
@@ -242,7 +206,7 @@ namespace MebacoInjectionSource {
       .map((prop) => {
         const typeText = TypeExpression.getTypeText(
           prop.valueType,
-          (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+          (typeId) => TypeCatalog.resolveTypeScriptName(rootNode, typeId),
         )
         return `  ${prop.id}: ${typeText}${prop.nullable ? ' | null' : ''};`
       })
@@ -259,10 +223,12 @@ namespace MebacoInjectionSource {
     rootNode: TreeNode.Node,
     node: TreeNode.Node | null,
   ): Array<Pick<StyleParamElement.Element, 'id' | 'valueType'>> => {
-    if (node?.element.kind !== 'style') return []
+    if (node == null) return []
+    const styleNode = StyleLocalScope.findOwnerStyle(rootNode, node.id)
+    if (styleNode?.element.kind !== 'style') return []
 
     return StyleParameterCatalog.createCatalog(rootNode)
-      .resolve(node.element.styleId)
+      .resolve(styleNode.element.styleId)
       .parameters
       .map((parameter) => ({
         id: parameter.id,
@@ -294,7 +260,7 @@ namespace MebacoInjectionSource {
     nullable: boolean,
   ): string => `${TypeExpression.getTypeText(
     valueType,
-    (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+    (typeId) => TypeCatalog.resolveTypeScriptName(rootNode, typeId),
   )}${nullable ? ' | null' : ''}`
 
   const createArgumentsDeclaration = (
@@ -336,7 +302,7 @@ namespace MebacoInjectionSource {
           ? 'void'
           : ValueTypeDefinition.getTypeText(
               resolvedReturnTypeDefinition,
-              (typeId) => TypeCatalog.resolveTypeName(rootNode, typeId),
+              (typeId) => TypeCatalog.resolveTypeScriptName(rootNode, typeId),
             )
         const returnType = FunctionDefinition.getAsync(rootNode, entry.element)
           ? `Promise<${resolvedReturnType}>`
@@ -346,7 +312,7 @@ namespace MebacoInjectionSource {
 
     return fields.length === 0
       ? null
-      : ['declare var $function: {', ...fields, '};'].join('\n')
+      : ['declare var $fn: {', ...fields, '};'].join('\n')
   }
 
   const createVariableDeclaration = (
@@ -376,7 +342,7 @@ namespace MebacoInjectionSource {
       if (node.element.typeSetting.type === 'explicit') {
         typeText = `${TypeExpression.getTypeText(
           node.element.typeSetting.valueType,
-          (id) => TypeCatalog.resolveTypeName(rootNode, id),
+          (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
         )}${node.element.typeSetting.nullable ? ' | null' : ''}`
       } else {
         const inferredType = ExpressionTypeInference.inferType(
@@ -429,12 +395,54 @@ namespace MebacoInjectionSource {
     return fields.size === 0 ? null : createDeclaration()
   }
 
-  export const createForNode = (
+  const createStyleLocalDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    includeTargetScope: boolean,
+    baseDeclarations: readonly string[],
+  ): string | null => {
+    const fields = new Map<string, { typeText: string; readonly: boolean }>()
+    const createDeclaration = () => {
+      if (fields.size === 0) return ''
+      return [
+        'declare var $local: {',
+        ...[...fields].map(([id, field]) => (
+          `  ${field.readonly ? 'readonly ' : ''}${id}: ${field.typeText};`
+        )),
+        '};',
+      ].join('\n')
+    }
+
+    StyleLocalScope.collectVisible(rootNode, targetNodeId, includeTargetScope)
+      .forEach(({ element }) => {
+        let typeText: string
+        if (element.typeSetting.type === 'explicit') {
+          typeText = `${TypeExpression.getTypeText(
+            element.typeSetting.valueType,
+            (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
+          )}${element.typeSetting.nullable ? ' | null' : ''}`
+        } else {
+          const inferred = ExpressionTypeInference.inferType(
+            [...baseDeclarations, createDeclaration()].join('\n'),
+            element.source,
+            false,
+          )
+          typeText = inferred.ok ? inferred.typeText : 'unknown'
+        }
+        fields.set(element.id, {
+          typeText,
+          readonly: true,
+        })
+      })
+
+    return fields.size === 0 ? null : createDeclaration()
+  }
+
+  export const createForNodeWithOptions = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
     mode: MonacoInjection.Mode,
-    includeTargetScope = false,
-    eventType?: string,
+    options: CreateOptions = {},
   ): string => {
     const targetNode = findNode(rootNode, targetNodeId)
     const ownerComponentNode = targetNode == null
@@ -443,6 +451,10 @@ namespace MebacoInjectionSource {
     const typeDeclarations = TypeCatalog.createTypeScriptDeclarations(
       rootNode,
       targetNodeId,
+      {
+        includeObjectPropertyIdentityMarkers:
+          options.includeObjectPropertyIdentityMarkers === true,
+      },
     )
     const stateDeclaration = createStateDeclaration(
       collectScopedStates(targetNode, rootNode),
@@ -462,14 +474,14 @@ namespace MebacoInjectionSource {
       stateDeclaration,
       styleParameterDeclaration,
       createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
-      createArgumentsDeclaration(rootNode, targetNodeId),
+      mode === 'code' ? null : createArgumentsDeclaration(rootNode, targetNodeId),
       createFunctionsDeclaration(rootNode, targetNodeId),
+      mode === 'action' ? transitionDeclaration : null,
       mode === 'action'
         ? [
             'declare var $system: {',
             '  getRef(refKey: string): HTMLElement | null;',
-            ...(transitionDeclaration == null ? [] : [transitionDeclaration]),
-            ...(eventType != null
+            ...(options.eventType != null
               ? ['  afterRender(callback: () => void): () => void;']
               : []),
             '};',
@@ -484,17 +496,36 @@ namespace MebacoInjectionSource {
     const variableDeclaration = createVariableDeclaration(
       rootNode,
       targetNodeId,
-      includeTargetScope,
+      options.includeTargetScope === true,
       availableDeclarations,
     )
     if (variableDeclaration != null) availableDeclarations.push(variableDeclaration)
 
-    if (mode === 'action' && eventType != null) {
-      availableDeclarations.push(`declare var $event: ${eventType};`)
+    const styleLocalDeclaration = createStyleLocalDeclaration(
+      rootNode,
+      targetNodeId,
+      options.includeTargetScope === true,
+      availableDeclarations,
+    )
+    if (styleLocalDeclaration != null) availableDeclarations.push(styleLocalDeclaration)
+
+    if (mode === 'action' && options.eventType != null) {
+      availableDeclarations.push(`declare var $event: ${options.eventType};`)
     }
 
     return availableDeclarations.join('\n')
   }
+
+  export const createForNode = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    mode: MonacoInjection.Mode,
+    includeTargetScope = false,
+    eventType?: string,
+  ): string => createForNodeWithOptions(rootNode, targetNodeId, mode, {
+    includeTargetScope,
+    eventType,
+  })
 }
 
 export default MebacoInjectionSource

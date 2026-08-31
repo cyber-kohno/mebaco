@@ -44,8 +44,8 @@ const resolver: TypeDefaultLabel.Resolver = {
           definition: {
             async: false,
             parameters: [
-              { id: 'id', valueType: { type: 'number' }, nullable: false },
-              { id: 'name', valueType: { type: 'string' }, nullable: false },
+              { parameterId: 'id-parameter', id: 'id', valueType: { type: 'number' }, nullable: false },
+              { parameterId: 'name-parameter', id: 'name', valueType: { type: 'string' }, nullable: false },
             ],
             returnType: null,
           },

@@ -12,8 +12,11 @@ import TreeNavigationController from '../tree/tree-navigation-controller'
 import TreeViewportController from '../tree/tree-viewport-controller'
 import CommandController from '../terminal/command-controller'
 import { commandSessionStore } from '../terminal/command-session-store'
-import ReferenceGraphController from '../analysis/reference-graph-controller'
+import ReferenceGraphController from '../analysis/reference/reference-graph-controller'
 import KeyboardController from './keyboard-controller'
+import DevelopInteractionController from '../area/develop/interaction/develop-interaction-controller'
+import { developInteractionStore } from '../area/develop/interaction/develop-interaction-store'
+import TreeContextMenuResolver from '../tree/tree-context-menu-resolver'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -45,6 +48,19 @@ namespace AppKeyboardController {
       get(appAreaStore) !== 'develop'
       || get(developScreenStore) !== 'workspace'
     ) return
+    if (get(developInteractionStore).type !== 'normal') {
+      if (
+        event.key === 'Escape'
+        && get(actionMenuStore) == null
+        && get(elementDialogStore) == null
+        && get(confirmDialogStore) == null
+      ) {
+        event.preventDefault()
+        event.stopPropagation()
+        DevelopInteractionController.cancel()
+      }
+      return
+    }
     if (get(commandSessionStore) != null) return
     if (
       event.key.toLowerCase() === 't'
@@ -122,12 +138,7 @@ namespace AppKeyboardController {
       goBack: TreeNavigationController.goBack,
       goForward: TreeNavigationController.goForward,
       getContextMenu: (node, parentNode) => (
-        ElementRegistry.get(node.element.kind).getContextMenu({
-          element: node.element,
-          node,
-          parentNode,
-          rootNode,
-        })
+        TreeContextMenuResolver.resolve(rootNode, node, parentNode)
       ),
     })
   }

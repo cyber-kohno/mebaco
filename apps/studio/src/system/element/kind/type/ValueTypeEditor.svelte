@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Plus, Trash2 } from '@lucide/svelte'
-  import LiteralUnionDraftEditor from './LiteralUnionDraftEditor.svelte'
+  import LiteralUnionDraftEditor from './union/LiteralUnionDraftEditor.svelte'
   import TypeExpression from './type-expression'
   import ValueTypeDefinition from './value-type-definition'
-  import SignatureReferencePreview from './SignatureReferencePreview.svelte'
+  import SignatureReferencePreview from './signature/SignatureReferencePreview.svelte'
 
   type Props = {
     value: string

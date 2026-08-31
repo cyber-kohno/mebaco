@@ -1,8 +1,7 @@
 import TreeNode from '../../../../tree/tree-node'
-import TypeDefaultExpression from '../../type/type-default-expression'
-import TypeExpression from '../../type/type-expression'
 import type ValuePropElement from '../definition/value-prop-element'
 import type ComponentReference from './component-reference'
+import ValueBindingReconciler from '../../shared/value-binding-reconciler'
 
 namespace ComponentPropBindingSync {
   type Owner =
@@ -35,73 +34,23 @@ namespace ComponentPropBindingSync {
     return null
   }
 
-  const createSource = (
-    rootNode: TreeNode.Node,
-    prop: ValuePropElement.Element,
-  ): ComponentReference.ValueBindingSource => {
-    const { base, depth } = TypeExpression.unwrapArray(prop.valueType)
-    if (!prop.nullable && depth === 0) {
-      if (base.type === 'string') {
-        return { type: 'literal', value: base.literals?.[0] ?? '' }
-      }
-      if (base.type === 'number') {
-        return { type: 'literal', value: String(base.literals?.[0] ?? 0) }
-      }
-      if (base.type === 'boolean') return { type: 'literal', value: 'false' }
-    }
-    return {
-      type: 'formula',
-      source: TypeDefaultExpression.create(rootNode, prop.valueType, prop.nullable),
-    }
-  }
-
-  const valueTypeChanged = (
-    previous: ValuePropElement.Element,
-    prop: ValuePropElement.Element,
-  ): boolean => (
-    previous.nullable !== prop.nullable
-    || JSON.stringify(previous.valueType) !== JSON.stringify(prop.valueType)
-  )
-
   const reconcileBindings = (
     rootNode: TreeNode.Node,
     bindings: readonly ComponentReference.Binding[],
     operation: Operation,
   ): ComponentReference.Binding[] => {
-    const propId = operation.type === 'remove' ? operation.propId : operation.prop.propId
-    const currentIndex = bindings.findIndex((binding) => binding.propId === propId)
-
     if (operation.type === 'remove') {
-      return currentIndex < 0
-        ? [...bindings]
-        : bindings.filter((binding) => binding.propId !== propId)
+      return ValueBindingReconciler.remove(bindings, operation.propId)
     }
-
     if (operation.type === 'add') {
-      if (operation.prop.defaultValue != null || currentIndex >= 0) return [...bindings]
-      return [
-        ...bindings,
-        { propId, kind: 'value', source: createSource(rootNode, operation.prop) },
-      ]
+      return ValueBindingReconciler.add(rootNode, bindings, operation.prop)
     }
-
-    const changed = valueTypeChanged(operation.previous, operation.prop)
-    if (changed && operation.prop.defaultValue != null) {
-      return bindings.filter((binding) => binding.propId !== propId)
-    }
-    if (!changed) {
-      const defaultRemoved = operation.previous.defaultValue != null
-        && operation.prop.defaultValue == null
-      if (!defaultRemoved || currentIndex >= 0) return [...bindings]
-    }
-
-    const nextBinding: ComponentReference.ValueBinding = {
-      propId,
-      kind: 'value',
-      source: createSource(rootNode, operation.prop),
-    }
-    if (currentIndex < 0) return [...bindings, nextBinding]
-    return bindings.map((binding, index) => index === currentIndex ? nextBinding : binding)
+    return ValueBindingReconciler.update(
+      rootNode,
+      bindings,
+      operation.previous,
+      operation.prop,
+    )
   }
 
   const matchesOwner = (

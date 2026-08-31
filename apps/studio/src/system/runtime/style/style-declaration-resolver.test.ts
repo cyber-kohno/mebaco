@@ -106,6 +106,62 @@ describe('runtime StyleDeclarationResolver', () => {
     expect(result.declarations.map((item) => item.value)).toEqual(['#ff6699'])
   })
 
+  it('evaluates Style Locals in order after Parameters and exposes them only to that Style', () => {
+    const base = StyleFixture.style('base', {
+      locals: [{
+        kind: 'variable', id: 'value', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '"base"',
+      }],
+      rules: [StyleFixture.formula('content', '$local.value')],
+    })
+    const local = StyleFixture.style('local', {
+      parameters: [StyleFixture.parameter('size', 'number')],
+      locals: [
+        {
+          kind: 'variable', id: 'first', binding: 'const',
+          typeSetting: { type: 'inferred' }, source: '$param.size + 1',
+        },
+        {
+          kind: 'variable', id: 'second', binding: 'const',
+          typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+          source: '$local.first * 2',
+        },
+      ],
+      bases: [StyleFixture.base('base')],
+      rules: [StyleFixture.formula('z-index', '$local.second.toString()')],
+    })
+    const result = StyleDeclarationResolver
+      .createCatalog(StyleFixture.project([base, local]))
+      .resolve([StyleFixture.application('local', {
+        size: { type: 'value', value: { type: 'literal', value: 4 } },
+      })], FormulaContext.createEmpty())
+
+    expect(result.errors).toEqual([])
+    expect(result.declarations.map(({ property, value }) => ({ property, value }))).toEqual([
+      { property: 'content', value: 'base' },
+      { property: 'z-index', value: '10' },
+    ])
+  })
+
+  it('stops Style resolution when a Local fails', () => {
+    const style = StyleFixture.style('invalid-local', {
+      locals: [{
+        kind: 'variable', id: 'broken', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '$local.missing.value',
+      }],
+      rules: [StyleFixture.literal('display', 'block')],
+    })
+    const result = StyleDeclarationResolver
+      .createCatalog(StyleFixture.project([style]))
+      .resolve([StyleFixture.application('invalid-local')], FormulaContext.createEmpty())
+
+    expect(result.declarations).toEqual([])
+    expect(result.errors[0]).toMatchObject({
+      type: 'local',
+      localId: 'broken',
+    })
+  })
+
   it('resolves square tag style declarations used by runtime preview', () => {
     const square = StyleFixture.style('square', {
       rules: [
@@ -200,14 +256,17 @@ describe('runtime StyleDeclarationResolver', () => {
     }])
   })
 
-  it('reports unresolved delegated parameters and inheritance cycles', () => {
+  it('reports malformed applications and inheritance cycles', () => {
     const required = StyleFixture.style('required', {
       parameters: [StyleFixture.parameter('value', 'string')],
     })
     const unresolved = StyleDeclarationResolver
       .createCatalog(StyleFixture.project([required]))
       .resolve([StyleFixture.application('required')], FormulaContext.createEmpty())
-    expect(unresolved.errors[0]?.type).toBe('result-type')
+    expect(unresolved.errors[0]).toMatchObject({
+      type: 'structure',
+      assertion: true,
+    })
 
     const alpha = StyleFixture.style('alpha', { bases: [StyleFixture.base('beta')] })
     const beta = StyleFixture.style('beta', { bases: [StyleFixture.base('alpha')] })

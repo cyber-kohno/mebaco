@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import LaunchArgumentElement from './app/launch-argument-element'
+import LaunchArgumentElement from './app/launch/launch-argument-element'
 import ValuePropElement from './component/definition/value-prop-element'
 import StateElement from './variable/store/state-element'
 import TypeExpression from './type/type-expression'

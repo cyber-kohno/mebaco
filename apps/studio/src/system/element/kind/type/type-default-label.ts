@@ -1,7 +1,7 @@
 import TypeExpression from './type-expression'
 import type ValueTypeDefinition from './value-type-definition'
-import type UnionDefinition from './union-definition'
-import type SignatureDefinition from './signature-definition'
+import type UnionDefinition from './union/union-definition'
+import type SignatureDefinition from './signature/signature-definition'
 import TypeLiteralLabel from './type-literal-label'
 
 namespace TypeDefaultLabel {

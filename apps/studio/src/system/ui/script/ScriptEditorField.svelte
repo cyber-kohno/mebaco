@@ -15,6 +15,7 @@
     expectedType?: MonacoInjection.ExpectedType
     expectedTypeText?: string
     allowAwait?: boolean
+    functionParameters?: readonly MonacoInjection.FunctionParameter[]
     onDiagnosticsChange?: (messages: string[]) => void
   }
 
@@ -28,6 +29,7 @@
     expectedType,
     expectedTypeText,
     allowAwait = false,
+    functionParameters = [],
     onDiagnosticsChange,
   }: Props = $props()
 
@@ -56,6 +58,7 @@
     {expectedType}
     {expectedTypeText}
     {allowAwait}
+    {functionParameters}
     {onDiagnosticsChange}
     onValueChange={onValueChange}
   />
@@ -71,6 +74,7 @@
     {expectedType}
     {expectedTypeText}
     {allowAwait}
+    {functionParameters}
     {onDiagnosticsChange}
     {onValueChange}
     onBack={() => {

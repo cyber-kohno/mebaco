@@ -4,8 +4,11 @@
   import TypeCatalog from '../type/type-catalog'
   import TypeExpression from '../type/type-expression'
 
-  type Props = { element: VariableElement.Element }
-  let { element }: Props = $props()
+  type Props = {
+    element: VariableElement.Element
+    parentNode?: { element: { kind: string } } | null
+  }
+  let { element, parentNode = null }: Props = $props()
   const rootNodeStore = TreeStore.rootNode
   const source = $derived(element.source.replace(/\s*\r?\n\s*/g, ' '))
   const preview = $derived(source.length > 28 ? `${source.slice(0, 28)}...` : source)
@@ -21,7 +24,7 @@
   <span class="kind">Var</span>
   <span class="value">
     {#if element.binding === 'let'}<span class="mutable">mutable&nbsp;</span>{/if}
-    <span class="prefix">$var.</span><span class="name">{element.id}</span>
+    <span class="prefix">{parentNode?.element.kind === 'style-locals' ? '$local.' : '$var.'}</span><span class="name">{element.id}</span>
     {#if typeText != null}<span class="type">: {typeText}</span>{/if}
     <span class="equals"> = </span><span class="source">{preview}</span>
   </span>

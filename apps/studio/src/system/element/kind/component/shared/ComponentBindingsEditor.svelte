@@ -69,6 +69,13 @@
     (typeId) => TypeCatalog.resolveTypeName($rootNodeStore, typeId),
   )}${prop.nullable ? ' | null' : ''}`
 
+  const getExpectedTypeText = (
+    prop: NonNullable<typeof component>['props'][number],
+  ): string => `${TypeExpression.getTypeText(
+    prop.valueType,
+    (typeId) => TypeCatalog.resolveTypeScriptName($rootNodeStore, typeId),
+  )}${prop.nullable ? ' | null' : ''}`
+
   const isLiteralAvailable = (
     prop: NonNullable<typeof component>['props'][number],
   ): boolean => {
@@ -151,7 +158,7 @@
                   ariaLabel={`${prop.id} formula`}
                   {injectionSource}
                   expectedType={getExpectedType(prop)}
-                  expectedTypeText={getTypeText(prop)}
+                  expectedTypeText={getExpectedTypeText(prop)}
                   onValueChange={(formulaSource) => updateBinding(
                     prop.propId,
                     { type: 'formula', source: formulaSource },

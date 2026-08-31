@@ -1,9 +1,9 @@
 import type FunctionElement from './function-element'
 import type TypeExpression from '../type/type-expression'
-import TypeCatalog from '../type/type-catalog'
 import type TreeNode from '../../../tree/tree-node'
 import type VariableElement from '../variable/variable-element'
 import ContentHost from '../../content-host'
+import FunctionDefinition from './function-definition'
 
 namespace FunctionScope {
   export type Parameter = {
@@ -202,15 +202,7 @@ namespace FunctionScope {
     functionNode: TreeNode.Node,
   ): Parameter[] => {
     if (functionNode.element.kind !== 'function') return []
-    if (functionNode.element.mode === 'refer') {
-      return TypeCatalog.findSignature(
-        rootNode,
-        functionNode.element.signatureTypeId,
-      )?.element.parameters ?? []
-    }
-    return findDirectChild(functionNode, 'function-arguments')?.children.flatMap((child) => (
-      child.element.kind === 'function-argument' ? [child.element] : []
-    )) ?? []
+    return [...FunctionDefinition.getParameters(rootNode, functionNode.element)]
   }
 
   const addDuplicateIssues = (
@@ -248,14 +240,6 @@ namespace FunctionScope {
         || node.element.kind === 'function-procedure'
       ) {
         addDuplicateIssues(collectFrameVariables(node), 'Variable', issues)
-      }
-      if (node.element.kind === 'function-arguments') {
-        const argumentsInScope = node.children.flatMap((child) => (
-          child.element.kind === 'function-argument'
-            ? [{ node: child, element: child.element }]
-            : []
-        ))
-        addDuplicateIssues(argumentsInScope, 'Argument', issues)
       }
       node.children.forEach(visit)
     }

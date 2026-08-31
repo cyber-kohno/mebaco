@@ -1,11 +1,11 @@
 <script lang="ts">
   import type FormulaContext from '../formula/formula-context'
-  import type TagElement from '../../element/kind/view/tag-element'
+  import type TagElement from '../../element/kind/view/tag/tag-element'
   import ActionEvaluator from '../action/action-evaluator'
   import FormulaContextValue from '../formula/formula-context'
   import FormulaEvaluator from '../formula/formula-evaluator'
   import ScriptError from '../script/script-error'
-  import TagCatalog from '../../element/kind/view/tag-catalog'
+  import TagCatalog from '../../element/kind/view/tag/tag-catalog'
   import RenderContent from './RenderContent.svelte'
   import RetentionResolver from '../retention/retention-resolver'
   import RuntimeTree from '../runtime-tree'

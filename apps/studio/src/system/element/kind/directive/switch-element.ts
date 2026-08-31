@@ -7,7 +7,7 @@ import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import TreeStore from '../../../store/tree-store'
 import SwitchValueType from './switch-value-type'
 import TypeCatalog from '../type/type-catalog'
-import UnionDefinition from '../type/union-definition'
+import UnionDefinition from '../type/union/union-definition'
 import type TreeNode from '../../../tree/tree-node'
 
 namespace SwitchElement {
@@ -31,6 +31,7 @@ namespace SwitchElement {
 
   export type CreateSchemaOptions = {
     caseValueType?: SwitchValueType.PrimitiveName
+    caseValues?: readonly SwitchValueType.Literal[]
     literalUnionOptions?: readonly SwitchValueType.LiteralUnionOption[]
   }
 
@@ -47,6 +48,7 @@ namespace SwitchElement {
         defaultValue: SwitchValueType.stringify(SwitchValueType.createPrimitive()),
         literalUnionOptions: options.literalUnionOptions ?? [],
         caseValueType: options.caseValueType,
+        caseValues: options.caseValues,
       },
       {
         type: 'formula',
@@ -157,6 +159,9 @@ namespace SwitchElement {
               caseValueType: caseNodes.length > 0
                 ? primitive
                 : undefined,
+              caseValues: caseNodes.map((node) => (
+                node.element.kind === 'case' ? node.element.value.value : null
+              )).filter((value): value is SwitchValueType.Literal => value != null),
               literalUnionOptions: getLiteralUnionOptions(context.rootNode, context.node.id),
             }),
           )

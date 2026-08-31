@@ -3,8 +3,11 @@ import type MebacoElement from '../element/element'
 import ElementRegistry from '../element/element-registry'
 import TreeNode from '../tree/tree-node'
 import TreeReorder from '../tree/tree-reorder'
-import ComponentPropBindingSync from '../element/kind/component/shared/component-prop-binding-sync'
-import StyleParameterBindingSync from '../element/kind/view/style-parameter-binding-sync'
+import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
+import ElementMutationCoordinator from '../element/mutation/element-mutation-coordinator'
+import ElementMutationReport from '../element/mutation/element-mutation-report'
+import ExpressionVerificationScope from '../validation/expression/expression-verification-scope'
+import ExpressionVerificationImpact from '../validation/expression/expression-verification-impact'
 
 namespace TreeStore {
   export type LifecycleEvent =
@@ -162,6 +165,7 @@ namespace TreeStore {
       { collapseGeneratedChildren: true },
     )
 
+    let mutationReport = ElementMutationReport.empty()
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
       addChildRec(nextRoot, parentNodeId, childNode, index)
@@ -172,14 +176,11 @@ namespace TreeStore {
           nextRoot,
           createNode,
         )
-        if (addedNode.element.kind === 'value-prop') {
-          ComponentPropBindingSync.add(nextRoot, addedNode.id, addedNode.element)
-        } else if (addedNode.element.kind === 'style-param') {
-          StyleParameterBindingSync.add(nextRoot, addedNode.id, addedNode.element)
-        }
+        mutationReport = ElementMutationCoordinator.afterAdd(nextRoot, addedNode)
       }
       return nextRoot
     })
+    ExpressionVerificationStore.invalidate(mutationReport.verificationImpact)
     selectedNodeId.set(childNode.id)
     return childNode.id
   }
@@ -196,7 +197,13 @@ namespace TreeStore {
     nodeId: number,
     element: MebacoElement.Element,
   ) => {
-    rootNode.update((root) => createUpdatedRoot(root, nodeId, element))
+    let mutationReport = ElementMutationReport.empty()
+    rootNode.update((root) => {
+      const result = createUpdatedRootWithReport(root, nodeId, element)
+      mutationReport = result.report
+      return result.rootNode
+    })
+    ExpressionVerificationStore.invalidate(mutationReport.verificationImpact)
     selectedNodeId.set(nodeId)
     notifyLifecycle({ type: 'change' })
   }
@@ -205,18 +212,31 @@ namespace TreeStore {
     root: TreeNode.Node,
     nodeId: number,
     element: MebacoElement.Element,
-  ): TreeNode.Node => {
+  ): TreeNode.Node => createUpdatedRootWithReport(root, nodeId, element).rootNode
+
+  export const createUpdatedRootWithReport = (
+    root: TreeNode.Node,
+    nodeId: number,
+    element: MebacoElement.Element,
+    impactPreviousElement?: MebacoElement.Element,
+  ): { rootNode: TreeNode.Node; report: ElementMutationReport.Value } => {
     const previousElement = TreeNode.findNode(root, nodeId)?.element
+    if (previousElement == null) throw new Error(`node-${nodeId} was not found.`)
     const nextRoot = TreeNode.clone(root)
     if (!updateElementRec(nextRoot, nodeId, element, nextRoot)) {
       throw new Error(`node-${nodeId} was not found.`)
     }
-    if (previousElement?.kind === 'value-prop' && element.kind === 'value-prop') {
-      ComponentPropBindingSync.update(nextRoot, nodeId, previousElement, element)
-    } else if (previousElement?.kind === 'style-param' && element.kind === 'style-param') {
-      StyleParameterBindingSync.update(nextRoot, nodeId, previousElement, element)
+    return {
+      rootNode: nextRoot,
+      report: ElementMutationCoordinator.afterUpdate(
+        root,
+        nextRoot,
+        nodeId,
+        previousElement,
+        element,
+        impactPreviousElement,
+      ),
     }
-    return nextRoot
   }
 
   export const commitRootChange = (
@@ -232,32 +252,20 @@ namespace TreeStore {
     nodeId: number,
   ) => {
     let parentNodeId: number | null = null
+    let mutationReport = ElementMutationReport.empty()
 
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
       const removedNode = TreeNode.findNode(nextRoot, nodeId)
-      const removedElement = removedNode?.element
-      if (removedElement?.kind === 'value-prop') {
-        ComponentPropBindingSync.remove(nextRoot, nodeId, removedElement.propId)
-      }
       if (removedNode != null) {
-        const parameterIds: string[] = []
-        const collectParameterIds = (node: TreeNode.Node) => {
-          if (node.element.kind === 'style-param') {
-            parameterIds.push(node.element.parameterId)
-          }
-          node.children.forEach(collectParameterIds)
-        }
-        collectParameterIds(removedNode)
-        if (parameterIds.length > 0) {
-          StyleParameterBindingSync.remove(nextRoot, parameterIds)
-        }
+        mutationReport = ElementMutationCoordinator.beforeRemove(nextRoot, removedNode)
       }
       parentNodeId = removeNodeRec(nextRoot, nodeId)
       return nextRoot
     })
 
     if (parentNodeId != null) selectedNodeId.set(parentNodeId)
+    ExpressionVerificationStore.invalidate(mutationReport.verificationImpact)
     notifyLifecycle({ type: 'remove', parentNodeId })
   }
 
@@ -309,14 +317,29 @@ namespace TreeStore {
     direction: TreeReorder.Direction,
   ): boolean => {
     let changed = false
+    let verificationImpact = ExpressionVerificationImpact.none()
     rootNode.update((root) => {
       const nextRoot = TreeNode.clone(root)
+      const path = TreeNode.findPath(nextRoot, nodeId) ?? []
+      const parentNode = path.at(-2)
       changed = TreeReorder.move(nextRoot, nodeId, direction, (node) => (
         ElementRegistry.get(node.element.kind).reorderGroup ?? null
       ))
+      if (changed && parentNode?.element.kind === 'style-locals') {
+        const styleNode = [...path].reverse().find((node) => node.element.kind === 'style')
+        if (styleNode != null) {
+          verificationImpact = ExpressionVerificationImpact.nodes(
+            ExpressionVerificationScope.collectSubtreeVerificationNodeIds(
+              nextRoot,
+              styleNode.id,
+            ),
+          )
+        }
+      }
       return changed ? nextRoot : root
     })
     if (changed) {
+      ExpressionVerificationStore.invalidate(verificationImpact)
       selectedNodeId.set(nodeId)
       notifyLifecycle({ type: 'change' })
     }

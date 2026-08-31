@@ -1,14 +1,14 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import ActionMenu from '../action-menu/action-menu-controller'
-  import DisabledActionMenu from '../element/disabled-action-menu'
+  import { developInteractionStore } from '../area/develop/interaction/develop-interaction-store'
   import ElementTreeLabel from '../element/ElementTreeLabel.svelte'
-  import ElementRegistry from '../element/element-registry'
   import { elementDialogStore } from '../element-dialog/element-dialog-store'
   import TreeStore from '../store/tree-store'
-  import ExpressionVerificationActions from '../validation/expression-verification-actions'
-  import ExpressionVerificationStore from '../validation/expression-verification-store'
+  import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
+  import TreeContextMenuResolver from './tree-context-menu-resolver'
   import TreeNode from './tree-node'
+  import TreeTransferController from './transfer/tree-transfer-controller'
   import TreeViewportController from './tree-viewport-controller'
 
   type VisibleNode = {
@@ -26,12 +26,17 @@
   const treeViewportState = TreeViewportController.state
   const treeRevealRequest = TreeViewportController.revealRequest
   let treeViewElement: HTMLDivElement | undefined = $state()
-  let altPressed = $state(false)
   const displayRootNode = $derived(
     TreeViewportController.resolveDisplayRoot($rootNodeStore, $treeViewportState),
   )
   const selectionRelations = $derived(
     TreeNode.getSelectionRelations(displayRootNode, $selectedNodeIdStore),
+  )
+  const pasteCandidateNodeIds = $derived(
+    TreeTransferController.collectPasteCandidateNodeIds(
+      $rootNodeStore,
+      $developInteractionStore,
+    ),
   )
 
   const revealNode = async (nodeId: number) => {
@@ -87,43 +92,11 @@
     TreeStore.selectedNodeId.set(node.id)
   }
 
-  const handleWindowKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Alt' || event.altKey) altPressed = true
-  }
-
-  const handleWindowKeyup = (event: KeyboardEvent) => {
-    if (event.key === 'Alt') altPressed = false
-  }
-
-  const handleWindowBlur = () => {
-    altPressed = false
-  }
-
   const isEditingNode = (row: VisibleNode): boolean => {
     const session = $elementDialogStore
     if (session == null) return false
     if (session.mode === 'create') return row.isPreview
     return row.node.id === session.nodeId
-  }
-
-  const getContextMenu = (
-    node: TreeNode.Node,
-    parentNode: TreeNode.Node | null,
-  ) => {
-    const definition = ElementRegistry.get(node.element.kind)
-    const items = definition.getContextMenu({
-      element: node.element,
-      node,
-      parentNode,
-      rootNode: $rootNodeStore,
-    })
-
-    const withVerification = ExpressionVerificationActions.add(items, $rootNodeStore, node)
-    return definition.canDisable
-      ? DisabledActionMenu.add(withVerification, node.disabled === true, () => {
-          TreeStore.toggleDisabled(node.id)
-        })
-      : withVerification
   }
 
   const openContextMenu = (
@@ -137,7 +110,11 @@
     if (isPreview) return
     selectNode(node)
 
-    ActionMenu.openAt(getContextMenu(node, parentNode), event.clientX, event.clientY)
+    ActionMenu.openAt(
+      TreeContextMenuResolver.resolve($rootNodeStore, node, parentNode),
+      event.clientX,
+      event.clientY,
+    )
   }
 
   const buildVisibleNodes = (
@@ -185,12 +162,6 @@
   }
 </script>
 
-<svelte:window
-  onkeydown={handleWindowKeydown}
-  onkeyup={handleWindowKeyup}
-  onblur={handleWindowBlur}
-/>
-
 <div bind:this={treeViewElement} class="tree-view" role="tree" aria-label="Tree prototype">
   <div class="tree-content">
     {#each buildVisibleNodes(displayRootNode) as row (row.node.id)}
@@ -200,16 +171,18 @@
         row.node,
         $expressionVerificationEntries,
       )}
+      {@const transferActive = $developInteractionStore.type === 'tree-transfer'}
+      {@const pasteCandidate = pasteCandidateNodeIds.has(row.node.id)}
       <div
         class:selected={$selectedNodeIdStore === row.node.id}
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
         class:sibling={selectionRelations.siblingIds.has(row.node.id)}
         class:editing={isEditingNode(row)}
         class:disabled-descendant={row.disabledDescendant}
-        class:reorder-target={altPressed
-          && $selectedNodeIdStore === row.node.id
-          && ElementRegistry.get(row.node.element.kind).reorderGroup != null}
+        class:transfer-unavailable={transferActive && !pasteCandidate}
+        class:transfer-candidate={pasteCandidate}
         class="tree-row"
+        style:--tree-depth={row.depth}
         data-node-id={row.node.id}
         role="treeitem"
         aria-expanded={row.node.children.length > 0 ? row.node.isOpen : undefined}
@@ -284,7 +257,7 @@
     width: 100%;
     height: 100%;
     overflow: auto;
-    background: #f4fbfc;
+    background: var(--mbc-develop-workspace-background, #f4fbfc);
     color: #2b4850;
   }
 
@@ -301,6 +274,7 @@
   }
 
   .tree-row {
+    position: relative;
     display: flex;
     align-items: stretch;
     width: max-content;
@@ -308,6 +282,22 @@
     height: 40px;
     white-space: nowrap;
     outline: none;
+  }
+
+  .tree-row.transfer-unavailable::after {
+    position: absolute;
+    z-index: 5;
+    left: calc(var(--tree-depth, 0) * 40px + 33px);
+    top: 0;
+    right: 0;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.38);
+    pointer-events: none;
+    content: '';
+  }
+
+  .tree-row.transfer-candidate {
+    box-shadow: inset 0 0 0 2px rgba(38, 152, 118, 0.62);
   }
 
   .tree-row.disabled-descendant :global(.element-tree-label) {
@@ -342,10 +332,6 @@
 
   .tree-row.selected {
     background: rgba(85, 147, 239, 0.34);
-  }
-
-  .tree-row.reorder-target {
-    background: rgba(239, 171, 85, 0.42);
   }
 
   .tree-row.editing {

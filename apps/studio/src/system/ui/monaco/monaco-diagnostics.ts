@@ -43,24 +43,41 @@ namespace MonacoDiagnostics {
     monaco: typeof Monaco,
     diagnostics: Diagnostic[],
     analysisModel: Monaco.editor.ITextModel,
-    _mode: MonacoInjection.Mode,
+    mode: MonacoInjection.Mode,
     offsetLine: number,
     userLineCount: number,
   ): Monaco.editor.IMarkerData[] => {
-    return diagnostics
-      .filter((diagnostic) => typeof diagnostic.start === 'number')
-      .filter((diagnostic) => {
-        const position = analysisModel.getPositionAt(diagnostic.start ?? 0)
-        return position.lineNumber > offsetLine
-          && position.lineNumber <= offsetLine + userLineCount
-      })
-      .map((diagnostic) => {
-        const start = diagnostic.start ?? 0
+    return diagnostics.flatMap<Monaco.editor.IMarkerData>(
+      (diagnostic): Monaco.editor.IMarkerData[] => {
+        if (typeof diagnostic.start !== 'number') return []
+        const diagnosticPosition = analysisModel.getPositionAt(diagnostic.start)
+        const belongsToUserCode = diagnosticPosition.lineNumber > offsetLine
+          && diagnosticPosition.lineNumber <= offsetLine + userLineCount
+        if (!belongsToUserCode) {
+          const message = getMessage(diagnostic)
+          const missingCodeReturn = mode === 'code'
+            && diagnostic.category === 1
+            && (
+              message.includes('Function lacks ending return statement')
+              || message.includes('must return a value')
+            )
+          if (!missingCodeReturn) return []
+          return [{
+            severity: monaco.MarkerSeverity.Error,
+            message,
+            startLineNumber: 1,
+            startColumn: 1,
+            endLineNumber: Math.max(1, userLineCount),
+            endColumn: analysisModel.getLineMaxColumn(offsetLine + Math.max(1, userLineCount)),
+          }]
+        }
+
+        const start = diagnostic.start
         const end = start + (diagnostic.length ?? 0)
         const startPos = analysisModel.getPositionAt(start)
         const endPos = analysisModel.getPositionAt(end)
 
-        return {
+        return [{
           severity: toMarkerSeverity(monaco, diagnostic),
           message: getMessage(diagnostic),
           startLineNumber: Math.max(1, startPos.lineNumber - offsetLine),
@@ -70,8 +87,9 @@ namespace MonacoDiagnostics {
           tags: diagnostic.reportsUnnecessary === true
             ? [monaco.MarkerTag.Unnecessary]
             : [],
-        }
-      })
+        }]
+      },
+    )
   }
 
   export const createWholeModelErrorMarker = (

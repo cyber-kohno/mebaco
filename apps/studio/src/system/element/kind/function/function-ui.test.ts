@@ -1,10 +1,10 @@
 import { get } from 'svelte/store'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { elementDialogStore } from '../../../element-dialog/element-dialog-store'
-import FunctionArgumentElement from './function-argument-element'
 import FunctionElement from './function-element'
 import FunctionProcedureElement from './function-procedure-element'
 import FunctionReturnElement from './function-return-element'
+import SignatureDefinition from '../type/signature/signature-definition'
 import TypeExpression from '../type/type-expression'
 import ValueTypeDefinition from '../type/value-type-definition'
 import type TreeNode from '../../../tree/tree-node'
@@ -32,10 +32,7 @@ const createTree = (withReturn = false) => {
     id: 2,
     element: FunctionElement.createInline('calculate'),
     isOpen: true,
-    children: [
-      { id: 3, element: { kind: 'function-arguments' }, isOpen: true, children: [] },
-      procedure,
-    ],
+    children: [procedure],
   }
   const root: TreeNode.Node = {
     id: 1,
@@ -49,112 +46,226 @@ const createTree = (withReturn = false) => {
 afterEach(() => elementDialogStore.set(null))
 
 describe('Function editing UI models', () => {
-  it('round-trips async and return type values through the Function schema', () => {
+  it('uses Info, Signature and Implementation tabs', () => {
     const schema = FunctionElement.createSchema()
-    const returnType = ValueTypeDefinition.stringify(ValueTypeDefinition.create(
-      TypeExpression.createPrimitive('number'),
-      true,
-    ))
-
-    expect(schema.create({
-      id: 'loadCount',
-      mode: 'inline',
-      async: 'true',
-      voidReturn: 'false',
-      returnType,
-    })).toEqual({
-      kind: 'function',
-      id: 'loadCount',
-      mode: 'inline',
-      async: true,
-      returnType: {
-        valueType: { type: 'number' },
-        nullable: true,
-      },
-    })
-  })
-
-  it('shows Inline fields by default and switches to a Signature for Refer mode', () => {
-    const schema = FunctionElement.createSchema()
-
-    expect(schema.fields.map((field) => field.key)).toEqual([
-      'id', 'mode', 'async', 'returnTypeHeading', 'voidReturn', 'returnType',
-      'signatureTypeId',
+    expect(schema.tabs).toEqual([
+      { id: 'info', label: 'Info' },
+      { id: 'signature', label: 'Signature' },
+      { id: 'implementation', label: 'Implementation' },
     ])
-    expect(schema.fields.find((field) => field.key === 'mode')).toMatchObject({
-      type: 'select', defaultValue: 'inline',
-      options: [
-        { value: 'inline', label: 'Inline' },
-        { value: 'refer', label: 'Refer' },
-      ],
-    })
-    expect(schema.fields.find((field) => field.key === 'async')).toMatchObject({
-      visibleWhen: { key: 'mode', value: 'inline' },
-    })
-    expect(schema.fields.find((field) => field.key === 'returnType')).toMatchObject({
-      visibleWhenAll: [
-        { key: 'mode', value: 'inline' },
-        { key: 'voidReturn', value: 'false' },
-      ],
-    })
-    expect(schema.fields.find((field) => field.key === 'signatureTypeId')).toMatchObject({
-      width: 'id',
-      visibleWhen: { key: 'mode', value: 'refer' },
-    })
+    expect(schema.fields.find((field) => field.key === 'id')).toMatchObject({ tab: 'info' })
+    expect(schema.fields.find((field) => field.key === 'signatureMode'))
+      .toMatchObject({ tab: 'signature', defaultValue: 'inline' })
+    expect(schema.fields.find((field) => field.key === 'implementationMode'))
+      .toMatchObject({ tab: 'implementation', defaultValue: 'procedure' })
+  })
 
-    expect(schema.create({
-      id: 'notify',
-      mode: 'inline',
-      async: 'false',
-      voidReturn: 'true',
-      returnType: ValueTypeDefinition.stringify(ValueTypeDefinition.create(
+  it('round-trips an owned Signature and Code implementation', () => {
+    const schema = FunctionElement.createSchema()
+    const definition = SignatureDefinition.create(
+      true,
+      [SignatureDefinition.createParameter(
+        'count',
         TypeExpression.createPrimitive('number'),
-      )),
-    })).toEqual(FunctionElement.createInline('notify'))
+        false,
+        'count-id',
+      )],
+      ValueTypeDefinition.create(TypeExpression.createPrimitive('number'), false),
+    )
+    const element = schema.create({
+      id: 'loadCount',
+      signatureMode: 'inline',
+      signatureDefinition: SignatureDefinition.stringify(definition),
+      signatureTypeId: '',
+      implementationMode: 'code',
+      source: 'return await load(count)',
+    })
 
-    expect(schema.getInitialValues(FunctionElement.createInline('notify'))).toMatchObject({
-      mode: 'inline',
-      async: 'false',
-      voidReturn: 'true',
+    expect(element).toEqual(FunctionElement.createInline(
+      'loadCount',
+      definition,
+      { mode: 'code', source: 'return await load(count)' },
+    ))
+    expect(schema.getInitialValues(element)).toMatchObject({
+      signatureMode: 'inline',
+      signatureDefinition: SignatureDefinition.stringify(definition),
+      implementationMode: 'code',
+      source: 'return await load(count)',
     })
   })
 
-  it('creates Refer Functions and locks their mode after creation', () => {
+  it('injects draft Inline parameters and return type into the Code editor', () => {
+    const root: TreeNode.Node = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const schema = FunctionElement.createSchema({ rootNode: root })
+    const definition = SignatureDefinition.create(
+      true,
+      [SignatureDefinition.createParameter(
+        'count',
+        TypeExpression.createPrimitive('number'),
+        false,
+        'count-id',
+      )],
+      ValueTypeDefinition.create(TypeExpression.createPrimitive('number'), false),
+    )
+    const values = {
+      signatureMode: 'inline',
+      signatureDefinition: SignatureDefinition.stringify(definition),
+      signatureTypeId: '',
+      implementationMode: 'code',
+    }
+    const field = schema.fields.find((candidate) => candidate.key === 'source')
+    expect(field?.type).toBe('code')
+    if (field?.type !== 'code') return
+
+    expect(field.getFunctionParameters(values)).toEqual([
+      { name: 'count', typeText: 'number' },
+    ])
+    expect(field.getExpectedTypeText(values)).toBe('number')
+    expect(field.getAllowAwait(values)).toBe(true)
+  })
+
+  it('creates Refer Functions, detaches a selected Signature, and keeps Implementation locked', () => {
     const option = {
       value: 'save-signature', label: 'SaveHandler', kind: 'signature' as const,
       preview: '(payload: string) => void',
     }
     const createSchema = FunctionElement.createSchema({ namedTypeOptions: [option] })
-    expect(createSchema.fields.find((field) => field.key === 'signatureTypeId'))
-      .toMatchObject({ options: [option] })
     expect(createSchema.create({
       id: 'save',
-      mode: 'refer',
+      signatureMode: 'refer',
+      signatureDefinition: SignatureDefinition.stringify(SignatureDefinition.create()),
       signatureTypeId: option.value,
+      implementationMode: 'procedure',
+      source: '',
     })).toEqual(FunctionElement.createRefer('save', option.value))
 
+    const signatureNode: TreeNode.Node = {
+      id: 2,
+      element: {
+        kind: 'signature-type', typeId: option.value, id: 'SaveHandler',
+        async: false,
+        parameters: [SignatureDefinition.createParameter(
+          'payload',
+          TypeExpression.createPrimitive('string'),
+          false,
+          'source-parameter-id',
+        )],
+        returnType: null,
+      },
+      isOpen: true,
+      children: [],
+    }
+    const root: TreeNode.Node = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [signatureNode],
+    }
     const updateSchema = FunctionElement.createSchema({
       namedTypeOptions: [option],
-      lockedMode: 'refer',
+      initialSignatureMode: 'refer',
+      lockedImplementationMode: 'procedure',
+      rootNode: root,
     })
-    expect(updateSchema.fields.find((field) => field.key === 'mode')).toMatchObject({
+    const signatureModeField = updateSchema.fields.find((field) => field.key === 'signatureMode')
+    expect(updateSchema.fields.find((field) => field.key === 'signatureTypeId')).toMatchObject({
+      required: true,
+      allowEmptyOption: true,
+    })
+    expect(signatureModeField).toMatchObject({
+      options: [
+        { value: 'inline', label: 'Inline' },
+        { value: 'refer', label: 'Refer' },
+      ],
+    })
+    if (signatureModeField?.type !== 'select') return
+    const values = {
+      signatureMode: 'inline',
+      signatureTypeId: option.value,
+      signatureDefinition: '',
+    }
+    signatureModeField.onValueChange?.('refer', 'inline', values)
+    const detached = SignatureDefinition.parse(values.signatureDefinition)
+    expect(detached).toMatchObject({
+      async: false,
+      parameters: [{ id: 'payload', valueType: { type: 'string' } }],
+      returnType: null,
+    })
+    expect(detached?.parameters[0].parameterId).not.toBe('source-parameter-id')
+    expect(updateSchema.fields.find((field) => field.key === 'implementationMode')).toMatchObject({
       readOnlyOnUpdate: true,
-      options: [{ value: 'refer', label: 'Refer' }],
+      options: [{ value: 'procedure', label: 'Procedure' }],
     })
+
+    const codeField = updateSchema.fields.find((field) => field.key === 'source')
+    expect(codeField?.type).toBe('code')
+    if (codeField?.type !== 'code') return
+    expect(codeField.getFunctionParameters({
+      signatureMode: 'refer',
+      signatureTypeId: option.value,
+    })).toEqual([{ name: 'payload', typeText: 'string' }])
   })
 
-  it('round-trips an Argument value type', () => {
-    const schema = FunctionArgumentElement.createSchema()
-    const valueType = ValueTypeDefinition.stringify(ValueTypeDefinition.create(
-      TypeExpression.wrapArray(TypeExpression.createPrimitive('string'), 1),
-      true,
-    ))
+  it('creates an empty Inline Signature when Refer is detached without a selection', () => {
+    const schema = FunctionElement.createSchema()
+    const field = schema.fields.find((candidate) => candidate.key === 'signatureMode')
+    if (field?.type !== 'select') return
+    const values = {
+      signatureMode: 'inline',
+      signatureTypeId: '',
+      signatureDefinition: '',
+    }
+    field.onValueChange?.('refer', 'inline', values)
+    expect(SignatureDefinition.parse(values.signatureDefinition))
+      .toEqual(SignatureDefinition.create())
+  })
 
-    expect(schema.create({ id: 'names', valueType })).toEqual({
-      kind: 'function-argument',
-      id: 'names',
-      valueType: { type: 'array', item: { type: 'string' } },
-      nullable: true,
+  it('copies a selected Refer Signature when switching to Inline', () => {
+    const signatureNode: TreeNode.Node = {
+      id: 2,
+      element: {
+        kind: 'signature-type', typeId: 'source-signature', id: 'SourceSignature',
+        async: true,
+        parameters: [SignatureDefinition.createParameter(
+          'value',
+          TypeExpression.createPrimitive('number'),
+          false,
+          'source-parameter-id',
+        )],
+        returnType: ValueTypeDefinition.create(
+          TypeExpression.createPrimitive('string'),
+          false,
+        ),
+      },
+      isOpen: true,
+      children: [],
+    }
+    const root: TreeNode.Node = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [signatureNode],
+    }
+    const schema = FunctionElement.createSchema({ rootNode: root })
+    const field = schema.fields.find((candidate) => candidate.key === 'signatureMode')
+    if (field?.type !== 'select') return
+    const values = {
+      signatureMode: 'inline',
+      signatureTypeId: 'source-signature',
+      signatureDefinition: '',
+    }
+
+    field.onValueChange?.('refer', 'inline', values)
+
+    expect(SignatureDefinition.parse(values.signatureDefinition)).toMatchObject({
+      async: true,
+      parameters: [{ id: 'value', valueType: { type: 'number' } }],
+      returnType: { valueType: { type: 'string' } },
     })
   })
 
@@ -186,13 +297,6 @@ describe('Function editing UI models', () => {
       parentNode: withReturn.owner,
       rootNode: withReturn.root,
     })
-    expect(items.map((item) => item.label)).toEqual([
-      'Add declare',
-      'Add statement',
-      'Add directive',
-      'Add Block',
-    ])
-
     const addAction = items[1]
     expect(addAction.type).toBe('parent')
     if (addAction.type !== 'parent') return

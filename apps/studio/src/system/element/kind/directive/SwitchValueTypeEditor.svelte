@@ -1,5 +1,5 @@
 <script lang="ts">
-  import LiteralUnionDraftEditor from '../type/LiteralUnionDraftEditor.svelte'
+  import LiteralUnionDraftEditor from '../type/union/LiteralUnionDraftEditor.svelte'
   import SwitchValueType from './switch-value-type'
 
   type Props = {

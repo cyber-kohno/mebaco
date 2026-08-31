@@ -11,6 +11,7 @@ import ValueTypeDefinition from '../../type/value-type-definition'
 import TypeDefaultLabel from '../../type/type-default-label'
 import StateScope from './state-scope'
 import TreeStore from '../../../../store/tree-store'
+import ElementDeletionController from '../../../deletion/element-deletion-controller'
 
 namespace StateElement {
   export type Kind = 'state'
@@ -85,9 +86,12 @@ namespace StateElement {
           return ValueTypeDefinition.getTypeText(
             definition,
             (id) => (
-              options.referenceOptions?.find((option) => option.value === id)?.label
-              ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
-              ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
+              TypeCatalog.toTypeScriptName(
+                options.referenceOptions?.find((option) => option.value === id)?.label
+                ?? options.namedTypeOptions?.find((option) => option.value === id)?.name
+                ?? options.namedTypeOptions?.find((option) => option.value === id)?.label
+                ?? 'MissingType',
+              )
             ),
           )
         },
@@ -182,7 +186,18 @@ namespace StateElement {
             createSchema({ reservedNames, referenceOptions, namedTypeOptions }),
           )
         }),
-        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
+        action('Delete', () => {
+          void ElementDeletionController.requestDelete({
+            rootNode: context.rootNode,
+            node: context.node,
+            policy: {
+              label: `State '${context.element.id}'`,
+              structuralReferences: 'ignore',
+              expressionReferences: 'confirm',
+            },
+            deleteNode: () => TreeStore.removeNode(context.node.id),
+          })
+        }, 'danger'),
       ]
     },
     childSlots: [],

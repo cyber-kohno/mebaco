@@ -12,13 +12,24 @@
   import ToastLayer from './feedback/toast/ToastLayer.svelte'
   import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
   import CommandConsoleLayer from './terminal/console/CommandConsoleLayer.svelte'
-  import ReferenceGraphPanel from './analysis/ReferenceGraphPanel.svelte'
+  import ReferenceGraphPanel from './analysis/reference/ReferenceGraphPanel.svelte'
   import { appAreaStore } from './navigation/app-area-store'
   import TreeStore from './store/tree-store'
   import ProjectSession from './project/project-session-store'
   import ProjectGuard from './project/project-guard'
   import WindowTitle from './shell/window-title'
-  import ExpressionVerificationStore from './validation/expression-verification-store'
+  import ExpressionVerificationStore from './validation/expression/expression-verification-store'
+  import TreeTransferDialog from './tree/transfer/TreeTransferDialog.svelte'
+  import DevelopInteractionController from './area/develop/interaction/develop-interaction-controller'
+  import { developInteractionStore } from './area/develop/interaction/develop-interaction-store'
+  import { developScreenStore } from './area/develop/develop-screen-store'
+
+  $effect(() => {
+    if (
+      $developInteractionStore.type !== 'normal'
+      && ($appAreaStore !== 'develop' || $developScreenStore !== 'workspace')
+    ) DevelopInteractionController.cancel()
+  })
 
   onMount(() => {
     const unsubscribeRoot = TreeStore.rootNode.subscribe((rootNode) => {
@@ -26,6 +37,7 @@
       ExpressionVerificationStore.syncRoot(rootNode)
     })
     const unsubscribeTitle = WindowTitle.subscribe()
+    const unsubscribeInteraction = DevelopInteractionController.connectTreeLifecycle()
     let isClosing = false
     let unlistenClose: (() => void) | undefined
 
@@ -51,6 +63,7 @@
     return () => {
       unsubscribeRoot()
       unsubscribeTitle()
+      unsubscribeInteraction()
       unlistenClose?.()
     }
   })
@@ -83,6 +96,7 @@
   <PreviewDialog />
   <CommandConsoleLayer />
   <ReferenceGraphPanel />
+  <TreeTransferDialog />
   <ConfirmDialogLayer />
   <ToastLayer />
 </main>

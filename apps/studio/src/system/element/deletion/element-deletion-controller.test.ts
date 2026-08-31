@@ -2,13 +2,23 @@ import { get } from 'svelte/store'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type TreeNode from '../../tree/tree-node'
 import ConfirmDialogController from '../../feedback/confirm/confirm-dialog-controller'
-import ExpressionVerificationStore from '../../validation/expression-verification-store'
+import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
+import ExpressionVerificationRunner from '../../validation/expression/expression-verification-runner'
 import ElementDeletionController from './element-deletion-controller'
 
 vi.mock('../../feedback/confirm/confirm-dialog-controller', () => ({
   default: {
     open: vi.fn(() => Promise.resolve(false)),
     openNotice: vi.fn(() => Promise.resolve()),
+  },
+}))
+
+vi.mock('../../validation/expression/expression-verification-runner', () => ({
+  default: {
+    verify: vi.fn(() => Promise.resolve({
+      status: 'error',
+      messages: ['Unknown Function.'],
+    })),
   },
 }))
 
@@ -171,9 +181,17 @@ describe('ElementDeletionController', () => {
       }],
     })
     const deleteNode = vi.fn()
+    const unrelatedExpression = node(7, {
+      kind: 'if',
+      condition: 'true',
+    })
+    ExpressionVerificationStore.setResult(unrelatedExpression, {
+      status: 'verified',
+      messages: [],
+    })
 
     await expect(ElementDeletionController.requestDelete({
-      rootNode: node(1, { kind: 'project' }, [component, entry]),
+      rootNode: node(1, { kind: 'project' }, [component, entry, unrelatedExpression]),
       node: prop,
       policy: {
         label: "Prop 'name'",
@@ -185,5 +203,95 @@ describe('ElementDeletionController', () => {
 
     expect(deleteNode).toHaveBeenCalledOnce()
     expect(ConfirmDialogController.open).not.toHaveBeenCalled()
+    expect(get(ExpressionVerificationStore.entries)).not.toEqual({})
+  })
+
+  it('blocks deletion when the expression reference guard detects a semantic rebind', async () => {
+    const target = node(5, {
+      kind: 'function', id: 'save',
+      signature: {
+        mode: 'inline',
+        definition: { async: false, parameters: [], returnType: null },
+      },
+      implementation: { mode: 'code', source: 'return undefined' },
+    })
+    const call = node(8, { kind: 'action', comment: '', source: '$fn.save()' })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+        node(3, { kind: 'declares' }, [node(4, { kind: 'functions' }, [target])]),
+        call,
+      ]),
+    ])
+    const deleteNode = vi.fn()
+    const blocked = {
+      title: 'Cannot Delete Function',
+      message: ['Deleting this Function would redirect an existing call.'],
+    }
+
+    await expect(ElementDeletionController.requestDelete({
+      rootNode: root,
+      node: target,
+      policy: {
+        label: "Function 'save'",
+        structuralReferences: 'ignore',
+        expressionReferences: 'confirm',
+      },
+      expressionReferenceGuard: () => blocked,
+      deleteNode,
+    })).resolves.toBe(false)
+
+    expect(ConfirmDialogController.openNotice).toHaveBeenCalledWith(blocked)
+    expect(ConfirmDialogController.open).not.toHaveBeenCalled()
+    expect(deleteNode).not.toHaveBeenCalled()
+  })
+
+  it('resets all verification and verifies direct references after force deletion', async () => {
+    const target = node(5, {
+      kind: 'function', id: 'save',
+      signature: {
+        mode: 'inline',
+        definition: { async: false, parameters: [], returnType: null },
+      },
+      implementation: { mode: 'code', source: 'return undefined' },
+    })
+    const call = node(8, { kind: 'action', comment: '', source: '$fn.save()' })
+    const unrelated = node(9, { kind: 'action', comment: '', source: 'undefined' })
+    const app = node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+      node(3, { kind: 'declares' }, [node(4, { kind: 'functions' }, [target])]),
+      call,
+      unrelated,
+    ])
+    const root = node(1, { kind: 'project' }, [app])
+    const nextRoot = node(1, { kind: 'project' }, [
+      node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+        node(3, { kind: 'declares' }, [node(4, { kind: 'functions' })]),
+        call,
+        unrelated,
+      ]),
+    ])
+    ExpressionVerificationStore.setResult(call, { status: 'verified', messages: [] })
+    ExpressionVerificationStore.setResult(unrelated, { status: 'verified', messages: [] })
+    vi.mocked(ConfirmDialogController.open).mockResolvedValueOnce(true)
+    const deleteNode = vi.fn()
+
+    await expect(ElementDeletionController.requestDelete({
+      rootNode: root,
+      node: target,
+      policy: {
+        label: "Function 'save'",
+        structuralReferences: 'ignore',
+        expressionReferences: 'confirm',
+      },
+      deleteNode,
+      getRootNodeAfterDelete: () => nextRoot,
+    })).resolves.toBe(true)
+
+    expect(deleteNode).toHaveBeenCalledOnce()
+    expect(ExpressionVerificationRunner.verify).toHaveBeenCalledWith(nextRoot, call)
+    expect(get(ExpressionVerificationStore.entries)[call.id]).toMatchObject({
+      status: 'error',
+      messages: ['Unknown Function.'],
+    })
+    expect(get(ExpressionVerificationStore.entries)[unrelated.id]).toBeUndefined()
   })
 })

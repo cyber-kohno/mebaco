@@ -1,12 +1,15 @@
 import type TreeNode from '../../tree/tree-node'
-import type StyleElement from '../../element/kind/view/style-element'
-import type StyleParamElement from '../../element/kind/view/style-param-element'
-import type TagElement from '../../element/kind/view/tag-element'
-import StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
-import StyleValueSupport from '../../element/kind/view/style-value-support'
+import type StyleElement from '../../element/kind/view/style/style-element'
+import type StyleParamElement from '../../element/kind/view/style/style-param-element'
+import type TagElement from '../../element/kind/view/tag/tag-element'
+import StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
+import StyleArgumentContract from '../../element/kind/view/style/style-argument-contract'
+import StyleValueSupport from '../../element/kind/view/style/style-value-support'
 import FormulaContext from '../formula/formula-context'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import type ScriptError from '../script/script-error'
+import TypeValue from '../type-value'
+import VariableFrame from '../variable/variable-frame'
 
 namespace StyleDeclarationResolver {
   export type DeclarationSource = {
@@ -31,6 +34,7 @@ namespace StyleDeclarationResolver {
     | 'structure'
     | 'condition'
     | 'parameter'
+    | 'local'
     | 'formula'
     | 'result-type'
     | 'css-value'
@@ -42,8 +46,11 @@ namespace StyleDeclarationResolver {
     referenceId?: string
     path: string[]
     parameterId?: string
+    localId?: string
+    localNodeId?: number
     property?: string
     scriptError?: ScriptError.Value
+    assertion?: boolean
   }
 
   export type Result = {
@@ -66,6 +73,7 @@ namespace StyleDeclarationResolver {
   type StyleRecord = {
     element: StyleElement.Element
     parameters: Map<string, StyleParamElement.Element>
+    locals: readonly TreeNode.Node[]
   }
 
   type ResolvedValue = {
@@ -89,6 +97,12 @@ namespace StyleDeclarationResolver {
     return parameters
   }
 
+  const collectLocals = (
+    node: TreeNode.Node,
+  ): readonly TreeNode.Node[] => node.children
+    .find((child) => child.element.kind === 'style-locals')
+    ?.children.filter((child) => child.element.kind === 'variable') ?? []
+
   const matchesType = (
     value: unknown,
     valueType: StyleParamElement.ValueType,
@@ -102,7 +116,73 @@ namespace StyleDeclarationResolver {
   ): FormulaContext.Value => FormulaContext.create({
     ...context,
     $param: { ...parameters },
+    $local: {},
   })
+
+  const resolveLocals = (
+    localNodes: readonly TreeNode.Node[],
+    context: FormulaContext.Value,
+    projectNode: TreeNode.Node,
+    styleId: string,
+    styleName: string,
+    path: readonly string[],
+  ): { context: FormulaContext.Value; errors: Error[] } => {
+    const frame = VariableFrame.create({})
+    const localContext = FormulaContext.create({ ...context, $local: frame.values })
+    const errors: Error[] = []
+
+    for (const node of localNodes) {
+      if (node.element.kind !== 'variable') continue
+      const local = node.element
+      const evaluated = FormulaEvaluator.evaluateExpression(local.source, localContext)
+      if (!evaluated.ok) {
+        errors.push({
+          type: 'local',
+          message: `Failed to evaluate local '${local.id}' in style '${styleName}'.`,
+          styleId,
+          localId: local.id,
+          localNodeId: node.id,
+          path: [...path],
+          scriptError: evaluated.error,
+        })
+        break
+      }
+      if (
+        local.typeSetting.type === 'explicit'
+        && !(local.typeSetting.nullable && evaluated.value === null)
+        && !TypeValue.isCompatible(local.typeSetting.valueType, evaluated.value, projectNode)
+      ) {
+        errors.push({
+          type: 'result-type',
+          message: `Local '${local.id}' in style '${styleName}' does not match its explicit type.`,
+          styleId,
+          localId: local.id,
+          localNodeId: node.id,
+          path: [...path],
+        })
+        break
+      }
+      try {
+        frame.declare(local.id, 'const', evaluated.value)
+      } catch (error) {
+        errors.push({
+          type: 'local',
+          message: `Failed to declare local '${local.id}' in style '${styleName}'.`,
+          styleId,
+          localId: local.id,
+          localNodeId: node.id,
+          path: [...path],
+          scriptError: {
+            stage: 'runtime',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        })
+        break
+      }
+    }
+
+    return { context: localContext, errors }
+  }
 
   const evaluateCondition = (
     condition: StyleElement.FormulaSource | undefined,
@@ -156,7 +236,21 @@ namespace StyleDeclarationResolver {
     const binding = argument?.binding
     let resolved: unknown
 
-    if (binding == null || binding.type === 'delegate') {
+    if (binding == null) {
+      return {
+        ok: false,
+        error: {
+          type: 'structure',
+          message: `Style '${styleName}' is missing argument '${parameter.id}'.`,
+          styleId,
+          referenceId,
+          path: [...path],
+          parameterId: parameter.parameterId,
+          assertion: true,
+        },
+      }
+    }
+    if (binding.type === 'delegate') {
       resolved = callerParameters[parameter.id]
     } else if (binding.type === 'default') {
       resolved = parameter.defaultValue
@@ -207,6 +301,7 @@ namespace StyleDeclarationResolver {
         records.set(node.element.styleId, {
           element: node.element,
           parameters: collectParameters(node),
+          locals: collectLocals(node),
         })
       }
       node.children.forEach(collect)
@@ -233,6 +328,7 @@ namespace StyleDeclarationResolver {
             message: `Style '${styleId}' was not found.`,
             styleId,
             path: nextPathNames,
+            assertion: true,
           }],
         }
       }
@@ -244,15 +340,58 @@ namespace StyleDeclarationResolver {
             message: `Style inheritance cycle: ${nextPathNames.join(' -> ')}.`,
             styleId,
             path: nextPathNames,
+            assertion: true,
           }],
         }
       }
 
-      const context = createFormulaContext(globalContext, parameters)
+      const parameterContext = createFormulaContext(globalContext, parameters)
       const declarations: Declaration[] = []
       const errors: Error[] = []
+      const localsResult = resolveLocals(
+        record.locals,
+        parameterContext,
+        rootNode,
+        styleId,
+        record.element.id,
+        nextPathNames,
+      )
+      errors.push(...localsResult.errors)
+      if (localsResult.errors.length > 0) return { declarations, errors }
+      const context = localsResult.context
 
       record.element.bases.forEach((base) => {
+        const resolution = parameterCatalog.resolve(base.styleId, nextPath)
+        if (resolution.issues.length > 0) {
+          resolution.issues.forEach((issue) => {
+            errors.push({
+              type: 'structure',
+              message: issue.message,
+              styleId: base.styleId,
+              referenceId: base.referenceId,
+              path: issue.path,
+              assertion: true,
+            })
+          })
+          return
+        }
+        const invariantError = StyleArgumentContract.getInvariantError(
+          base.arguments,
+          resolution.parameters,
+          'inheritance',
+        )
+        if (invariantError != null) {
+          errors.push({
+            type: 'structure',
+            message: `Style inheritance has invalid arguments for '${records.get(base.styleId)?.element.id ?? base.styleId}': ${invariantError}`,
+            styleId: base.styleId,
+            referenceId: base.referenceId,
+            path: nextPathNames,
+            assertion: true,
+          })
+          return
+        }
+
         const condition = evaluateCondition(
           base.condition,
           context,
@@ -263,20 +402,6 @@ namespace StyleDeclarationResolver {
         )
         if (condition.error != null) errors.push(condition.error)
         if (!condition.apply) return
-
-        const resolution = parameterCatalog.resolve(base.styleId, nextPath)
-        if (resolution.issues.length > 0) {
-          resolution.issues.forEach((issue) => {
-            errors.push({
-              type: 'structure',
-              message: issue.message,
-              styleId: base.styleId,
-              referenceId: base.referenceId,
-              path: issue.path,
-            })
-          })
-          return
-        }
 
         const baseParameters: Record<string, unknown> = {}
         let isValid = true
@@ -416,6 +541,37 @@ namespace StyleDeclarationResolver {
       const errors: Error[] = []
 
       applications.forEach((application) => {
+        const resolution = parameterCatalog.resolve(application.styleId)
+        if (resolution.issues.length > 0) {
+          resolution.issues.forEach((issue) => {
+            errors.push({
+              type: 'structure',
+              message: issue.message,
+              styleId: application.styleId,
+              referenceId: application.referenceId,
+              path: issue.path,
+              assertion: true,
+            })
+          })
+          return
+        }
+        const invariantError = StyleArgumentContract.getInvariantError(
+          application.arguments,
+          resolution.parameters,
+          'application',
+        )
+        if (invariantError != null) {
+          errors.push({
+            type: 'structure',
+            message: `Style application has invalid arguments for '${records.get(application.styleId)?.element.id ?? application.styleId}': ${invariantError}`,
+            styleId: application.styleId,
+            referenceId: application.referenceId,
+            path: [],
+            assertion: true,
+          })
+          return
+        }
+
         const condition = evaluateCondition(
           application.condition,
           globalContext,
@@ -426,20 +582,6 @@ namespace StyleDeclarationResolver {
         )
         if (condition.error != null) errors.push(condition.error)
         if (!condition.apply) return
-
-        const resolution = parameterCatalog.resolve(application.styleId)
-        if (resolution.issues.length > 0) {
-          resolution.issues.forEach((issue) => {
-            errors.push({
-              type: 'structure',
-              message: issue.message,
-              styleId: application.styleId,
-              referenceId: application.referenceId,
-              path: issue.path,
-            })
-          })
-          return
-        }
 
         const parameters: Record<string, unknown> = {}
         let isValid = true

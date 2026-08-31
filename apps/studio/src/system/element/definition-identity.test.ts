@@ -5,9 +5,9 @@ import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
 import LauncherElement from './kind/project/launcher-element'
 import SlotElement from './kind/component/definition/slot/slot-element'
-import StyleElement from './kind/view/style-element'
-import StyleParamElement from './kind/view/style-param-element'
-import StyleParameterCatalog from './kind/view/style-parameter-catalog'
+import StyleElement from './kind/view/style/style-element'
+import StyleParamElement from './kind/view/style/style-param-element'
+import StyleParameterCatalog from './kind/view/style/style-parameter-catalog'
 
 vi.mock('../store/tree-store', () => ({
   default: {

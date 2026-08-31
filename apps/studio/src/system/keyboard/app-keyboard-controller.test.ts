@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   commandSessionStore: { value: null as unknown },
   appAreaStore: { value: 'develop' as unknown },
   developScreenStore: { value: 'workspace' as unknown },
+  developInteractionStore: { value: { type: 'normal' } as unknown },
   handleKeydown: vi.fn(),
 }))
 
@@ -17,11 +18,17 @@ vi.mock('svelte/store', () => ({
 vi.mock('../action-menu/action-menu-store', () => ({
   actionMenuStore: mocks.actionMenuStore,
 }))
-vi.mock('../analysis/reference-graph-controller', () => ({
+vi.mock('../analysis/reference/reference-graph-controller', () => ({
   default: { toggle: vi.fn() },
 }))
 vi.mock('../area/develop/develop-screen-store', () => ({
   developScreenStore: mocks.developScreenStore,
+}))
+vi.mock('../area/develop/interaction/develop-interaction-store', () => ({
+  developInteractionStore: mocks.developInteractionStore,
+}))
+vi.mock('../area/develop/interaction/develop-interaction-controller', () => ({
+  default: { cancel: vi.fn() },
 }))
 vi.mock('../element/element-registry', () => ({
   default: { get: vi.fn() },
@@ -53,6 +60,9 @@ vi.mock('../tree/tree-node', () => ({
 vi.mock('../tree/tree-navigation-controller', () => ({
   default: { goBack: vi.fn(), goForward: vi.fn() },
 }))
+vi.mock('../tree/tree-context-menu-resolver', () => ({
+  default: { resolve: vi.fn(() => []) },
+}))
 vi.mock('../tree/tree-viewport-controller', () => ({
   default: {
     state: { value: { viewRootNodeId: null } },
@@ -73,6 +83,7 @@ describe('AppKeyboardController blocking layers', () => {
     mocks.handleKeydown.mockClear()
     mocks.appAreaStore.value = 'develop'
     mocks.developScreenStore.value = 'workspace'
+    mocks.developInteractionStore.value = { type: 'normal' }
     mocks.elementDialogStore.value = { mode: 'update' }
   })
 

@@ -1,6 +1,6 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type TagElement from '../../element/kind/view/tag-element'
+import type TagElement from '../../element/kind/view/tag/tag-element'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
 

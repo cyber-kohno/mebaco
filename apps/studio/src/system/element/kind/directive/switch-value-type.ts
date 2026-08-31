@@ -1,5 +1,5 @@
-import type UnionDefinition from '../type/union-definition'
-import LiteralUnion from '../type/literal-union'
+import type UnionDefinition from '../type/union/union-definition'
+import LiteralUnion from '../type/union/literal-union'
 import TypeLiteralLabel from '../type/type-literal-label'
 
 namespace SwitchValueType {

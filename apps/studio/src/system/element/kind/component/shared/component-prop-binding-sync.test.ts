@@ -1,6 +1,6 @@
 import { get } from 'svelte/store'
 import { beforeEach, describe, expect, it } from 'vitest'
-import ReferenceGraph from '../../../../analysis/reference-graph'
+import ReferenceGraph from '../../../../analysis/reference/reference-graph'
 import TreeStore from '../../../../store/tree-store'
 import TreeNode from '../../../../tree/tree-node'
 import TypeExpression from '../../type/type-expression'

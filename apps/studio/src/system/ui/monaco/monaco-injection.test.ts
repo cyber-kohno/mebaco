@@ -5,6 +5,7 @@ describe('MonacoInjection', () => {
   it('does not inject namespace roots without scoped declarations', () => {
     expect(MonacoInjection.createDefaultInjectionSource('expression')).toBe('')
     expect(MonacoInjection.createDefaultInjectionSource('action')).toBe('')
+    expect(MonacoInjection.createDefaultInjectionSource('code')).toBe('')
     expect(MonacoInjection.getAnalysisOffsetLine('expression', {
       injectionSource: '',
     })).toBe(3)
@@ -48,5 +49,42 @@ describe('MonacoInjection', () => {
       .toContain('async function __mebacoAction() {')
     expect(MonacoInjection.wrapForAnalysis('await work()', 'expression', { allowAwait: true }))
       .toContain('async function __mebacoExpression() {')
+  })
+
+  it('wraps Function Code as a typed body with direct parameters', () => {
+    const source = MonacoInjection.wrapForAnalysis(
+      'const doubled = value * 2\nreturn doubled',
+      'code',
+      {
+        expectedTypeText: 'number',
+        functionParameters: [{ name: 'value', typeText: 'number' }],
+      },
+    )
+
+    expect(source).toContain('function __mebacoCode(value: number): number {')
+    expect(source).toContain('const doubled = value * 2\nreturn doubled')
+    expect(source).not.toContain('$args')
+    expect(MonacoInjection.getAnalysisOffsetLine('code')).toBe(2)
+  })
+
+  it('adds typed Function parameters to the visible Monaco model', () => {
+    const source = MonacoInjection.appendFunctionParameterDeclarations(
+      'declare var $state: { count: number; };',
+      [
+        { name: 'value', typeText: 'number' },
+        { name: 'user', typeText: 'User | null' },
+      ],
+    )
+
+    expect(source).toContain('declare let value: number;')
+    expect(source).toContain('declare let user: User | null;')
+    expect(source).not.toContain('$args')
+  })
+
+  it('uses Promise return types for async Function Code', () => {
+    expect(MonacoInjection.wrapForAnalysis('return await load()', 'code', {
+      allowAwait: true,
+      expectedTypeText: 'User',
+    })).toContain('async function __mebacoCode(): Promise<User> {')
   })
 })

@@ -42,16 +42,12 @@ describe('TransitionExecutor', () => {
       element,
       FormulaContext.create({
         $state: { count: 2 },
-        $system: {
-          getRef: () => null,
-          afterRender: () => () => {},
-          transition: (appId, values) => { request = { appId, values } },
-        },
+        requestTransition: (appId, values) => { request = { appId, values } },
       }),
       project,
     )
 
     expect(result).toEqual({ ok: true })
-    expect(request).toEqual({ appId: 'Target', values: { count: 3 } })
+    expect(request).toEqual({ appId: 'target-app-id', values: { count: 3 } })
   })
 })

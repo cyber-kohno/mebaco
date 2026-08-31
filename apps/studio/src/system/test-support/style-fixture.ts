@@ -1,8 +1,9 @@
 import type MebacoElement from '../element/element'
-import type StyleElement from '../element/kind/view/style-element'
-import type StyleParamElement from '../element/kind/view/style-param-element'
-import type TagElement from '../element/kind/view/tag-element'
+import type StyleElement from '../element/kind/view/style/style-element'
+import type StyleParamElement from '../element/kind/view/style/style-param-element'
+import type TagElement from '../element/kind/view/tag/tag-element'
 import type TreeNode from '../tree/tree-node'
+import type VariableElement from '../element/kind/variable/variable-element'
 
 namespace StyleFixture {
   let nextNodeId = 1
@@ -46,12 +47,19 @@ namespace StyleFixture {
       rules?: StyleElement.Rule[]
       bases?: StyleElement.Base[]
       parameters?: StyleParamElement.Element[]
+      locals?: VariableElement.Element[]
     } = {},
   ): TreeNode.Node => {
     const parameterNodes = options.parameters?.map((item) => node(item)) ?? []
-    const children = parameterNodes.length === 0
-      ? []
-      : [node({ kind: 'style-params' }, parameterNodes)]
+    const localNodes = options.locals?.map((item) => node(item)) ?? []
+    const children = [
+      ...(parameterNodes.length === 0
+        ? []
+        : [node({ kind: 'style-params' }, parameterNodes)]),
+      ...(localNodes.length === 0
+        ? []
+        : [node({ kind: 'style-locals' }, localNodes)]),
+    ]
 
     return node({
       kind: 'style',

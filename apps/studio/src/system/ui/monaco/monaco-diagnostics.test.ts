@@ -8,6 +8,7 @@ const monaco = {
 
 const analysisModel = {
   getPositionAt: (offset: number) => ({ lineNumber: offset, column: 1 }),
+  getLineMaxColumn: () => 8,
 } as never
 
 const userModel = {
@@ -71,6 +72,28 @@ describe('MonacoDiagnostics', () => {
 
     expect(markers).toHaveLength(1)
     expect(markers[0].startLineNumber).toBe(1)
+  })
+
+  it('maps a missing Function Code return from the generated wrapper to user code', () => {
+    const markers = MonacoDiagnostics.createMarkers(
+      monaco,
+      [{
+        start: 4,
+        length: 1,
+        messageText: "Function lacks ending return statement and return type does not include 'undefined'.",
+        category: 1,
+      }],
+      analysisModel,
+      'code',
+      4,
+      2,
+    )
+
+    expect(markers).toEqual([expect.objectContaining({
+      severity: 8,
+      startLineNumber: 1,
+      endLineNumber: 2,
+    })])
   })
 
   it('creates a whole-model marker for custom expression validation errors', () => {

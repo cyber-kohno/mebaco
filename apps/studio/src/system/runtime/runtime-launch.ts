@@ -1,7 +1,7 @@
 import type AppElement from '../element/kind/app/app-element'
-import type LaunchArgumentElement from '../element/kind/app/launch-argument-element'
+import type LaunchArgumentElement from '../element/kind/app/launch/launch-argument-element'
+import LaunchArgumentValueProp from '../element/kind/app/launch/launch-argument-value-prop'
 import type LauncherElement from '../element/kind/project/launcher-element'
-import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
 import type TreeNode from '../tree/tree-node'
 import ComponentReference from '../element/kind/component/shared/component-reference'
 import TypeExpression from '../element/kind/type/type-expression'
@@ -9,7 +9,6 @@ import TypeCatalog from '../element/kind/type/type-catalog'
 import TypeValue from './type-value'
 import FormulaContext from './formula/formula-context'
 import RuntimeProps from './runtime-props'
-import ValueSource from '../ui/input/value-source'
 
 namespace RuntimeLaunch {
   export type Result = {
@@ -55,15 +54,7 @@ namespace RuntimeLaunch {
 
   const toProps = (
     argumentsList: readonly LaunchArgumentElement.Element[],
-  ): ValuePropElement.Element[] => argumentsList.map((argument) => ({
-    kind: 'value-prop',
-    propId: argument.propId,
-    id: argument.id,
-    valueType: argument.valueType,
-    nullable: argument.nullable,
-    defaultValue: argument.defaultValue
-      ?? (argument.nullable ? ValueSource.createDefault() : undefined),
-  }))
+  ) => argumentsList.map(LaunchArgumentValueProp.convert)
 
   const resolveDefaultValue = (
     argument: LaunchArgumentElement.Element,

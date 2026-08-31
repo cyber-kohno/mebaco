@@ -16,6 +16,11 @@ export namespace RuntimeError {
     options: Omit<Failure, 'category' | 'message'> = {},
   ): Failure => ({ category: 'unexpected', message, ...options })
 
+  export const assertion = (
+    message: string,
+    options: Omit<Failure, 'category' | 'message'> = {},
+  ): Failure => ({ category: 'assert', message, ...options })
+
   export const fromScriptError = (
     error: ScriptError.Value,
     options: Omit<Failure, 'category' | 'message' | 'scriptError'> = {},

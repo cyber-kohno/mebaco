@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type MebacoElement from '../../element'
 import type TreeNode from '../../../tree/tree-node'
 import FunctionScope from './function-scope'
+import SignatureDefinition from '../type/signature/signature-definition'
 
 let nextNodeId = 1
 
@@ -15,13 +16,26 @@ const node = (
   children,
 })
 
-const fn = (id: string, children: TreeNode.Node[] = []) => node({
-  kind: 'function', id, mode: 'inline', async: false, returnType: null,
+const fn = (
+  id: string,
+  children: TreeNode.Node[] = [],
+  argumentIds: readonly string[] = [],
+) => node({
+  kind: 'function',
+  id,
+  signature: {
+    mode: 'inline',
+    definition: SignatureDefinition.create(false, argumentIds.map((argumentId) => (
+      SignatureDefinition.createParameter(
+        argumentId,
+        { type: 'string' },
+        false,
+        `${id}-${argumentId}`,
+      )
+    ))),
+  },
+  implementation: { mode: 'procedure' },
 }, children)
-
-const args = (...ids: string[]) => node({ kind: 'function-arguments' }, ids.map((id) => (
-  node({ kind: 'function-argument', id, valueType: { type: 'string' }, nullable: false })
-)))
 
 const procedure = (...children: TreeNode.Node[]) => node(
   { kind: 'function-procedure' },
@@ -48,9 +62,9 @@ describe('FunctionScope', () => {
     nextNodeId = 1
     const global = fn('calculate')
     const retentionFunction = fn('calculate')
-    const nested = fn('calculate', [args(), procedure()])
+    const nested = fn('calculate', [procedure()])
     const action = node({ kind: 'action', comment: '', source: '' })
-    const outer = fn('outer', [args(), procedure(nested, action)])
+    const outer = fn('outer', [procedure(nested, action)])
     const retention = node({ kind: 'retention' }, [retentionFunction, outer])
     const root = project([global], [retention])
 
@@ -87,7 +101,7 @@ describe('FunctionScope', () => {
   it('finds the owner Function and its Arguments', () => {
     nextNodeId = 1
     const action = node({ kind: 'action', comment: '', source: '' })
-    const owner = fn('save', [args('user', 'notify'), procedure(action)])
+    const owner = fn('save', [procedure(action)], ['user', 'notify'])
     const root = project([owner], [])
 
     expect(FunctionScope.findOwnerFunction(root, action.id)?.element.id).toBe('save')
@@ -98,14 +112,17 @@ describe('FunctionScope', () => {
   it('gets Refer Function arguments from its Signature', () => {
     nextNodeId = 1
     const refer = node({
-      kind: 'function', id: 'save', mode: 'refer', signatureTypeId: 'save-handler',
+      kind: 'function',
+      id: 'save',
+      signature: { mode: 'refer', signatureTypeId: 'save-handler' },
+      implementation: { mode: 'procedure' },
     }, [procedure()])
     const root = project([refer], [])
     root.children[1]?.children[0]?.children
       .find((child) => child.element.kind === 'declares')
       ?.children.push(node({ kind: 'types' }, [node({
         kind: 'signature-type', typeId: 'save-handler', id: 'SaveHandler', async: false,
-        parameters: [{ id: 'value', valueType: { type: 'string' }, nullable: false }],
+        parameters: [{ parameterId: 'value-parameter', id: 'value', valueType: { type: 'string' }, nullable: false }],
         returnType: null,
       })]))
 
@@ -113,15 +130,13 @@ describe('FunctionScope', () => {
       .toEqual(['value'])
   })
 
-  it('reports duplicate Function, Argument, and Variable ids in one frame', () => {
+  it('reports duplicate Function and Variable ids in one frame', () => {
     nextNodeId = 1
     const duplicateFunction = fn('inner')
-    const duplicateArgument = args('value', 'value')
     const duplicateVariable = node({
       kind: 'variable', id: 'result', binding: 'let', typeSetting: { type: 'inferred' }, source: '0',
     })
     const owner = fn('owner', [
-      duplicateArgument,
       procedure(
         fn('inner'),
         node({ kind: 'block', label: '' }, [duplicateFunction]),
@@ -135,7 +150,6 @@ describe('FunctionScope', () => {
 
     expect(FunctionScope.validateDeclarations(root).map((issue) => issue.message))
       .toEqual([
-        "Argument 'value' is already declared in this scope.",
         "Function 'inner' is already declared in this scope.",
         "Variable 'result' is already declared in this scope.",
       ])

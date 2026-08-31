@@ -1,5 +1,7 @@
-import LiteralUnion from './literal-union'
+import LiteralUnion from './union/literal-union'
+import CodeMemberIdentifier from '../../code-member-identifier'
 import TypeLiteralLabel from './type-literal-label'
+import DefinitionMemberDiff from './definition-member-diff'
 
 namespace TypeExpression {
   export const primitiveTypes = ['string', 'number', 'boolean'] as const
@@ -47,6 +49,7 @@ namespace TypeExpression {
   export type BaseType = Base['type']
 
   export type Property = {
+    propertyId: string
     id: string
     valueType: Expression
     optional: boolean
@@ -91,7 +94,21 @@ namespace TypeExpression {
   export const createProperty = (
     id: string,
     valueType: Expression = createPrimitive(),
-  ): Property => ({ id, valueType, optional: false, nullable: false })
+    propertyId: string = crypto.randomUUID(),
+  ): Property => ({ propertyId, id, valueType, optional: false, nullable: false })
+
+  export const getPropertyContractFingerprint = (property: Property): string => (
+    JSON.stringify(property, (key, value) => key === 'propertyId' ? undefined : value)
+  )
+
+  export const diffProperties = (
+    previous: readonly Property[],
+    current: readonly Property[],
+  ): DefinitionMemberDiff.Result<Property> => DefinitionMemberDiff.compare(
+    previous,
+    current,
+    (property) => property.propertyId,
+  )
 
   export const wrapArray = (
     base: Base,
@@ -171,7 +188,7 @@ namespace TypeExpression {
   export const parseProperties = (source: string): Property[] | null => {
     try {
       const parsed: unknown = JSON.parse(source)
-      return Array.isArray(parsed) && parsed.every(isProperty)
+      return Array.isArray(parsed) && parsed.every(isProperty) && hasUniquePropertyIds(parsed)
         ? parsed
         : null
     } catch {
@@ -182,7 +199,7 @@ namespace TypeExpression {
   export const parseExpression = (source: string): Expression | null => {
     try {
       const parsed: unknown = JSON.parse(source)
-      return isExpression(parsed) ? parsed : null
+      return isExpression(parsed) && hasUniqueExpressionPropertyIds(parsed) ? parsed : null
     } catch {
       return null
     }
@@ -191,13 +208,16 @@ namespace TypeExpression {
   const isProperty = (value: unknown): value is Property => {
     if (value == null || typeof value !== 'object') return false
     const property = value as {
+      propertyId?: unknown
       id?: unknown
       valueType?: unknown
       optional?: unknown
       nullable?: unknown
     }
     return (
-      typeof property.id === 'string'
+      typeof property.propertyId === 'string'
+      && property.propertyId.length > 0
+      && typeof property.id === 'string'
       && typeof property.optional === 'boolean'
       && typeof property.nullable === 'boolean'
       && isExpression(property.valueType)
@@ -248,6 +268,25 @@ namespace TypeExpression {
       && expression.properties.every(isProperty)
   }
 
+  const collectPropertyIds = (properties: readonly Property[], result: string[]): void => {
+    for (const property of properties) {
+      result.push(property.propertyId)
+      const base = unwrapArray(property.valueType).base
+      if (base.type === 'object') collectPropertyIds(base.properties, result)
+    }
+  }
+
+  const hasUniquePropertyIds = (properties: readonly Property[]): boolean => {
+    const ids: string[] = []
+    collectPropertyIds(properties, ids)
+    return new Set(ids).size === ids.length
+  }
+
+  const hasUniqueExpressionPropertyIds = (expression: Expression): boolean => {
+    const base = unwrapArray(expression).base
+    return base.type !== 'object' || hasUniquePropertyIds(base.properties)
+  }
+
   export const validateProperties = (
     properties: readonly Property[],
     validReferenceIds?: ReadonlySet<string>,
@@ -258,9 +297,8 @@ namespace TypeExpression {
       if (new Set(ids).size !== ids.length) return 'Property name is duplicated.'
 
       for (const property of level) {
-        if (!/^[a-z][A-Za-z0-9]*$/.test(property.id)) {
-          return 'Use valid JavaScript property names.'
-        }
+        const identifierError = CodeMemberIdentifier.validate(property.id)
+        if (identifierError != null) return identifierError
         const { base, depth } = unwrapArray(property.valueType)
         if (depth > 32) return 'Array depth must be 32 or fewer.'
         if (base.type === 'reference') {

@@ -5,11 +5,11 @@ import ActionElement from './kind/variable/action-element'
 import ElementDialog from '../element-dialog/element-dialog-controller'
 import FunctionElement from './kind/function/function-element'
 import FunctionReturnElement from './kind/function/function-return-element'
-import ObjectTypeElement from './kind/type/object-type-element'
+import ObjectTypeElement from './kind/type/object/object-type-element'
 import TreeStore from '../store/tree-store'
 import TypeCatalog from './kind/type/type-catalog'
-import UnionTypeElement from './kind/type/union-type-element'
-import SignatureTypeElement from './kind/type/signature-type-element'
+import UnionTypeElement from './kind/type/union/union-type-element'
+import SignatureTypeElement from './kind/type/signature/signature-type-element'
 import ValueTypeDefinition from './kind/type/value-type-definition'
 import VariableElement from './kind/variable/variable-element'
 import FunctionScope from './kind/function/function-scope'
@@ -61,8 +61,9 @@ namespace FunctionActions {
       parentNodeId,
       FunctionElement.createSchema({
         reservedNames: collectFrameIds(rootNode, parentNodeId, 'function'),
-        referenceOptions: TypeCatalog.getReferenceOptions(rootNode, parentNodeId),
+        objectOptions: TypeCatalog.getObjectOptions(rootNode, parentNodeId),
         namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
+        rootNode,
       }),
       insertIndex,
     ))
@@ -184,7 +185,7 @@ namespace FunctionActions {
         ? undefined
         : ValueTypeDefinition.getTypeText(
             returnType,
-            (id) => TypeCatalog.resolveTypeName(rootNode, id),
+            (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
           ),
     })
   }

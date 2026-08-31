@@ -3,9 +3,9 @@ import ScriptPolicy from './script-policy'
 
 describe('ScriptPolicy', () => {
   it('rejects await outside an async Function', () => {
-    expect(ScriptPolicy.validate('await $function.load()', { allowAwait: false }))
+    expect(ScriptPolicy.validate('await $fn.load()', { allowAwait: false }))
       .toContain('await is only available in an async Function.')
-    expect(ScriptPolicy.validate('await $function.load()', { allowAwait: true }))
+    expect(ScriptPolicy.validate('await $fn.load()', { allowAwait: true }))
       .toEqual([])
   })
 

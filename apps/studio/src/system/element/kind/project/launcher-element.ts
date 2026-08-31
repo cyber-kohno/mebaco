@@ -4,10 +4,9 @@ import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import type TreeNode from '../../../tree/tree-node'
 import ComponentReference from '../component/shared/component-reference'
-import type ValuePropElement from '../component/definition/value-prop-element'
-import type LaunchArgumentElement from '../app/launch-argument-element'
+import type LaunchArgumentElement from '../app/launch/launch-argument-element'
+import LaunchArgumentValueProp from '../app/launch/launch-argument-value-prop'
 import LauncherTreeLabel from './LauncherTreeLabel.svelte'
-import ValueSource from '../../../ui/input/value-source'
 
 namespace LauncherElement {
   export type Kind = 'launcher'
@@ -21,14 +20,9 @@ namespace LauncherElement {
   const getAppOption = (node: TreeNode.Node): ComponentReference.Option | null => {
     if (node.element.kind !== 'app') return null
     const argsNode = node.children.find((child) => child.element.kind === 'launch-options')?.children.find((child) => child.element.kind === 'launch-arguments')
-    const props = (argsNode?.children ?? []).filter((child): child is TreeNode.Node & { element: LaunchArgumentElement.Element } => child.element.kind === 'launch-argument').map((child) => ({
-      kind: 'value-prop',
-      propId: child.element.propId,
-      id: child.element.id,
-      valueType: child.element.valueType,
-      nullable: child.element.nullable,
-      defaultValue: child.element.defaultValue ?? (child.element.nullable ? ValueSource.createDefault() : undefined),
-    } as ValuePropElement.Element))
+    const props = (argsNode?.children ?? [])
+      .filter((child): child is TreeNode.Node & { element: LaunchArgumentElement.Element } => child.element.kind === 'launch-argument')
+      .map((child) => LaunchArgumentValueProp.convert(child.element))
     return { componentId: node.element.appId, label: node.element.id, props }
   }
   export const getAppOptions = (rootNode: TreeNode.Node): ComponentReference.Option[] => (

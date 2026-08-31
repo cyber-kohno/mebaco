@@ -3,6 +3,7 @@ import type MebacoElement from '../../element/element'
 import type TreeNode from '../../tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import RetentionResolver from './retention-resolver'
+import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
 
 let nextId = 1
 const node = (
@@ -103,17 +104,20 @@ describe('RetentionResolver', () => {
     expect(context.$state.result).toBe(2)
   })
 
-  it('exposes Retention Functions through $function', () => {
+  it('exposes Retention Functions through $fn', () => {
     const functionNode = node({
-      kind: 'function', id: 'scale', mode: 'inline', async: false,
-      returnType: { valueType: { type: 'number' }, nullable: false },
+      kind: 'function',
+      id: 'scale',
+      signature: {
+        mode: 'inline',
+        definition: SignatureDefinition.create(
+        false,
+        [SignatureDefinition.createParameter('value', { type: 'number' }, false, 'value-id')],
+        { valueType: { type: 'number' }, nullable: false },
+        ),
+      },
+      implementation: { mode: 'procedure' },
     }, [
-      node({ kind: 'function-arguments' }, [
-        node({
-          kind: 'function-argument', id: 'value',
-          valueType: { type: 'number' }, nullable: false,
-        }),
-      ]),
       node({ kind: 'function-procedure' }, [
         node({ kind: 'function-return', source: '$args.value * $var.factor' }),
       ]),
@@ -125,7 +129,7 @@ describe('RetentionResolver', () => {
       }),
       functionNode,
       node({
-        kind: 'action', comment: '', source: '$state.result = $function.scale(4)',
+        kind: 'action', comment: '', source: '$state.result = $fn.scale(4)',
       }),
     ])
     const projectNode = node({ kind: 'project' }, [hostNode])
@@ -138,10 +142,18 @@ describe('RetentionResolver', () => {
 
   it('lets a Retention Function update a captured let Variable', () => {
     const functionNode = node({
-      kind: 'function', id: 'increment', mode: 'inline', async: false,
-      returnType: { valueType: { type: 'number' }, nullable: false },
+      kind: 'function',
+      id: 'increment',
+      signature: {
+        mode: 'inline',
+        definition: SignatureDefinition.create(
+        false,
+        [],
+        { valueType: { type: 'number' }, nullable: false },
+        ),
+      },
+      implementation: { mode: 'procedure' },
     }, [
-      node({ kind: 'function-arguments' }),
       node({ kind: 'function-procedure' }, [
         node({ kind: 'action', comment: '', source: '$var.count += 1' }),
         node({ kind: 'function-return', source: '$var.count' }),
@@ -154,7 +166,7 @@ describe('RetentionResolver', () => {
       }),
       functionNode,
       node({
-        kind: 'action', comment: '', source: '$state.result = $function.increment()',
+        kind: 'action', comment: '', source: '$state.result = $fn.increment()',
       }),
     ])
     const projectNode = node({ kind: 'project' }, [hostNode])

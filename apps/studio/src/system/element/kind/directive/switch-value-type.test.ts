@@ -85,4 +85,46 @@ describe('SwitchValueType', () => {
       SwitchValueType.stringify(SwitchValueType.createPrimitive('string')),
     )).toBeNull()
   })
+
+  it('rejects a literal restriction that excludes an existing Case value', () => {
+    const field: ElementEditSchema.SwitchValueTypeField = {
+      type: 'switchValueType',
+      key: 'valueType',
+      label: 'Value Type',
+      literalUnionOptions: [{
+        value: 'next-status-id',
+        label: 'NextStatus',
+        valueType: 'string',
+        values: ['ready', 'done'],
+        title: "'ready' | 'done'",
+      }],
+      caseValueType: 'string',
+      caseValues: ['ready', 'failed'],
+    }
+
+    expect(ElementEditSchema.validateSwitchValueType(
+      field,
+      SwitchValueType.stringify(SwitchValueType.createUnion('next-status-id')),
+    )).toBe('Existing Case value is not allowed by the selected Switch value type: "failed".')
+  })
+
+  it('allows a literal restriction containing every existing Case value', () => {
+    const field: ElementEditSchema.SwitchValueTypeField = {
+      type: 'switchValueType',
+      key: 'valueType',
+      label: 'Value Type',
+      literalUnionOptions: [],
+      caseValueType: 'string',
+      caseValues: ['ready'],
+    }
+
+    expect(ElementEditSchema.validateSwitchValueType(
+      field,
+      SwitchValueType.stringify({
+        type: 'primitive',
+        primitive: 'string',
+        literals: ['ready', 'done'],
+      }),
+    )).toBeNull()
+  })
 })

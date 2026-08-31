@@ -3,12 +3,33 @@ import type MebacoElement from '../../element/element'
 import type TreeNode from '../../tree/tree-node'
 import MebacoInjectionSource from './mebaco-injection-source'
 import TypeExpression from '../../element/kind/type/type-expression'
+import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
 
 const node = (
   id: number,
   element: MebacoElement.Element,
   children: TreeNode.Node[] = [],
 ): TreeNode.Node => ({ id, element, isOpen: true, children })
+
+const inlineFunction = (
+  id: string,
+  definition: SignatureDefinition.Definition = SignatureDefinition.create(),
+): MebacoElement.Element => ({
+  kind: 'function',
+  id,
+  signature: { mode: 'inline', definition },
+  implementation: { mode: 'procedure' },
+})
+
+const referFunction = (
+  id: string,
+  signatureTypeId: string,
+): MebacoElement.Element => ({
+  kind: 'function',
+  id,
+  signature: { mode: 'refer', signatureTypeId },
+  implementation: { mode: 'procedure' },
+})
 
 describe('MebacoInjectionSource Loop variables', () => {
   it('does not inject App State while editing a Common Style', () => {
@@ -92,6 +113,45 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(source).not.toContain('accent: color;')
   })
 
+  it('injects ordered Style Locals and Style Parameters into their own scope', () => {
+    const first = node(5, {
+      kind: 'variable', id: 'first', binding: 'const',
+      typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+      source: '$param.seed',
+    })
+    const second = node(6, {
+      kind: 'variable', id: 'second', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: '$local.first + 1',
+    })
+    const styleNode = node(2, {
+      kind: 'style', styleId: 'calculated-style-id', id: 'calculated', rules: [], bases: [],
+    }, [
+      node(3, { kind: 'style-params' }, [node(4, {
+        kind: 'style-param', parameterId: 'seed-id', id: 'seed', valueType: 'number',
+      })]),
+      node(7, { kind: 'style-locals' }, [first, second]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [styleNode])
+
+    const styleSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      styleNode.id,
+      'expression',
+    )
+    expect(styleSource).toContain('seed: number;')
+    expect(styleSource).toContain('readonly first: number;')
+    expect(styleSource).toContain('readonly second: number;')
+
+    const secondSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      second.id,
+      'expression',
+    )
+    expect(secondSource).toContain('seed: number;')
+    expect(secondSource).toContain('readonly first: number;')
+    expect(secondSource).not.toContain('readonly second:')
+  })
+
   it('injects a concrete action event type when provided', () => {
     const tagNode = node(2, {
       kind: 'tag',
@@ -149,7 +209,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       '$param',
       '$props',
       '$var',
-      '$function',
+      '$fn',
       '$system',
       '$event',
     ]
@@ -323,7 +383,7 @@ describe('MebacoInjectionSource Loop variables', () => {
     )
 
     expect(source).toContain('type User = {')
-    expect(source).toContain('user: User;')
+    expect(source).toContain('user: $type.User;')
   })
 
   it('injects ordered Retention Variables with const and let bindings', () => {
@@ -379,10 +439,7 @@ describe('MebacoInjectionSource Loop variables', () => {
 describe('MebacoInjectionSource Function scope', () => {
   it('does not inject $args into a Function without Arguments', () => {
     const actionNode = node(5, { kind: 'action', comment: '', source: '' })
-    const functionNode = node(2, {
-      kind: 'function', id: 'run', mode: 'inline', async: false, returnType: null,
-    }, [
-      node(3, { kind: 'function-arguments' }),
+    const functionNode = node(2, inlineFunction('run'), [
       node(4, { kind: 'function-procedure' }, [actionNode]),
     ])
     const rootNode = node(1, { kind: 'project' }, [functionNode])
@@ -395,9 +452,7 @@ describe('MebacoInjectionSource Function scope', () => {
 
   it('injects arguments, async, and return type from a Refer Function Signature', () => {
     const actionNode = node(8, { kind: 'action', comment: '', source: '' })
-    const referNode = node(6, {
-      kind: 'function', id: 'load', mode: 'refer', signatureTypeId: 'load-signature',
-    }, [
+    const referNode = node(6, referFunction('load', 'load-signature'), [
       node(7, { kind: 'function-procedure' }, [actionNode]),
     ])
     const rootNode = node(1, { kind: 'project' }, [
@@ -409,7 +464,7 @@ describe('MebacoInjectionSource Function scope', () => {
               node(10, {
                 kind: 'signature-type', typeId: 'load-signature', id: 'LoadSignature',
                 async: true,
-                parameters: [{ id: 'id', valueType: { type: 'string' }, nullable: false }],
+                parameters: [{ parameterId: 'id-parameter', id: 'id', valueType: { type: 'string' }, nullable: false }],
                 returnType: { valueType: { type: 'number' }, nullable: false },
               }),
             ]),
@@ -427,41 +482,27 @@ describe('MebacoInjectionSource Function scope', () => {
 
   it('injects typed Arguments and visible Function signatures', () => {
     const actionNode = node(11, { kind: 'action', comment: '', source: '' })
-    const calculateNode = node(7, {
-      kind: 'function',
-      id: 'calculate',
-      mode: 'inline',
-      async: false,
-      returnType: { valueType: { type: 'number' }, nullable: false },
-    }, [
-      node(8, { kind: 'function-arguments' }, [
-        node(9, {
-          kind: 'function-argument',
-          id: 'count',
-          valueType: { type: 'number' },
-          nullable: false,
-        }),
-      ]),
+    const calculateNode = node(7, inlineFunction(
+      'calculate',
+      SignatureDefinition.create(
+        false,
+        [SignatureDefinition.createParameter('count', { type: 'number' }, false, 'count-id')],
+        { valueType: { type: 'number' }, nullable: false },
+      ),
+    ), [
       node(10, { kind: 'function-procedure' }, [actionNode]),
     ])
-    const loadNode = node(12, {
-      kind: 'function',
-      id: 'loadUser',
-      mode: 'inline',
-      async: true,
-      returnType: {
-        valueType: TypeExpression.createReference(['user-type']),
-        nullable: true,
-      },
-    }, [
-      node(13, { kind: 'function-arguments' }, [
-        node(14, {
-          kind: 'function-argument',
-          id: 'id',
-          valueType: { type: 'string' },
-          nullable: false,
-        }),
-      ]),
+    const loadNode = node(12, inlineFunction(
+      'loadUser',
+      SignatureDefinition.create(
+        true,
+        [SignatureDefinition.createParameter('id', { type: 'string' }, false, 'id-id')],
+        {
+          valueType: TypeExpression.createReference(['user-type']),
+          nullable: true,
+        },
+      ),
+    ), [
       node(15, { kind: 'function-procedure' }),
     ])
     const rootNode = node(1, { kind: 'project' }, [
@@ -492,15 +533,12 @@ describe('MebacoInjectionSource Function scope', () => {
 
     expect(source).toContain('declare var $args: {\n  count: number;\n};')
     expect(source).toContain('calculate(count: number): number;')
-    expect(source).toContain('loadUser(id: string): Promise<User | null>;')
+    expect(source).toContain('loadUser(id: string): Promise<$type.User | null>;')
   })
 
   it('injects preceding outer and local Procedure Variables', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
-    const inner = node(5, {
-      kind: 'function', id: 'inner', mode: 'inline', async: false, returnType: null,
-    }, [
-      node(6, { kind: 'function-arguments' }),
+    const inner = node(5, inlineFunction('inner'), [
       node(7, { kind: 'function-procedure' }, [
         node(9, {
           kind: 'variable', id: 'local', binding: 'const',
@@ -510,10 +548,7 @@ describe('MebacoInjectionSource Function scope', () => {
         target,
       ]),
     ])
-    const outer = node(2, {
-      kind: 'function', id: 'outer', mode: 'inline', async: false, returnType: null,
-    }, [
-      node(3, { kind: 'function-arguments' }),
+    const outer = node(2, inlineFunction('outer'), [
       node(4, { kind: 'function-procedure' }, [
         node(10, {
           kind: 'variable', id: 'captured', binding: 'let',
@@ -531,10 +566,10 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(source).toContain('readonly local: number;')
   })
 
-  it('injects typed transition overloads for other Apps only', () => {
+  it('injects typed transition accessors for other Apps in Actions only', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
-    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current' }, [target])
-    const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'details' }, [
+    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [target])
+    const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'user-details' }, [
       node(21, { kind: 'launch-options' }, [
         node(22, { kind: 'launch-arguments' }, [
           node(23, {
@@ -554,9 +589,55 @@ describe('MebacoInjectionSource Function scope', () => {
     const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
 
     expect(source).toContain(
-      'transition(appId: "details", launchValues: {\n    userId: number;\n  }): void;',
+      'declare var $transition: {\n  userDetails(launchValues: {\n    userId: number;\n  }): void;\n};',
     )
-    expect(source).not.toContain('appId: "current"')
+    expect(source).not.toContain('currentApp(')
+    expect(MebacoInjectionSource.createForNode(rootNode, target.id, 'expression'))
+      .not.toContain('$transition')
+  })
+
+  it('does not expose $args to Function Code', () => {
+    const functionNode = node(2, inlineFunction(
+      'run',
+      SignatureDefinition.create(
+        false,
+        [SignatureDefinition.createParameter('value', { type: 'number' }, false, 'value-id')],
+      ),
+    ))
+    const rootNode = node(1, { kind: 'project' }, [functionNode])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, functionNode.id, 'code')
+
+    expect(source).not.toContain('declare var $args:')
+  })
+
+  it('makes defaulted and nullable transition arguments optional', () => {
+    const target = node(8, { kind: 'action', comment: '', source: '' })
+    const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [target])
+    const otherApp = node(20, { kind: 'app', appId: 'details-app-id', id: 'user-details' }, [
+      node(21, { kind: 'launch-options' }, [
+        node(22, { kind: 'launch-arguments' }, [
+          node(23, {
+            kind: 'launch-argument', propId: 'mode-prop-id', id: 'mode',
+            valueType: { type: 'string' }, nullable: false,
+            defaultValue: { type: 'literal', value: 'view' },
+          }),
+          node(24, {
+            kind: 'launch-argument', propId: 'filter-prop-id', id: 'filter',
+            valueType: { type: 'string' }, nullable: true,
+          }),
+        ]),
+      ]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'apps' }, [currentApp, otherApp]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
+
+    expect(source).toContain(
+      'userDetails(launchValues?: {\n    mode?: string;\n    filter?: string | null;\n  }): void;',
+    )
   })
 
   it('does not inject transition when the current App has no peer App', () => {
@@ -567,6 +648,6 @@ describe('MebacoInjectionSource Function scope', () => {
 
     const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
 
-    expect(source).not.toContain('transition(')
+    expect(source).not.toContain('$transition')
   })
 })

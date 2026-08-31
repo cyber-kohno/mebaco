@@ -29,7 +29,7 @@ Front Driven の Function / Arguments / Procedure という構造を参考にす
 - Procedure 内の Block
 - Procedure 内のネストした Function
 - Return 要素
-- `$function.<id>(...)` による呼び出し
+- `$fn.<id>(...)` による呼び出し
 - 位置引数
 - オブジェクト型引数
 - リテラルユニオン、オブジェクトユニオン、Nullable、配列
@@ -51,7 +51,7 @@ Front Driven の Function / Arguments / Procedure という構造を参考にす
 オブジェクトを渡す場合も、特別な名前付き引数機構は設けず、通常の位置引数の値として渡す。
 
 ```ts
-$function.updateUser({
+$fn.updateUser({
   id: 'user-1',
   name: 'Taro',
 })
@@ -134,7 +134,7 @@ type FunctionElement = {
 - JavaScript 識別子
 - 1〜32文字
 - 同一 Function スコープ内で重複禁止
-- `$function.<id>` のプロパティ名として使用する
+- `$fn.<id>` のプロパティ名として使用する
 
 #### `async`
 
@@ -159,7 +159,7 @@ returnType: User
 呼び出し時の型：
 
 ```ts
-$function.load(id): Promise<User>
+$fn.load(id): Promise<User>
 ```
 
 ### 4.2 Arguments 管理要素
@@ -270,32 +270,32 @@ Action のソースコード内に `return` を書くことは禁止する。処
 
 ## 5. Function の呼び出し
 
-Function は `$function` 名前空間のプロパティとして呼び出す。
+Function は `$fn` 名前空間のプロパティとして呼び出す。
 
 ```ts
-$function.calculate(2)
+$fn.calculate(2)
 ```
 
 Function ID が `exec` の場合は、次の記述になる。
 
 ```ts
-$function.exec()
+$fn.exec()
 ```
 
-汎用的な `$function.exec(name, args)` 形式は採用しない。Function ID を静的なプロパティとして扱うことで、Monaco の補完・引数チェック・戻り値型推論を利用する。
+汎用的な `$fn.exec(name, args)` 形式は採用しない。Function ID を静的なプロパティとして扱うことで、Monaco の補完・引数チェック・戻り値型推論を利用する。
 
 ### 5.1 引数の渡し方
 
 MVP では位置引数を使用する。
 
 ```ts
-$function.calculate(2, 'normal')
+$fn.calculate(2, 'normal')
 ```
 
 オブジェクト型も位置引数の値として渡せる。
 
 ```ts
-$function.updateUser({
+$fn.updateUser({
   id: 'user-1',
   name: 'Taro',
 })
@@ -321,7 +321,7 @@ Function 実行時の名前空間は次のように分ける。
 | `$props` | Component の Props | 実行時コンテキスト |
 | `$args` | Function 引数 | Function 呼び出しごとのローカル |
 | `$var` | Variable | Function / Retention のレキシカルスコープ |
-| `$function` | Function | Function / Retention のレキシカルスコープ |
+| `$fn` | Function | Function / Retention のレキシカルスコープ |
 | `$system` | ランタイムAPI | 実行時コンテキスト |
 | `$event` | イベント情報 | イベント実行時のみ |
 
@@ -330,7 +330,7 @@ Function は呼び出し元のローカル `$var` をそのまま引き継がな
 - `$state`、`$props`、`$system`、`$event` は呼び出しコンテキストを利用する
 - `$args` は呼び出しごとに新規作成する
 - `$var` は Function の定義スコープを親にする
-- `$function` は Function の定義スコープを親にする
+- `$fn` は Function の定義スコープを親にする
 
 これにより、呼び出し元の一時変数が Function 内へ意図せず漏れることを防ぐ。
 
@@ -353,7 +353,7 @@ Function は RetentionResolver の Action 逐次実行をそのまま流用し�
 FunctionRunner
   1. Function 定義を解決
   2. 引数の個数・型を検証
-  3. Function 用の $args / $var / $function フレームを作成
+  3. Function 用の $args / $var / $fn フレームを作成
   4. Procedure の Variable を順番に初期化
   5. Procedure の Action を順番に実行
   6. Return 式を評価
@@ -402,7 +402,7 @@ Function マスターの `async` が `true` の場合、Procedure は非同期�
 async Function 内の Action と Return の式では `await` を許可する。
 
 ```ts
-const user = await $function.loadUser($args.id)
+const user = await $fn.loadUser($args.id)
 $var.name = user.name
 ```
 
@@ -441,12 +441,12 @@ declare const $args: {
 }
 ```
 
-### 9.2 `$function`
+### 9.2 `$fn`
 
 可視スコープの Function から生成する。
 
 ```ts
-declare const $function: {
+declare const $fn: {
   calculate(count: number): number
   loadUser(id: string): Promise<User>
 }
@@ -479,7 +479,7 @@ Monaco の表示だけでなく、保存時にも次を検証する。
 - 引数過多
 - 引数型不一致
 - 存在しない `$args` プロパティ
-- 存在しない `$function` プロパティ
+- 存在しない `$fn` プロパティ
 - 非async Function での await
 - Action 内の return
 
@@ -578,7 +578,7 @@ RetentionResolver に Function 実行ロジックを追加して共用しない�
 ただし、Function Procedure 内の Action は次の追加制御を受ける。
 
 - 所有 Function の `$args` 注入
-- 所有 Function の `$function` 注入
+- 所有 Function の `$fn` 注入
 - async に応じた await 制御
 - return 禁止
 
@@ -619,7 +619,7 @@ Procedure 内で定義した Object / Union は Function スコープ内だけ�
 ### Phase 3：Monaco
 
 1. `$args` 宣言生成
-2. `$function` 宣言生成
+2. `$fn` 宣言生成
 3. Return の期待型注入
 4. async に応じた await 制御
 5. Action 内 return 禁止
@@ -633,7 +633,7 @@ Procedure 内で定義した Object / Union は Function スコープ内だけ�
 4. Procedure Variable / Action 実行
 5. Return 評価
 6. 戻り値型検証
-7. `$function.<id>(...)` のランタイム解決
+7. `$fn.<id>(...)` のランタイム解決
 
 ### Phase 5：非同期とネスト
 
@@ -641,7 +641,7 @@ Procedure 内で定義した Object / Union は Function スコープ内だけ�
 2. await 実行
 3. Promise の戻り値型
 4. ネストした Function
-5. レキシカルな `$function` 解決
+5. レキシカルな `$fn` 解決
 6. 同時実行時のローカルフレーム分離
 
 ## 14. テスト計画
@@ -688,7 +688,7 @@ Procedure 内で定義した Object / Union は Function スコープ内だけ�
 ## 15. 設計上の禁止事項
 
 - Action 内の `return` をFunctionの戻り値として利用しない
-- `$function.exec(name, args)` の動的ディスパッチをMVPに導入しない
+- `$fn.exec(name, args)` の動的ディスパッチをMVPに導入しない
 - Function ローカル State を導入しない
 - Function のローカル Component / Style を許可しない
 - Function のローカル変数をグローバル状態として共有しない

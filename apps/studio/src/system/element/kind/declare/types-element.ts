@@ -1,10 +1,10 @@
 import type ElementDefinition from '../../element-definition'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
-import ObjectTypeElement from '../type/object-type-element'
+import ObjectTypeElement from '../type/object/object-type-element'
 import TypeCatalog from '../type/type-catalog'
-import UnionTypeElement from '../type/union-type-element'
-import SignatureTypeElement from '../type/signature-type-element'
+import UnionTypeElement from '../type/union/union-type-element'
+import SignatureTypeElement from '../type/signature/signature-type-element'
 
 namespace TypesElement {
   export type Kind = 'types'

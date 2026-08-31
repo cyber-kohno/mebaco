@@ -3,9 +3,9 @@ import type MebacoElement from '../../element'
 import type TreeNode from '../../../tree/tree-node'
 import TypeCatalog from './type-catalog'
 import TypeExpression from './type-expression'
-import ObjectShape from './object-shape'
-import UnionDefinition from './union-definition'
-import type SignatureDefinition from './signature-definition'
+import ObjectShape from './object/object-shape'
+import UnionDefinition from './union/union-definition'
+import type SignatureDefinition from './signature/signature-definition'
 
 let nextNodeId = 1
 
@@ -17,6 +17,26 @@ const node = (
   element,
   isOpen: true,
   children,
+})
+
+const inlineFunction = (id: string): MebacoElement.Element => ({
+  kind: 'function',
+  id,
+  signature: {
+    mode: 'inline',
+    definition: { async: false, parameters: [], returnType: null },
+  },
+  implementation: { mode: 'procedure' },
+})
+
+const referFunction = (
+  id: string,
+  signatureTypeId: string,
+): MebacoElement.Element => ({
+  kind: 'function',
+  id,
+  signature: { mode: 'refer', signatureTypeId },
+  implementation: { mode: 'procedure' },
 })
 
 const property = (
@@ -77,6 +97,7 @@ const project = (
 describe('TypeCatalog', () => {
   it('collects Signature types and emits callable declarations', () => {
     const signature = signatureType('save-handler-type', 'SaveHandler', [{
+      parameterId: 'payload-parameter',
       id: 'payload',
       valueType: { type: 'string' },
       nullable: false,
@@ -134,10 +155,7 @@ describe('TypeCatalog', () => {
 
   it('treats a Refer Function as an active Signature reference', () => {
     const signature = signatureType('save-handler-type', 'SaveHandler')
-    const functionNode = node({
-      kind: 'function', id: 'save', mode: 'refer',
-      signatureTypeId: 'save-handler-type',
-    })
+    const functionNode = node(referFunction('save', 'save-handler-type'))
     const root = project([signature, functionNode])
 
     expect(TypeCatalog.isSignatureReferenced(root, 'save-handler-type')).toBe(true)
@@ -231,10 +249,10 @@ describe('TypeCatalog', () => {
     const root = project([user, admin, result])
     const declarations = TypeCatalog.createTypeScriptDeclarations(root, result.id)
 
-    expect(declarations).toContain('owner: User | Admin;')
+    expect(declarations).toContain('owner: $type.User | $type.Admin;')
     expect(declarations).toContain("status: 'ready' | 'done';")
     expect(declarations).toContain('code?: 200 | 404;')
-    expect(declarations).toContain('parent: User | null;')
+    expect(declarations).toContain('parent: $type.User | null;')
     expect(TypeCatalog.createDefaultObject(root, 'result-type')).toEqual({
       owner: {},
       status: 'ready',
@@ -260,7 +278,7 @@ describe('TypeCatalog', () => {
       name: '',
     })
     expect(TypeCatalog.createTypeScriptDeclarations(root, user.id)).toContain(
-      'type User = Identifiable & Timestamped & {',
+      'type User = $type.Identifiable & $type.Timestamped & {',
     )
   })
 
@@ -280,7 +298,19 @@ describe('TypeCatalog', () => {
     const declarations = TypeCatalog.createTypeScriptDeclarations(root, result.id)
 
     expect(declarations).toContain("type Mode = 'maintenance' | 'refer'")
-    expect(declarations).toContain('type Result = User | Admin')
+    expect(declarations).toContain('type Result = $type.User | $type.Admin')
+  })
+
+  it('rejects duplicate IDs in one visible $type namespace', () => {
+    const root = project([
+      objectType('object-type-id', 'Result'),
+      unionType('union-type-id', 'Result', {
+        type: 'literal', valueType: 'string', values: ['ready'],
+      }),
+    ])
+
+    expect(() => TypeCatalog.createTypeScriptDeclarations(root, root.id))
+      .toThrow("Duplicate Type ID 'Result' in the visible $type namespace.")
   })
 
   it('uses named unions from value type references', () => {
@@ -306,7 +336,7 @@ describe('TypeCatalog', () => {
     const syncResult = signatureType(
       'sync-result-type',
       'SyncResult',
-      [{ id: 'ignored', valueType: TypeExpression.createPrimitive(), nullable: false }],
+      [{ parameterId: 'ignored-parameter', id: 'ignored', valueType: TypeExpression.createPrimitive(), nullable: false }],
       false,
       {
         valueType: TypeExpression.createReference(['result-type']),
@@ -449,12 +479,10 @@ describe('TypeCatalog', () => {
       node({ kind: 'apps' }, [
         node({ kind: 'app', appId: 'app-id', id: 'app' }, [
           node({ kind: 'declares' }, [node({ kind: 'types' }, [globalType])]),
-          node({ kind: 'function', id: 'first', mode: 'inline', async: false, returnType: null }, [
-            node({ kind: 'function-arguments' }),
+          node(inlineFunction('first'), [
             node({ kind: 'function-procedure' }, [ownType, target]),
           ]),
-          node({ kind: 'function', id: 'second', mode: 'inline', async: false, returnType: null }, [
-            node({ kind: 'function-arguments' }),
+          node(inlineFunction('second'), [
             node({ kind: 'function-procedure' }, [otherType, otherTarget]),
           ]),
         ]),

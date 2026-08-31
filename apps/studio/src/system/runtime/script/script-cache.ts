@@ -1,5 +1,5 @@
 namespace ScriptCache {
-  export type Mode = 'expression' | 'action' | 'async-expression' | 'async-action'
+  export type Mode = 'expression' | 'action' | 'async-expression' | 'async-action' | 'code' | 'async-code'
 
   const maxEntries = 256
   const values = new Map<string, unknown>()

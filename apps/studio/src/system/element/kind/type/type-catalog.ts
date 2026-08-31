@@ -1,17 +1,20 @@
 import type TreeNode from '../../../tree/tree-node'
-import type ObjectTypeElement from './object-type-element'
-import type UnionTypeElement from './union-type-element'
-import type SignatureTypeElement from './signature-type-element'
-import type ObjectShape from './object-shape'
+import type ObjectTypeElement from './object/object-type-element'
+import type UnionTypeElement from './union/union-type-element'
+import type SignatureTypeElement from './signature/signature-type-element'
+import type ObjectShape from './object/object-shape'
 import TypeExpression from './type-expression'
-import UnionDefinition from './union-definition'
-import SignatureDefinition from './signature-definition'
+import UnionDefinition from './union/union-definition'
+import SignatureDefinition from './signature/signature-definition'
 import TypeDefaultLabel from './type-default-label'
 import TypeLiteralLabel from './type-literal-label'
 import type ValueTypeDefinition from './value-type-definition'
 import ContentHost from '../../content-host'
+import ObjectPropertyTypeScriptMarker from './object/object-property-typescript-marker'
 
 namespace TypeCatalog {
+  export const typeScriptNamespace = '$type'
+
   export type ObjectEntry = {
     node: TreeNode.Node
     element: ObjectTypeElement.Element
@@ -42,6 +45,10 @@ namespace TypeCatalog {
   }
 
   export type ObjectOption = ObjectShape.ObjectOption
+
+  export type TypeScriptDeclarationOptions = {
+    includeObjectPropertyIdentityMarkers?: boolean
+  }
 
   const findPath = (
     node: TreeNode.Node,
@@ -254,6 +261,18 @@ namespace TypeCatalog {
     rootNode: TreeNode.Node,
     typeId: string,
   ): string | undefined => findNamedType(rootNode, typeId)?.element.id
+
+  export const toTypeScriptName = (
+    typeName: string,
+  ): string => `${typeScriptNamespace}.${typeName}`
+
+  export const resolveTypeScriptName = (
+    rootNode: TreeNode.Node,
+    typeId: string,
+  ): string | undefined => {
+    const typeName = resolveTypeName(rootNode, typeId)
+    return typeName == null ? undefined : toTypeScriptName(typeName)
+  }
 
   export const getDefaultValueLabel = (
     rootNode: TreeNode.Node,
@@ -468,17 +487,18 @@ namespace TypeCatalog {
       if (node.element.kind === 'state') {
         referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
       }
-      if (node.element.kind === 'function-argument') {
-        referenced ||= TypeExpression.getReferenceIds(node.element.valueType).includes(objectTypeId)
-      }
       if (
         node.element.kind === 'function'
-        && node.element.mode === 'inline'
-        && node.element.returnType != null
+        && node.element.signature.mode === 'inline'
       ) {
-        referenced ||= TypeExpression.getReferenceIds(
-          node.element.returnType.valueType,
-        ).includes(objectTypeId)
+        referenced ||= node.element.signature.definition.parameters.some((parameter) => (
+          TypeExpression.getReferenceIds(parameter.valueType).includes(objectTypeId)
+        ))
+        if (node.element.signature.definition.returnType != null) {
+          referenced ||= TypeExpression.getReferenceIds(
+            node.element.signature.definition.returnType.valueType,
+          ).includes(objectTypeId)
+        }
       }
       if (
         node.element.kind === 'variable'
@@ -521,23 +541,24 @@ namespace TypeCatalog {
           ).includes(namedTypeId)
         }
       }
-      if (node.element.kind === 'function-argument') {
-        referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
-      }
       if (node.element.kind === 'launch-argument') {
         referenced ||= TypeExpression.getNamedTypeIds(node.element.valueType).includes(namedTypeId)
       }
-      if (node.element.kind === 'function' && node.element.mode === 'refer') {
-        referenced ||= node.element.signatureTypeId === namedTypeId
+      if (node.element.kind === 'function' && node.element.signature.mode === 'refer') {
+        referenced ||= node.element.signature.signatureTypeId === namedTypeId
       }
       if (
         node.element.kind === 'function'
-        && node.element.mode === 'inline'
-        && node.element.returnType != null
+        && node.element.signature.mode === 'inline'
       ) {
-        referenced ||= TypeExpression.getNamedTypeIds(
-          node.element.returnType.valueType,
-        ).includes(namedTypeId)
+        referenced ||= node.element.signature.definition.parameters.some((parameter) => (
+          TypeExpression.getNamedTypeIds(parameter.valueType).includes(namedTypeId)
+        ))
+        if (node.element.signature.definition.returnType != null) {
+          referenced ||= TypeExpression.getNamedTypeIds(
+            node.element.signature.definition.returnType.valueType,
+          ).includes(namedTypeId)
+        }
       }
       if (
         node.element.kind === 'variable'
@@ -692,6 +713,7 @@ namespace TypeCatalog {
   const getTypeScriptType = (
     rootNode: TreeNode.Node,
     valueType: TypeExpression.Expression,
+    options: TypeScriptDeclarationOptions,
   ): string => {
     const { base, depth } = TypeExpression.unwrapArray(valueType)
     let baseText: string
@@ -712,15 +734,15 @@ namespace TypeCatalog {
         break
       case 'reference':
         baseText = base.objectTypeIds
-          .map((objectTypeId) => findObject(rootNode, objectTypeId)?.element.id ?? 'unknown')
+          .map((objectTypeId) => resolveTypeScriptName(rootNode, objectTypeId) ?? 'unknown')
           .join(' | ')
         break
       case 'named':
-        baseText = resolveTypeName(rootNode, base.namedTypeId) ?? 'unknown'
+        baseText = resolveTypeScriptName(rootNode, base.namedTypeId) ?? 'unknown'
         break
       case 'object': {
         const fields = base.properties
-          .map((property) => getTypeScriptProperty(rootNode, property))
+          .map((property) => getTypeScriptProperty(rootNode, property, options))
         baseText = `{ ${fields.join(' ')} }`
         break
       }
@@ -733,42 +755,69 @@ namespace TypeCatalog {
   const getTypeScriptProperty = (
     rootNode: TreeNode.Node,
     property: TypeExpression.Property,
+    options: TypeScriptDeclarationOptions,
   ): string => {
-    const valueType = getTypeScriptType(rootNode, property.valueType)
-    return `${property.id}${property.optional ? '?' : ''}: ${valueType}${property.nullable ? ' | null' : ''};`
+    const valueType = getTypeScriptType(rootNode, property.valueType, options)
+    const marker = options.includeObjectPropertyIdentityMarkers === true
+      ? ObjectPropertyTypeScriptMarker.create(property.propertyId)
+      : ''
+    return `${marker}${property.id}${property.optional ? '?' : ''}: ${valueType}${property.nullable ? ' | null' : ''};`
   }
 
   export const createTypeScriptDeclarations = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
-  ): string => collectVisibleNamedTypes(rootNode, targetNodeId)
-    .map((entry) => {
+    options: TypeScriptDeclarationOptions = {},
+  ): string => {
+    const entries = collectVisibleNamedTypes(rootNode, targetNodeId)
+    if (entries.length === 0) return ''
+
+    const names = new Set<string>()
+    entries.forEach((entry) => {
+      if (names.has(entry.element.id)) {
+        throw new Error(
+          `Duplicate Type ID '${entry.element.id}' in the visible ${typeScriptNamespace} namespace.`,
+        )
+      }
+      names.add(entry.element.id)
+    })
+
+    const declarations = entries.map((entry) => {
       if (entry.element.kind === 'union-type') {
-        return `type ${entry.element.id} = ${UnionDefinition.getTypeScriptType(
+        return `export type ${entry.element.id} = ${UnionDefinition.getTypeScriptType(
           entry.element.definition,
-          (objectTypeId) => findObject(rootNode, objectTypeId)?.element.id,
+          (objectTypeId) => resolveTypeScriptName(rootNode, objectTypeId),
         )}`
       }
 
       if (entry.element.kind === 'signature-type') {
-        return `type ${entry.element.id} = ${SignatureDefinition.getTypeText(
+        return `export type ${entry.element.id} = ${SignatureDefinition.getTypeText(
           {
             async: entry.element.async,
             parameters: entry.element.parameters,
             returnType: entry.element.returnType,
           },
-          (typeId) => resolveTypeName(rootNode, typeId),
+          (typeId) => resolveTypeScriptName(rootNode, typeId),
         )}`
       }
 
       const fields = entry.element.properties
-        .map((property) => `  ${getTypeScriptProperty(rootNode, property)}`)
+        .map((property) => `  ${getTypeScriptProperty(rootNode, property, options)}`)
       const bases = entry.element.baseObjectIds
-        .map((objectTypeId) => findObject(rootNode, objectTypeId)?.element.id ?? 'unknown')
+        .map((objectTypeId) => resolveTypeScriptName(rootNode, objectTypeId) ?? 'unknown')
       const baseExpression = bases.length === 0 ? '' : `${bases.join(' & ')} & `
-      return [`type ${entry.element.id} = ${baseExpression}{`, ...fields, '}'].join('\n')
+      return [`export type ${entry.element.id} = ${baseExpression}{`, ...fields, '}'].join('\n')
     })
-    .join('\n\n')
+
+    return [
+      `declare namespace ${typeScriptNamespace} {`,
+      ...declarations.flatMap((declaration, index) => [
+        ...(index === 0 ? [] : ['']),
+        ...declaration.split('\n').map((line) => `  ${line}`),
+      ]),
+      '}',
+    ].join('\n')
+  }
 }
 
 export default TypeCatalog

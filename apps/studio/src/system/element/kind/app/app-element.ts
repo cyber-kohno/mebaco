@@ -11,7 +11,7 @@ import StoreElement from '../variable/store/store-element'
 import TypesElement from '../declare/types-element'
 import StylesElement from '../declare/styles-element'
 import AppTreeLabel from './AppTreeLabel.svelte'
-import LaunchOptionsElement from './launch-options-element'
+import LaunchOptionsElement from './launch/launch-options-element'
 import TreeStore from '../../../store/tree-store'
 
 namespace AppElement {
@@ -49,7 +49,7 @@ namespace AppElement {
         label: 'Id',
         width: 'id',
         required: true,
-        charset: 'identifier',
+        charset: 'strictKebabIdentifier',
         minLength: 1,
         maxLength: 32,
         reservedNames: options.reservedNames,

@@ -2,21 +2,20 @@ import { describe, expect, it, vi } from 'vitest'
 import type ElementEditSchema from '../../element-dialog/element-edit-schema'
 import type TreeNode from '../../tree/tree-node'
 import AppElement from './app/app-element'
-import LaunchArgumentElement from './app/launch-argument-element'
+import LaunchArgumentElement from './app/launch/launch-argument-element'
 import ComponentElement from './component/definition/component-element'
 import SlotElement from './component/definition/slot/slot-element'
 import ValuePropElement from './component/definition/value-prop-element'
 import SwitchElement from './directive/switch-element'
-import FunctionArgumentElement from './function/function-argument-element'
 import FunctionElement from './function/function-element'
 import LauncherElement from './project/launcher-element'
-import ObjectTypeElement from './type/object-type-element'
-import SignatureTypeElement from './type/signature-type-element'
-import UnionTypeElement from './type/union-type-element'
+import ObjectTypeElement from './type/object/object-type-element'
+import SignatureTypeElement from './type/signature/signature-type-element'
+import UnionTypeElement from './type/union/union-type-element'
 import StateElement from './variable/store/state-element'
 import VariableElement from './variable/variable-element'
-import StyleElement from './view/style-element'
-import StyleParamElement from './view/style-param-element'
+import StyleElement from './view/style/style-element'
+import StyleParamElement from './view/style/style-param-element'
 
 vi.mock('../../store/tree-store', () => ({
   default: {
@@ -48,7 +47,6 @@ describe('definition update editability', () => {
     ['Slot', SlotElement.createSchema()],
     ['Value Prop', ValuePropElement.createSchema()],
     ['Function', FunctionElement.createSchema()],
-    ['Function Argument', FunctionArgumentElement.createSchema()],
     ['Launcher', LauncherElement.createSchema(emptyRoot)],
     ['Object Type', ObjectTypeElement.createSchema()],
     ['Signature Type', SignatureTypeElement.createSchema()],
@@ -66,8 +64,7 @@ describe('definition update editability', () => {
   const valueTypeSchemas: Array<[string, { fields: readonly ElementEditSchema.Field[] }, string]> = [
     ['Launch Argument', LaunchArgumentElement.createSchema(), 'valueType'],
     ['Value Prop', ValuePropElement.createSchema(), 'valueType'],
-    ['Function return', FunctionElement.createSchema(), 'returnType'],
-    ['Function Argument', FunctionArgumentElement.createSchema(), 'valueType'],
+    ['Function Signature', FunctionElement.createSchema(), 'signatureDefinition'],
     ['State', StateElement.createSchema(), 'valueType'],
     ['Variable', VariableElement.createSchema(), 'valueType'],
     ['Style Parameter', StyleParamElement.createSchema(), 'valueType'],

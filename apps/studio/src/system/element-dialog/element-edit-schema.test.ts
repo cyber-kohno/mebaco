@@ -149,6 +149,21 @@ describe('ElementEditSchema Tag Ref key', () => {
 })
 
 describe('ElementEditSchema related text fields', () => {
+  it('validates strict lowercase kebab identifiers by segment', () => {
+    const textField: ElementEditSchema.TextField = {
+      type: 'text',
+      key: 'id',
+      label: 'Id',
+      charset: 'strictKebabIdentifier',
+    }
+
+    expect(ElementEditSchema.validateText(textField, 'app-v2')).toBeNull()
+    expect(ElementEditSchema.validateText(textField, 'app-2'))
+      .toBe('Use lowercase kebab-case. Start each segment with a letter.')
+    expect(ElementEditSchema.validateText(textField, 'app--test'))
+      .toBe('Use lowercase kebab-case. Start each segment with a letter.')
+  })
+
   it('rejects duplicate local variable names', () => {
     const textField: ElementEditSchema.TextField = {
       type: 'text',

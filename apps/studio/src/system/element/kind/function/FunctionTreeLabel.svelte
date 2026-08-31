@@ -16,19 +16,19 @@
         (id) => TypeCatalog.resolveTypeName($rootNodeStore, id),
       )
 
-  const getSignatureName = () => element.mode === 'refer'
-    ? TypeCatalog.resolveTypeName($rootNodeStore, element.signatureTypeId) ?? '-'
+  const getSignatureName = () => element.signature.mode === 'refer'
+    ? TypeCatalog.resolveTypeName($rootNodeStore, element.signature.signatureTypeId) ?? '-'
     : '-'
 </script>
 
 <span class="node-label">
   <span class="node-kind">Function</span>
   <span class="node-value">
-    {#if element.mode === 'refer'}
-      <span class="prefix">$function.</span><span class="name">{element.id}</span><span class="separator">:&nbsp;</span><span class="reference">{getSignatureName()}</span>
+    {#if element.signature.mode === 'refer'}
+      <span class="prefix">$fn.</span><span class="name">{element.id}</span><span class="separator">:&nbsp;</span><span class="reference">{getSignatureName()}</span>
     {:else}
       {#if FunctionDefinition.getAsync($rootNodeStore, element)}<span class="async">async&nbsp;</span>{/if}
-      <span class="prefix">$function.</span><span class="name">{element.id}</span>
+      <span class="prefix">$fn.</span><span class="name">{element.id}</span>
       <span class="arrow">&nbsp;=&gt;&nbsp;</span><span class="type">{getReturnTypeText()}</span>
     {/if}
   </span>

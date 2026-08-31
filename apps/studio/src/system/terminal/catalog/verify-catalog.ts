@@ -1,8 +1,8 @@
 import type { CommandContext, CommandDefinition } from '../command-types'
 import type TreeNode from '../../tree/tree-node'
-import ExpressionVerificationRunner from '../../validation/expression-verification-runner'
-import ExpressionSourceCatalog from '../../validation/expression-source-catalog'
-import ExpressionVerificationStore from '../../validation/expression-verification-store'
+import ExpressionVerificationRunner from '../../validation/expression/expression-verification-runner'
+import ExpressionSourceCatalog from '../../validation/expression/expression-source-catalog'
+import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
 
 const collectNodes = (
   node: TreeNode.Node,

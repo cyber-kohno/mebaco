@@ -1,6 +1,11 @@
 namespace MonacoInjection {
-  export type Mode = 'expression' | 'action'
+  export type Mode = 'expression' | 'action' | 'code'
   export type ExpectedType = 'string' | 'number' | 'boolean' | 'array'
+
+  export type FunctionParameter = {
+    name: string
+    typeText: string
+  }
 
   export type AnalysisOptions = {
     injectionSource?: string
@@ -8,11 +13,20 @@ namespace MonacoInjection {
     expectedType?: ExpectedType
     expectedTypeText?: string
     allowAwait?: boolean
+    functionParameters?: readonly FunctionParameter[]
   }
 
   export const createDefaultInjectionSource = (
     _mode: Mode,
   ): string => ''
+
+  export const appendFunctionParameterDeclarations = (
+    source: string,
+    parameters: readonly FunctionParameter[],
+  ): string => [
+    source,
+    ...parameters.map((parameter) => `declare let ${parameter.name}: ${parameter.typeText};`),
+  ].filter((part) => part.length > 0).join('\n')
 
   export const wrapForAnalysis = (
     code: string,
@@ -32,6 +46,24 @@ namespace MonacoInjection {
         'export {};',
         ...declarations,
         `${options.allowAwait === true ? 'async ' : ''}function __mebacoAction${scopeSuffix}() {`,
+        analysisCode,
+        '}',
+      ].join('\n')
+    }
+
+    if (mode === 'code') {
+      const parameters = (options.functionParameters ?? [])
+        .map((parameter) => `${parameter.name}: ${parameter.typeText}`)
+        .join(', ')
+      const returnType = options.expectedTypeText == null
+        ? ''
+        : `: ${options.allowAwait === true
+          ? `Promise<${options.expectedTypeText}>`
+          : options.expectedTypeText}`
+      return [
+        'export {};',
+        ...declarations,
+        `${options.allowAwait === true ? 'async ' : ''}function __mebacoCode${scopeSuffix}(${parameters})${returnType} {`,
         analysisCode,
         '}',
       ].join('\n')

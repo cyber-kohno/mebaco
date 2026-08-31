@@ -17,6 +17,7 @@
     expectedType?: MonacoInjection.ExpectedType
     expectedTypeText?: string
     allowAwait?: boolean
+    functionParameters?: readonly MonacoInjection.FunctionParameter[]
     onDiagnosticsChange?: (messages: string[]) => void
   }
 
@@ -29,6 +30,7 @@
     expectedType,
     expectedTypeText,
     allowAwait = false,
+    functionParameters = [],
     onDiagnosticsChange,
   }: Props = $props()
 
@@ -49,9 +51,12 @@
 
   const uid = crypto.randomUUID()
 
-  const getInjectionSource = () => (
-    injectionSource ?? MonacoInjection.createDefaultInjectionSource(mode)
-  )
+  const getInjectionSource = () => {
+    const source = injectionSource ?? MonacoInjection.createDefaultInjectionSource(mode)
+    return mode === 'code'
+      ? MonacoInjection.appendFunctionParameterDeclarations(source, functionParameters)
+      : source
+  }
 
   const getAnalysisOptions = (): MonacoInjection.AnalysisOptions => ({
     injectionSource: getInjectionSource(),
@@ -59,6 +64,7 @@
     expectedType,
     expectedTypeText,
     allowAwait,
+    functionParameters,
   })
 
   const getAnalysisSource = (
@@ -163,7 +169,7 @@
     const expectedTypeForValidation = expectedTypeText ?? (
       expectedType === 'array' ? 'unknown[]' : expectedType
     )
-    if (expectedTypeForValidation != null) {
+    if (mode === 'expression' && expectedTypeForValidation != null) {
       const typeError = ExpressionTypeInference.validateExpectedType(
         getInjectionSource(),
         userModel.getValue(),
@@ -258,6 +264,7 @@
     expectedType
     expectedTypeText
     allowAwait
+    functionParameters
     if (analysisModel == null) return
 
     analysisModel.setValue(getAnalysisSource(lastEditorValue))

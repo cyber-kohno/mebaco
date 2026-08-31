@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type TagElement from '../../element/kind/view/tag-element'
-  import StyleElement from '../../element/kind/view/style-element'
+  import type TagElement from '../../element/kind/view/tag/tag-element'
+  import StyleElement from '../../element/kind/view/style/style-element'
   import FormulaContext from '../formula/formula-context'
   import StyleDeclarationResolver from './style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'

@@ -33,7 +33,6 @@ namespace RuntimeRefRegistry {
     requestRender?: () => void
     reportError?: (nodeId: number, error: ScriptError.Value) => void
     waitForRender?: () => Promise<void>
-    transition?: FormulaContext.SystemValue['transition']
   }
 
   export type ActionTransaction = {
@@ -135,9 +134,6 @@ namespace RuntimeRefRegistry {
         activeAction.callbacks.push(scheduled)
         return () => { scheduled.cancelled = true }
       },
-      transition: options.transition ?? (() => {
-        throw new Error('$system.transition() is not available in this runtime context.')
-      }),
     }
     states.set(system, state)
     return system

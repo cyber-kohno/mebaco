@@ -13,6 +13,7 @@ import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
 import FunctionDefinition from '../../element/kind/function/function-definition'
 import TransitionExecutor from '../transition/transition-executor'
+import FunctionCodeEvaluator from './function-code-evaluator'
 
 namespace FunctionRunner {
   export type Success = {
@@ -53,24 +54,17 @@ namespace FunctionRunner {
 
   const inspectStructure = (
     functionNode: TreeNode.Node,
-    projectNode: TreeNode.Node,
   ): Structure | Failure => {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
     }
-    const argumentsNodes = functionNode.children.filter(
-      (child) => child.element.kind === 'function-arguments',
-    )
     const procedureNodes = functionNode.children.filter(
       (child) => child.element.kind === 'function-procedure',
     )
     const procedureNode = procedureNodes[0]
     const returnNode = procedureNode?.children.at(-1)
     if (
-      (functionNode.element.mode === 'inline' && argumentsNodes[0] == null)
-      || (functionNode.element.mode === 'refer'
-        && FunctionDefinition.resolveSignature(projectNode, functionNode.element) == null)
-      || procedureNode == null
+      procedureNode == null
       || returnNode?.element.kind !== 'function-return'
     ) {
       return failure(
@@ -246,7 +240,7 @@ namespace FunctionRunner {
 
   const validateReturnValue = (
     functionNode: TreeNode.Node,
-    returnNode: TreeNode.Node,
+    errorNodeId: number,
     value: unknown,
     projectNode: TreeNode.Node,
   ): Result => {
@@ -265,7 +259,7 @@ namespace FunctionRunner {
         projectNode,
       )
     ) {
-      return failure(returnNode.id, `Function '${functionNode.element.id}' returned an incompatible value.`)
+      return failure(errorNodeId, `Function '${functionNode.element.id}' returned an incompatible value.`)
     }
     return { ok: true, value }
   }
@@ -276,7 +270,7 @@ namespace FunctionRunner {
     definitionContext: FormulaContext.Value,
   ): Record<string, (...args: unknown[]) => unknown> => {
     const namespace: Record<string, (...args: unknown[]) => unknown> = {
-      ...definitionContext.$function as Record<string, (...args: unknown[]) => unknown>,
+      ...definitionContext.$fn as Record<string, (...args: unknown[]) => unknown>,
     }
     FunctionScope.collectDefinedFunctions(projectNode, targetNodeId).forEach((entry) => {
       namespace[entry.element.id] = FunctionDefinition.getAsync(projectNode, entry.element)
@@ -306,10 +300,10 @@ namespace FunctionRunner {
     if (FunctionDefinition.getAsync(projectNode, functionNode.element)) {
       return failure(functionNode.id, `Async Function '${functionNode.element.id}' is not available yet.`)
     }
+    if (FunctionDefinition.resolveSignature(projectNode, functionNode.element) == null) {
+      return failure(functionNode.id, `Function '${functionNode.element.id}' has no valid Signature.`)
+    }
 
-    const structure = inspectStructure(functionNode, projectNode)
-    if ('ok' in structure) return structure
-    const { procedureNode, returnNode } = structure
     const argumentFailure = validateArguments(functionNode, argumentValues, projectNode)
     if (argumentFailure != null) return argumentFailure
 
@@ -322,9 +316,27 @@ namespace FunctionRunner {
       ...definitionContext,
       $args: args,
       $var: frame.values,
-      $function: definitionContext.$function,
+      $fn: definitionContext.$fn,
     })
-    context.$function = createNamespace(projectNode, procedureNode.id, context)
+    context.$fn = createNamespace(projectNode, functionNode.id, context)
+
+    if (functionNode.element.implementation.mode === 'code') {
+      const source = functionNode.element.implementation.source
+      const policyError = ScriptPolicy.validate(source, { allowAwait: false })[0]
+      if (policyError != null) return failure(functionNode.id, policyError)
+      const evaluated = FunctionCodeEvaluator.evaluate(
+        source,
+        parameters.map((parameter) => parameter.id),
+        context,
+      )
+      if (!evaluated.ok) return failure(functionNode.id, evaluated.error)
+      return validateReturnValue(functionNode, functionNode.id, evaluated.value, projectNode)
+    }
+
+    const structure = inspectStructure(functionNode)
+    if ('ok' in structure) return structure
+    const { procedureNode, returnNode } = structure
+    context.$fn = createNamespace(projectNode, procedureNode.id, context)
 
     const executionFailure = executeChildren(
       procedureNode.children,
@@ -346,7 +358,7 @@ namespace FunctionRunner {
       value = evaluated.value
     }
 
-    return validateReturnValue(functionNode, returnNode, value, projectNode)
+    return validateReturnValue(functionNode, returnNode.id, value, projectNode)
   }
 
   export const runAsync = async (
@@ -361,10 +373,10 @@ namespace FunctionRunner {
     if (!FunctionDefinition.getAsync(projectNode, functionNode.element)) {
       return run(functionNode, argumentValues, definitionContext, projectNode)
     }
+    if (FunctionDefinition.resolveSignature(projectNode, functionNode.element) == null) {
+      return failure(functionNode.id, `Function '${functionNode.element.id}' has no valid Signature.`)
+    }
 
-    const structure = inspectStructure(functionNode, projectNode)
-    if ('ok' in structure) return structure
-    const { procedureNode, returnNode } = structure
     const argumentFailure = validateArguments(functionNode, argumentValues, projectNode)
     if (argumentFailure != null) return argumentFailure
 
@@ -377,9 +389,27 @@ namespace FunctionRunner {
       ...definitionContext,
       $args: args,
       $var: frame.values,
-      $function: definitionContext.$function,
+      $fn: definitionContext.$fn,
     })
-    context.$function = createNamespace(projectNode, procedureNode.id, context)
+    context.$fn = createNamespace(projectNode, functionNode.id, context)
+
+    if (functionNode.element.implementation.mode === 'code') {
+      const source = functionNode.element.implementation.source
+      const policyError = ScriptPolicy.validate(source, { allowAwait: true })[0]
+      if (policyError != null) return failure(functionNode.id, policyError)
+      const evaluated = await FunctionCodeEvaluator.evaluateAsync(
+        source,
+        parameters.map((parameter) => parameter.id),
+        context,
+      )
+      if (!evaluated.ok) return failure(functionNode.id, evaluated.error)
+      return validateReturnValue(functionNode, functionNode.id, evaluated.value, projectNode)
+    }
+
+    const structure = inspectStructure(functionNode)
+    if ('ok' in structure) return structure
+    const { procedureNode, returnNode } = structure
+    context.$fn = createNamespace(projectNode, procedureNode.id, context)
 
     const executionFailure = await executeChildrenAsync(
       procedureNode.children,
@@ -399,7 +429,7 @@ namespace FunctionRunner {
       if (!evaluated.ok) return failure(returnNode.id, evaluated.error)
       value = evaluated.value
     }
-    return validateReturnValue(functionNode, returnNode, value, projectNode)
+    return validateReturnValue(functionNode, returnNode.id, value, projectNode)
   }
 }
 

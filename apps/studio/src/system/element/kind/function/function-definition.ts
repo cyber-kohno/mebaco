@@ -1,49 +1,74 @@
 import type TreeNode from '../../../tree/tree-node'
 import TypeCatalog from '../type/type-catalog'
-import type ValueTypeDefinition from '../type/value-type-definition'
-import type SignatureTypeElement from '../type/signature-type-element'
+import type SignatureDefinition from '../type/signature/signature-definition'
 
 namespace FunctionDefinition {
   export type Kind = 'function'
-  export type Mode = 'inline' | 'refer'
+  export type SignatureMode = 'inline' | 'refer'
+  export type ImplementationMode = 'code' | 'procedure'
 
-  export type Inline = {
-    kind: Kind
-    id: string
+  export type InlineSignature = {
     mode: 'inline'
-    async: boolean
-    returnType: ValueTypeDefinition.Definition | null
+    definition: SignatureDefinition.Definition
   }
 
-  export type Refer = {
-    kind: Kind
-    id: string
+  export type ReferSignature = {
     mode: 'refer'
     signatureTypeId: string
   }
 
-  export type Element = Inline | Refer
+  export type Signature = InlineSignature | ReferSignature
+
+  export type CodeImplementation = {
+    mode: 'code'
+    source: string
+  }
+
+  export type ProcedureImplementation = {
+    mode: 'procedure'
+  }
+
+  export type Implementation = CodeImplementation | ProcedureImplementation
+
+  export type Element = {
+    kind: Kind
+    id: string
+    signature: Signature
+    implementation: Implementation
+  }
 
   export const resolveSignature = (
     rootNode: TreeNode.Node,
     element: Element,
-  ): SignatureTypeElement.Element | null => element.mode === 'refer'
-    ? TypeCatalog.findSignature(rootNode, element.signatureTypeId)?.element ?? null
-    : null
+  ): SignatureDefinition.Definition | null => {
+    if (element.signature.mode === 'inline') return element.signature.definition
+    const signature = TypeCatalog.findSignature(
+      rootNode,
+      element.signature.signatureTypeId,
+    )?.element
+    return signature == null
+      ? null
+      : {
+          async: signature.async,
+          parameters: signature.parameters,
+          returnType: signature.returnType,
+        }
+  }
 
   export const getAsync = (
     rootNode: TreeNode.Node,
     element: Element,
-  ): boolean => element.mode === 'inline'
-    ? element.async
-    : resolveSignature(rootNode, element)?.async ?? false
+  ): boolean => resolveSignature(rootNode, element)?.async ?? false
+
+  export const getParameters = (
+    rootNode: TreeNode.Node,
+    element: Element,
+  ): readonly SignatureDefinition.Parameter[] => resolveSignature(rootNode, element)?.parameters ?? []
 
   export const getReturnType = (
     rootNode: TreeNode.Node,
     element: Element,
-  ): ValueTypeDefinition.Definition | null => element.mode === 'inline'
-    ? element.returnType
-    : resolveSignature(rootNode, element)?.returnType ?? null
+  ): SignatureDefinition.Definition['returnType'] => resolveSignature(rootNode, element)?.returnType ?? null
 }
 
 export default FunctionDefinition

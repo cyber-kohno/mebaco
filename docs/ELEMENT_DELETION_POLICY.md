@@ -41,7 +41,7 @@ UUIDが要素プロパティに格納される参照。
 
 - `$state.data`
 - `$var.index`
-- `$function.save()`
+- `$fn.save()`
 - `$args.value`
 - `$launch.environment`
 - `$props.title`
@@ -118,9 +118,26 @@ Component定義の削除は、次のポリシーとする。
 - 参照を解除した後は通常どおり削除できる。
 - Component IDを利用する式参照は現行仕様に存在しないため、式参照の確認処理は適用しない。
 
-## 8. 将来拡張
+## 8. Functionの初期仕様
 
-- 式参照の強行削除と自動Verify
+Function定義の削除は、次のポリシーとする。
+
+```ts
+{
+  structuralReferences: 'ignore',
+  expressionReferences: 'confirm',
+}
+```
+
+- 削除対象の配下にある再帰呼び出しやProcedure内参照は、Functionと同時に消えるため無視する。
+- 削除後も残る`$fn.<id>`参照がある場合は、CancelまたはDelete Anywayを選択する。
+- Delete Anywayでは全要素のVerify状態をリセットし、直接参照していた生存要素を自動Verifyする。
+- 削除後に同名の外側Functionへ参照先が変わる場合は、Verifyで意味変更を検出できないため削除を禁止する。
+- 別App内に存在する同名Functionは可視スコープ外のため、再バインド先として扱わない。
+
+## 9. 将来拡張
+
+- Function以外の式参照保護対象に対する強行削除後の自動Verify
 - エラーダイアログからReference Graphを開く導線
 - 参照元nodeへの移動
 - プロジェクト全体の静的検証との統合

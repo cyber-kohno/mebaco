@@ -7,7 +7,7 @@ import TreeNode from '../tree/tree-node'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
 import ToastController from '../feedback/toast/toast-controller'
 import ProjectSession from './project-session-store'
-import ExpressionVerificationStore from '../validation/expression-verification-store'
+import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
 
 namespace ProjectFile {
   export type SaveResult =

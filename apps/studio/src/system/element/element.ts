@@ -1,8 +1,8 @@
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
-import LaunchOptionsElement from './kind/app/launch-options-element'
-import LaunchArgumentsElement from './kind/app/launch-arguments-element'
-import LaunchArgumentElement from './kind/app/launch-argument-element'
+import LaunchOptionsElement from './kind/app/launch/launch-options-element'
+import LaunchArgumentsElement from './kind/app/launch/launch-arguments-element'
+import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -37,21 +37,20 @@ import ProjectElement from './kind/project/project-element'
 import StateElement from './kind/variable/store/state-element'
 import StatesElement from './kind/variable/store/states-element'
 import StoreElement from './kind/variable/store/store-element'
-import StyleElement from './kind/view/style-element'
-import StyleParamElement from './kind/view/style-param-element'
-import StyleParamsElement from './kind/view/style-params-element'
-import TagElement from './kind/view/tag-element'
-import TextElement from './kind/view/text-element'
-import ObjectTypeElement from './kind/type/object-type-element'
-import UnionTypeElement from './kind/type/union-type-element'
-import SignatureTypeElement from './kind/type/signature-type-element'
+import StyleElement from './kind/view/style/style-element'
+import StyleParamElement from './kind/view/style/style-param-element'
+import StyleParamsElement from './kind/view/style/style-params-element'
+import StyleLocalsElement from './kind/view/style/style-locals-element'
+import TagElement from './kind/view/tag/tag-element'
+import TextElement from './kind/view/text/text-element'
+import ObjectTypeElement from './kind/type/object/object-type-element'
+import UnionTypeElement from './kind/type/union/union-type-element'
+import SignatureTypeElement from './kind/type/signature/signature-type-element'
 import VariableElement from './kind/variable/variable-element'
 import ActionElement from './kind/variable/action-element'
 import TransitionElement from './kind/variable/transition-element'
 import BlockElement from './kind/block/block-element'
 import FunctionElement from './kind/function/function-element'
-import FunctionArgumentsElement from './kind/function/function-arguments-element'
-import FunctionArgumentElement from './kind/function/function-argument-element'
 import FunctionProcedureElement from './kind/function/function-procedure-element'
 import FunctionReturnElement from './kind/function/function-return-element'
 
@@ -99,6 +98,7 @@ namespace MebacoElement {
     | StyleElement.Kind
     | StyleParamElement.Kind
     | StyleParamsElement.Kind
+    | StyleLocalsElement.Kind
     | TagElement.Kind
     | TextElement.Kind
     | TypesElement.Kind
@@ -111,8 +111,6 @@ namespace MebacoElement {
     | TransitionElement.Kind
     | BlockElement.Kind
     | FunctionElement.Kind
-    | FunctionArgumentsElement.Kind
-    | FunctionArgumentElement.Kind
     | FunctionProcedureElement.Kind
     | FunctionReturnElement.Kind
 
@@ -157,6 +155,7 @@ namespace MebacoElement {
     | StyleElement.Element
     | StyleParamElement.Element
     | StyleParamsElement.Element
+    | StyleLocalsElement.Element
     | TagElement.Element
     | TextElement.Element
     | TypesElement.Element
@@ -169,8 +168,6 @@ namespace MebacoElement {
     | TransitionElement.Element
     | BlockElement.Element
     | FunctionElement.Element
-    | FunctionArgumentsElement.Element
-    | FunctionArgumentElement.Element
     | FunctionProcedureElement.Element
     | FunctionReturnElement.Element
 }

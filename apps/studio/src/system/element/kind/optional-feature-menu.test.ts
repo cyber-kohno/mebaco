@@ -5,9 +5,9 @@ import type TreeNode from '../../tree/tree-node'
 import ComponentElement from './component/definition/component-element'
 import SlotElement from './component/definition/slot/slot-element'
 import SlotsElement from './component/definition/slot/slots-element'
-import StyleElement from './view/style-element'
-import StyleParamElement from './view/style-param-element'
-import StyleParamsElement from './view/style-params-element'
+import StyleElement from './view/style/style-element'
+import StyleParamElement from './view/style/style-param-element'
+import StyleParamsElement from './view/style/style-params-element'
 
 vi.mock('../../store/tree-store', () => ({
   default: {
@@ -84,6 +84,7 @@ describe('Optional feature menus', () => {
     expect(styleItems.map((item) => item.label)).toEqual([
       'Modify',
       'Remove parameters',
+      'Use locals',
       'Delete',
     ])
     getAction(styleItems, 'Remove parameters').callback()
@@ -99,5 +100,15 @@ describe('Optional feature menus', () => {
     expect(parameterItems.map((item) => item.label)).toEqual(['Add parameter', 'Delete'])
     getAction(parameterItems, 'Delete').callback()
     expect(TreeStore.removeNode).toHaveBeenCalledWith(parameters.id)
+  })
+
+  it('uses a stable Parameters then Locals order regardless of creation order', () => {
+    const parameters = createNode(3, StyleParamsElement.create())
+    const locals = createNode(4, { kind: 'style-locals' })
+    const styleWithLocals = createNode(2, StyleElement.create('card'), [locals])
+    const styleWithParameters = createNode(5, StyleElement.create('panel'), [parameters])
+
+    expect(StyleElement.getContainerInsertIndex(styleWithLocals, 'style-params')).toBe(0)
+    expect(StyleElement.getContainerInsertIndex(styleWithParameters, 'style-locals')).toBe(1)
   })
 })

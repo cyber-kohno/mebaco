@@ -4,7 +4,7 @@ import type TreeNode from '../../tree/tree-node'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
 import SwitchValueType from '../../element/kind/directive/switch-value-type'
-import type UnionDefinition from '../../element/kind/type/union-definition'
+import type UnionDefinition from '../../element/kind/type/union/union-definition'
 
 namespace SwitchResolver {
   export type Result = {

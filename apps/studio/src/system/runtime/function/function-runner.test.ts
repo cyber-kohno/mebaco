@@ -4,9 +4,11 @@ import type TreeNode from '../../tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import FunctionRunner from './function-runner'
 import VariableFrame from '../variable/variable-frame'
-import type FunctionElement from '../../element/kind/function/function-element'
+import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
+import type TypeExpression from '../../element/kind/type/type-expression'
 
 let nextNodeId = 1
+type FunctionElementValue = Extract<MebacoElement.Element, { kind: 'function' }>
 const node = (
   element: MebacoElement.Element,
   children: TreeNode.Node[] = [],
@@ -14,23 +16,48 @@ const node = (
 
 const argument = (
   id: string,
-  valueType: Extract<
-    MebacoElement.Element,
-    { kind: 'function-argument' }
-  >['valueType'] = { type: 'number' },
+  valueType: TypeExpression.Expression = { type: 'number' },
   nullable = false,
-) => node({ kind: 'function-argument', id, valueType, nullable })
+) => SignatureDefinition.createParameter(
+  id,
+  valueType,
+  nullable,
+  `parameter-${nextNodeId++}`,
+)
+
+const inlineFunction = (
+  id: string,
+  definition: SignatureDefinition.Definition,
+  implementation: FunctionElementValue['implementation'] = { mode: 'procedure' },
+): FunctionElementValue => ({
+  kind: 'function',
+  id,
+  signature: { mode: 'inline', definition },
+  implementation,
+})
+
+const referFunction = (
+  id: string,
+  signatureTypeId: string,
+): FunctionElementValue => ({
+  kind: 'function',
+  id,
+  signature: { mode: 'refer', signatureTypeId },
+  implementation: { mode: 'procedure' },
+})
 
 const fn = (
   id: string,
-  argumentNodes: TreeNode.Node[],
+  argumentsList: SignatureDefinition.Parameter[],
   procedureChildren: TreeNode.Node[],
-  returnType: FunctionElement.InlineElement['returnType'] = {
+  returnType: SignatureDefinition.Definition['returnType'] = {
     valueType: { type: 'number' }, nullable: false,
   },
   async = false,
-) => node({ kind: 'function', id, mode: 'inline', async, returnType }, [
-  node({ kind: 'function-arguments' }, argumentNodes),
+) => node(inlineFunction(
+  id,
+  SignatureDefinition.create(async, argumentsList, returnType),
+), [
   node({ kind: 'function-procedure' }, procedureChildren),
 ])
 
@@ -52,11 +79,44 @@ const project = (functions: TreeNode.Node[]) => node({ kind: 'project' }, [
 ])
 
 describe('FunctionRunner', () => {
+  it('executes a synchronous Code Function without Procedure children', () => {
+    nextNodeId = 1
+    const calculate = node(inlineFunction(
+      'calculate',
+      SignatureDefinition.create(
+        false,
+        [argument('value')],
+        { valueType: { type: 'number' }, nullable: false },
+      ),
+      { mode: 'code', source: 'return value * 2' },
+    ))
+    const root = project([calculate])
+
+    expect(FunctionRunner.run(calculate, [4], FormulaContext.createEmpty(), root))
+      .toEqual({ ok: true, value: 8 })
+  })
+
+  it('executes an asynchronous Code Function', async () => {
+    nextNodeId = 1
+    const load = node(inlineFunction(
+      'load',
+      SignatureDefinition.create(
+        true,
+        [argument('value')],
+        { valueType: { type: 'number' }, nullable: false },
+      ),
+      { mode: 'code', source: 'return await Promise.resolve(value * 2)' },
+    ))
+    const root = project([load])
+    const context = FormulaContext.createEmpty()
+
+    await expect(FunctionRunner.runAsync(load, [4], context, root))
+      .resolves.toEqual({ ok: true, value: 8 })
+  })
+
   it('executes a Refer Function with its Signature arguments and return type', () => {
     nextNodeId = 1
-    const save = node({
-      kind: 'function', id: 'save', mode: 'refer', signatureTypeId: 'save-signature',
-    }, [
+    const save = node(referFunction('save', 'save-signature'), [
       node({ kind: 'function-procedure' }, [
         node({ kind: 'function-return', source: '$args.value * 2' }),
       ]),
@@ -67,7 +127,7 @@ describe('FunctionRunner', () => {
     typesNode?.children.push(node({
       kind: 'signature-type', typeId: 'save-signature', id: 'SaveSignature',
       async: false,
-      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      parameters: [{ parameterId: 'value-parameter-1', id: 'value', valueType: { type: 'number' }, nullable: false }],
       returnType: { valueType: { type: 'number' }, nullable: false },
     }))
 
@@ -124,7 +184,7 @@ describe('FunctionRunner', () => {
       typeId: 'handler-type',
       id: 'Handler',
       async: false,
-      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      parameters: [{ parameterId: 'value-parameter-2', id: 'value', valueType: { type: 'number' }, nullable: false }],
       returnType: { valueType: { type: 'number' }, nullable: false },
     }))
 
@@ -158,7 +218,7 @@ describe('FunctionRunner', () => {
       typeId: 'handler-type',
       id: 'Handler',
       async: false,
-      parameters: [{ id: 'value', valueType: { type: 'number' }, nullable: false }],
+      parameters: [{ parameterId: 'value-parameter-3', id: 'value', valueType: { type: 'number' }, nullable: false }],
       returnType: { valueType: { type: 'number' }, nullable: false },
     }))
 
@@ -174,7 +234,7 @@ describe('FunctionRunner', () => {
     const quadruple = fn('quadruple', [argument('value')], [
       node({
         kind: 'function-return',
-        source: '$function.double($function.double($args.value))',
+        source: '$fn.double($fn.double($args.value))',
       }),
     ])
     const root = project([double, quadruple])
@@ -182,14 +242,14 @@ describe('FunctionRunner', () => {
       .find((child) => child.element.kind === 'apps')
       ?.children[0]
     const context = FormulaContext.createEmpty()
-    context.$function = FunctionRunner.createNamespace(
+    context.$fn = FunctionRunner.createNamespace(
       root,
       appNode?.id ?? root.id,
       context,
     )
 
-    expect(context.$function.quadruple).toBeTypeOf('function')
-    expect((context.$function.quadruple as (value: number) => number)(4)).toBe(16)
+    expect(context.$fn.quadruple).toBeTypeOf('function')
+    expect((context.$fn.quadruple as (value: number) => number)(4)).toBe(16)
   })
 
   it('creates isolated local Variables for every call while retaining State effects', () => {
@@ -259,7 +319,7 @@ describe('FunctionRunner', () => {
     appNode?.children.push(retention)
 
     const appContext = FormulaContext.createEmpty()
-    appContext.$function = FunctionRunner.createNamespace(
+    appContext.$fn = FunctionRunner.createNamespace(
       root,
       appNode?.id ?? root.id,
       appContext,
@@ -268,14 +328,14 @@ describe('FunctionRunner', () => {
       ...appContext,
       $var: { secret: 42 },
     })
-    callerContext.$function = FunctionRunner.createNamespace(
+    callerContext.$fn = FunctionRunner.createNamespace(
       root,
       retention.id,
       callerContext,
     )
 
     expect(() => (
-      callerContext.$function.readSecret as () => number
+      callerContext.$fn.readSecret as () => number
     )()).toThrow('returned an incompatible value')
   })
 
@@ -291,7 +351,7 @@ describe('FunctionRunner', () => {
         typeSetting: { type: 'inferred' }, source: '1',
       }),
       add,
-      node({ kind: 'action', comment: '', source: '$var.total = $function.add(2)' }),
+      node({ kind: 'action', comment: '', source: '$var.total = $fn.add(2)' }),
       node({ kind: 'function-return', source: '$var.total' }),
     ])
     const root = project([outer])
@@ -442,13 +502,13 @@ describe('FunctionRunner', () => {
         },
       },
     })
-    context.$function = FunctionRunner.createNamespace(
+    context.$fn = FunctionRunner.createNamespace(
       root,
       appNode?.id ?? root.id,
       context,
     )
 
-    const promise = (context.$function.fail as () => Promise<number>)()
+    const promise = (context.$fn.fail as () => Promise<number>)()
     expect(promise).toBeInstanceOf(Promise)
     await expect(promise).rejects.toThrow('network failed')
   })

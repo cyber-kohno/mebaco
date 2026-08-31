@@ -26,11 +26,11 @@ namespace PreviewController {
 
   const findApp = (
     node: TreeNode.Node,
-    appId: string,
+    appDefinitionId: string,
   ): TreeNode.Node | null => {
-    if (node.element.kind === 'app' && node.element.id === appId) return node
+    if (node.element.kind === 'app' && node.element.appId === appDefinitionId) return node
     for (const child of node.children) {
-      const found = findApp(child, appId)
+      const found = findApp(child, appDefinitionId)
       if (found != null) return found
     }
     return null
@@ -70,12 +70,12 @@ namespace PreviewController {
 
   export const transition = (
     rootNode: TreeNode.Node,
-    appId: string,
+    appDefinitionId: string,
     launchValues: Readonly<Record<string, unknown>>,
   ): boolean => {
-    const appNode = findApp(rootNode, appId)
+    const appNode = findApp(rootNode, appDefinitionId)
     if (appNode == null) {
-      ToastController.show(`Transition target App '${appId}' was not found.`, { tone: 'danger' })
+      ToastController.show('Transition target App was not found.', { tone: 'danger' })
       return false
     }
     return openApp(rootNode, appNode, undefined, launchValues)

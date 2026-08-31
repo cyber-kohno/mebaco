@@ -28,7 +28,7 @@ namespace RetentionResolver {
     const frame = VariableFrame.create(context.$var)
     const nextContext = FormulaContextValue.create({ ...context, $var: frame.values })
     const retentionNode = ContentHost.getRetentionNode(hostNode)
-    nextContext.$function = FunctionRunner.createNamespace(
+    nextContext.$fn = FunctionRunner.createNamespace(
       projectNode,
       retentionNode?.id ?? hostNode.id,
       nextContext,

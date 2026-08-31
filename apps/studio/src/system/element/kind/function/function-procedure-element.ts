@@ -1,5 +1,6 @@
 import type ElementDefinition from '../../element-definition'
 import FunctionActions from '../../function-actions'
+import FunctionReturnElement from './function-return-element'
 
 namespace FunctionProcedureElement {
   export type Kind = 'function-procedure'
@@ -19,6 +20,9 @@ namespace FunctionProcedureElement {
       kindText: 'Procedure',
       tone: 'manager',
     },
+    createInitialChildren: () => [
+      { element: FunctionReturnElement.create() },
+    ],
     getContextMenu: (context) => {
       const returnIndex = context.node.children.findIndex(
         (child) => child.element.kind === 'function-return',

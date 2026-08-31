@@ -1,6 +1,6 @@
 <script lang="ts">
-  import StyleElement from '../../element/kind/view/style-element'
-  import type StyleParameterCatalog from '../../element/kind/view/style-parameter-catalog'
+  import StyleElement from '../../element/kind/view/style/style-element'
+  import type StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
   import StyleDeclarationResolver from './style-declaration-resolver'
   import StyleMonitor from './style-monitor'
 

@@ -6,7 +6,7 @@
   import RuntimeTree from '../runtime-tree'
   import ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
-  import StyleElement from '../../element/kind/view/style-element'
+  import StyleElement from '../../element/kind/view/style/style-element'
   import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeProps from '../runtime-props'
   import RuntimeLaunch from '../runtime-launch'
@@ -16,6 +16,7 @@
   import FunctionRunner from '../function/function-runner'
   import RuntimeErrorScreen from './RuntimeErrorScreen.svelte'
   import RuntimeError from './runtime-error'
+  import TransitionNamespace from '../transition/transition-namespace'
 
   type Props = {
     appNode: TreeNode.Node
@@ -39,19 +40,23 @@
   let styleResults = $state<Record<number, StyleDeclarationResolver.Result>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
   let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
+  const requestTransition: FormulaContext.TransitionRequest = (appDefinitionId, values) => {
+    if (transitionRequested) return
+    transitionRequested = true
+    queueMicrotask(() => {
+      if (!PreviewController.transition(projectNode, appDefinitionId, values)) {
+        transitionRequested = false
+      }
+    })
+  }
   const runtimeSystem = RuntimeRefRegistry.createSystem({
     requestRender: () => invalidateRuntime(),
     reportError: (nodeId, error) => setActionError(nodeId, error),
-    transition: (appId, values) => {
-      if (transitionRequested) return
-      transitionRequested = true
-      queueMicrotask(() => {
-        if (!PreviewController.transition(projectNode, appId, values)) {
-          transitionRequested = false
-        }
-      })
-    },
   })
+  const runtimeTransition = $derived(TransitionNamespace.create(
+    projectNode,
+    requestTransition,
+  ))
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(
@@ -62,6 +67,8 @@
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
     $system: runtimeSystem,
+    $transition: runtimeTransition,
+    requestTransition,
   }))
   const launchResult = $derived(RuntimeLaunch.resolve({
     appNode: appNode as TreeNode.Node & { element: AppElement.Element },
@@ -78,7 +85,7 @@
       $state: effectiveRuntimeState,
       $system: runtimeSystem,
     })
-    context.$function = FunctionRunner.createNamespace(
+    context.$fn = FunctionRunner.createNamespace(
       projectNode,
       appNode.id,
       context,
@@ -99,7 +106,7 @@
       ...appFormulaContext,
       $props: entryProps.values,
     })
-    context.$function = FunctionRunner.createNamespace(
+    context.$fn = FunctionRunner.createNamespace(
       projectNode,
       entryComponentNode?.id ?? appNode.id,
       context,
@@ -126,7 +133,10 @@
       return RuntimeError.fromScriptError(actionError.error, { nodeId: actionError.nodeId })
     }
     if (firstStyleError != null) {
-      return RuntimeError.unexpected(StyleDeclarationResolver.formatError(firstStyleError.error), {
+      const createFailure = firstStyleError.error.assertion === true
+        ? RuntimeError.assertion
+        : RuntimeError.unexpected
+      return createFailure(StyleDeclarationResolver.formatError(firstStyleError.error), {
         nodeId: firstStyleError.nodeId,
       })
     }
@@ -218,6 +228,7 @@
     && left.referenceId === right.referenceId
     && left.parameterId === right.parameterId
     && left.property === right.property
+    && left.assertion === right.assertion
     && scriptErrorsEqual(left.scriptError, right.scriptError)
     && arraysEqual(left.path, right.path, (leftItem, rightItem) => leftItem === rightItem)
   )
@@ -268,7 +279,10 @@
     ) return
     styleResults = { ...currentResults, [nodeId]: result }
     if (result.errors.length > 0 && runtimeFailure == null) {
-      runtimeFailure = RuntimeError.unexpected(StyleDeclarationResolver.formatError(result.errors[0]), {
+      const createFailure = result.errors[0].assertion === true
+        ? RuntimeError.assertion
+        : RuntimeError.unexpected
+      runtimeFailure = createFailure(StyleDeclarationResolver.formatError(result.errors[0]), {
         nodeId,
       })
     }
