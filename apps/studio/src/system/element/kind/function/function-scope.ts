@@ -112,6 +112,8 @@ namespace FunctionScope {
     const frameNode = [...path].reverse().find((node) => (
       node.element.kind === 'retention'
       || node.element.kind === 'function-procedure'
+      || node.element.kind === 'promise-then'
+      || node.element.kind === 'promise-catch'
     ))
     return frameNode == null ? [] : collectFrameFunctions(frameNode)
   }
@@ -139,6 +141,8 @@ namespace FunctionScope {
       node.element.kind === 'functions'
       || node.element.kind === 'retention'
       || node.element.kind === 'function-procedure'
+      || node.element.kind === 'promise-then'
+      || node.element.kind === 'promise-catch'
     )) ?? null
   }
 
@@ -164,6 +168,8 @@ namespace FunctionScope {
       if (
         node.element.kind === 'retention'
         || node.element.kind === 'function-procedure'
+        || node.element.kind === 'promise-then'
+        || node.element.kind === 'promise-catch'
       ) {
         add(collectFrameFunctions(node))
       }
@@ -232,12 +238,16 @@ namespace FunctionScope {
         node.element.kind === 'functions'
         || node.element.kind === 'retention'
         || node.element.kind === 'function-procedure'
+        || node.element.kind === 'promise-then'
+        || node.element.kind === 'promise-catch'
       ) {
         addDuplicateIssues(collectFrameFunctions(node), 'Function', issues)
       }
       if (
         node.element.kind === 'retention'
         || node.element.kind === 'function-procedure'
+        || node.element.kind === 'promise-then'
+        || node.element.kind === 'promise-catch'
       ) {
         addDuplicateIssues(collectFrameVariables(node), 'Variable', issues)
       }

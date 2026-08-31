@@ -37,6 +37,10 @@ namespace ReferenceGraph {
     dependencies: readonly Dependency[]
   }
 
+  export type Snapshot = {
+    select: (selectedNodeId: number) => Result
+  }
+
   type Target = {
     nodeId: number
     kind: string
@@ -689,13 +693,15 @@ namespace ReferenceGraph {
     ))
   }
 
-  const collectEdges = (
-    rootNode: TreeNode.Node,
-  ): {
+  type Edges = {
     targets: readonly Target[]
     references: readonly Reference[]
     dependencies: readonly Dependency[]
-  } => {
+  }
+
+  const collectEdges = (
+    rootNode: TreeNode.Node,
+  ): Edges => {
     const propsScopes = createPropsScopes(rootNode)
     const styleParameterScopes = createStyleParameterScopes(rootNode)
     const styleLocalScopes = createStyleLocalScopes(rootNode)
@@ -753,9 +759,10 @@ namespace ReferenceGraph {
         || left.targetLabel.localeCompare(right.targetLabel))
   }
 
-  export const build = (
+  const selectFromEdges = (
     rootNode: TreeNode.Node,
     selectedNodeId: number,
+    edges: Edges,
   ): Result => {
     const selectedNode = findNode(rootNode, selectedNodeId)
     if (selectedNode == null) {
@@ -767,7 +774,6 @@ namespace ReferenceGraph {
       }
     }
 
-    const edges = collectEdges(rootNode)
     const selectedTarget = edges.targets.find((target) => target.nodeId === selectedNodeId)
 
     return {
@@ -789,6 +795,29 @@ namespace ReferenceGraph {
         .sort((left, right) => left.targetNodeId - right.targetNodeId || left.targetLabel.localeCompare(right.targetLabel)),
     }
   }
+
+  export const createSnapshot = (
+    rootNode: TreeNode.Node,
+  ): Snapshot => {
+    const edges = collectEdges(rootNode)
+    const results = new Map<number, Result>()
+
+    return {
+      select: (selectedNodeId) => {
+        const cached = results.get(selectedNodeId)
+        if (cached != null) return cached
+
+        const result = selectFromEdges(rootNode, selectedNodeId, edges)
+        results.set(selectedNodeId, result)
+        return result
+      },
+    }
+  }
+
+  export const build = (
+    rootNode: TreeNode.Node,
+    selectedNodeId: number,
+  ): Result => createSnapshot(rootNode).select(selectedNodeId)
 }
 
 export default ReferenceGraph

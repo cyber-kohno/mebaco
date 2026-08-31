@@ -45,6 +45,7 @@ namespace MonacoFactory {
       strictNullChecks: true,
       noUnusedLocals: false,
       noUnusedParameters: false,
+      allowUnreachableCode: false,
       allowNonTsExtensions: true,
     })
     defaults.setDiagnosticsOptions({

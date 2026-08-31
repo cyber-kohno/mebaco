@@ -89,7 +89,7 @@ namespace AppKeyboardController {
     ) {
       event.preventDefault()
       event.stopPropagation()
-      ReferenceGraphController.toggle(get(TreeStore.selectedNodeId))
+      ReferenceGraphController.toggle()
       return
     }
     if (

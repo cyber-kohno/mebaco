@@ -89,6 +89,8 @@ namespace TreeTransferCatalog {
     return destinationNode.element.kind === 'types'
       || destinationNode.element.kind === 'retention'
       || destinationNode.element.kind === 'function-procedure'
+      || destinationNode.element.kind === 'promise-then'
+      || destinationNode.element.kind === 'promise-catch'
       || (
         destinationNode.element.kind === 'block'
         && (
@@ -143,14 +145,8 @@ namespace TreeTransferCatalog {
   }, name)
 
   export const getInsertIndex = (
-    destinationNode: TreeNode.Node,
-  ): number | undefined => {
-    if (destinationNode.element.kind !== 'function-procedure') return undefined
-    const returnIndex = destinationNode.children.findIndex(
-      (child) => child.element.kind === 'function-return',
-    )
-    return returnIndex < 0 ? undefined : returnIndex
-  }
+    _destinationNode: TreeNode.Node,
+  ): number | undefined => undefined
 }
 
 export default TreeTransferCatalog

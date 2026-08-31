@@ -288,7 +288,7 @@ describe('FunctionRunner', () => {
       })
   })
 
-  it('reports a missing runtime structure without traversing Procedure validation rules', () => {
+  it('reports a missing Return at runtime after executing the Procedure', () => {
     nextNodeId = 1
     const invalid = fn('invalid', [], [
       node({ kind: 'action', comment: '', source: '$state.executed = true' }),
@@ -298,9 +298,61 @@ describe('FunctionRunner', () => {
 
     expect(FunctionRunner.run(invalid, [], context, root)).toMatchObject({
       ok: false,
-      error: { message: 'Function \'invalid\' is not available for runtime execution.' },
+      error: { message: "Function 'invalid' returned an incompatible value." },
     })
-    expect(context.$state.executed).toBe(false)
+    expect(context.$state.executed).toBe(true)
+  })
+
+  it('allows a void Procedure to finish without Return', () => {
+    nextNodeId = 1
+    const execute = fn('execute', [], [
+      node({ kind: 'action', comment: '', source: '$state.executed = true' }),
+    ], null)
+    const root = project([execute])
+    const context = FormulaContext.create({ $state: { executed: false } })
+
+    expect(FunctionRunner.run(execute, [], context, root))
+      .toEqual({ ok: true, value: undefined })
+    expect(context.$state.executed).toBe(true)
+  })
+
+  it('returns early from a selected Conditional branch', () => {
+    nextNodeId = 1
+    const conditional = node({ kind: 'control-conditional' }, [
+      node({ kind: 'if', condition: '$args.early' }, [
+        node({ kind: 'function-return', source: '1' }),
+      ]),
+    ])
+    const execute = fn('execute', [argument('early', { type: 'boolean' })], [
+      conditional,
+      node({ kind: 'action', comment: '', source: '$state.continued = true' }),
+      node({ kind: 'function-return', source: '2' }),
+    ])
+    const root = project([execute])
+
+    const earlyContext = FormulaContext.create({ $state: { continued: false } })
+    expect(FunctionRunner.run(execute, [true], earlyContext, root))
+      .toEqual({ ok: true, value: 1 })
+    expect(earlyContext.$state.continued).toBe(false)
+
+    const continuedContext = FormulaContext.create({ $state: { continued: false } })
+    expect(FunctionRunner.run(execute, [false], continuedContext, root))
+      .toEqual({ ok: true, value: 2 })
+    expect(continuedContext.$state.continued).toBe(true)
+  })
+
+  it('returns early from a nested Block', () => {
+    nextNodeId = 1
+    const execute = fn('execute', [], [
+      node({ kind: 'block', label: 'guard' }, [
+        node({ kind: 'function-return', source: '1' }),
+      ]),
+      node({ kind: 'function-return', source: '2' }),
+    ])
+    const root = project([execute])
+
+    expect(FunctionRunner.run(execute, [], FormulaContext.createEmpty(), root))
+      .toEqual({ ok: true, value: 1 })
   })
 
   it('does not rebind a Global Function to a caller local Variable frame', () => {
@@ -483,6 +535,64 @@ describe('FunctionRunner', () => {
       .resolves.toEqual({ ok: true, value: 7 })
   })
 
+  it('awaits an async Function result when initializing a Procedure Variable', async () => {
+    nextNodeId = 1
+    const load = fn('load', [argument('value')], [
+      node({ kind: 'function-return', source: '$args.value * 2' }),
+    ], { valueType: { type: 'number' }, nullable: false }, true)
+    const consume = fn('consume', [argument('value')], [
+      node({
+        kind: 'variable', id: 'loaded', binding: 'const',
+        typeSetting: {
+          type: 'explicit', valueType: { type: 'number' }, nullable: false,
+        },
+        source: 'await $fn.load($args.value)',
+      }),
+      node({ kind: 'function-return', source: '$var.loaded + 1' }),
+    ], { valueType: { type: 'number' }, nullable: false }, true)
+    const root = project([load, consume])
+    const appNode = root.children
+      .find((child) => child.element.kind === 'apps')
+      ?.children[0]
+    const context = FormulaContext.createEmpty()
+    context.$fn = FunctionRunner.createNamespace(
+      root,
+      appNode?.id ?? root.id,
+      context,
+    )
+
+    await expect(FunctionRunner.runAsync(
+      consume,
+      [3],
+      context,
+      root,
+    )).resolves.toEqual({ ok: true, value: 7 })
+  })
+
+  it('continues to reject await in an async Procedure control condition', async () => {
+    nextNodeId = 1
+    const conditional = node({ kind: 'control-conditional' }, [
+      node({ kind: 'if', condition: 'await Promise.resolve(true)' }, [
+        node({ kind: 'function-return', source: '1' }),
+      ]),
+    ])
+    const execute = fn('execute', [], [
+      conditional,
+      node({ kind: 'function-return', source: '2' }),
+    ], { valueType: { type: 'number' }, nullable: false }, true)
+    const root = project([execute])
+
+    await expect(FunctionRunner.runAsync(
+      execute,
+      [],
+      FormulaContext.createEmpty(),
+      root,
+    )).resolves.toMatchObject({
+      ok: false,
+      error: { stage: 'compile' },
+    })
+  })
+
   it('returns a Promise namespace function and propagates rejected errors', async () => {
     nextNodeId = 1
     const fail = fn('fail', [], [
@@ -543,5 +653,91 @@ describe('FunctionRunner', () => {
       { ok: true, value: 11 },
       { ok: true, value: 21 },
     ])
+  })
+
+  it('starts a Promise in a synchronous Procedure and runs Then after it returns', async () => {
+    nextNodeId = 1
+    let resolveSearch: (value: number) => void = () => {
+      throw new Error('Search Promise was not started.')
+    }
+    const promise = node({
+      kind: 'promise', id: 'result',
+      resultType: { valueType: { type: 'number' }, nullable: false },
+      source: '$system.search()',
+    }, [
+      node({ kind: 'promise-then' }, [
+        node({
+          kind: 'action', comment: '',
+          source: '$state.result = $var.result; $var.local += 1',
+        }),
+      ]),
+    ])
+    const search = fn('search', [], [
+      node({
+        kind: 'variable', id: 'local', binding: 'let',
+        typeSetting: { type: 'inferred' }, source: '1',
+      }),
+      promise,
+      node({ kind: 'action', comment: '', source: '$state.afterStart = true' }),
+    ], null)
+    const root = project([search])
+    let renderRequests = 0
+    const context = FormulaContext.create({
+      $state: { afterStart: false, result: 0 },
+      $system: {
+        getRef: () => null,
+        afterRender: () => () => {},
+        search: () => new Promise<number>((resolve) => { resolveSearch = resolve }),
+      },
+      requestRender: () => { renderRequests += 1 },
+    })
+
+    expect(FunctionRunner.run(search, [], context, root))
+      .toEqual({ ok: true, value: undefined })
+    expect(context.$state).toMatchObject({ afterStart: true, result: 0 })
+
+    resolveSearch(42)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(context.$state.result).toBe(42)
+    expect(renderRequests).toBe(1)
+  })
+
+  it('runs Catch for a rejected Promise and reports an unhandled rejection', async () => {
+    nextNodeId = 1
+    const handledPromise = node({
+      kind: 'promise', id: '', resultType: null, source: '$system.fail()',
+    }, [
+      node({ kind: 'promise-then' }),
+      node({ kind: 'promise-catch', id: 'error' }, [
+        node({
+          kind: 'action', comment: '',
+          source: '$state.message = $var.error.message',
+        }),
+      ]),
+    ])
+    const unhandledPromise = node({
+      kind: 'promise', id: '', resultType: null, source: '$system.fail()',
+    }, [node({ kind: 'promise-then' })])
+    const handled = fn('handled', [], [handledPromise], null)
+    const unhandled = fn('unhandled', [], [unhandledPromise], null)
+    const root = project([handled, unhandled])
+    const reports: Array<{ nodeId: number; message: string }> = []
+    const context = FormulaContext.create({
+      $state: { message: '' },
+      $system: {
+        getRef: () => null,
+        afterRender: () => () => {},
+        fail: () => Promise.reject(new Error('search failed')),
+      },
+      reportError: (nodeId, error) => reports.push({ nodeId, message: error.message }),
+    })
+
+    expect(FunctionRunner.run(handled, [], context, root)).toEqual({ ok: true, value: undefined })
+    expect(FunctionRunner.run(unhandled, [], context, root)).toEqual({ ok: true, value: undefined })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(context.$state.message).toBe('search failed')
+    expect(reports).toEqual([{ nodeId: unhandledPromise.id, message: 'search failed' }])
   })
 })

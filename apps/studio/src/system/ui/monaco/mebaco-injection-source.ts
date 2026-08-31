@@ -345,10 +345,14 @@ namespace MebacoInjectionSource {
           (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
         )}${node.element.typeSetting.nullable ? ' | null' : ''}`
       } else {
+        const owner = FunctionScope.findOwnerFunction(rootNode, node.id)
+        const allowAwait = owner != null
+          && FunctionDefinition.getAsync(rootNode, owner.element)
         const inferredType = ExpressionTypeInference.inferType(
           [...baseDeclarations, createDeclaration()].join('\n'),
           node.element.source,
           node.element.binding === 'let',
+          allowAwait,
         )
         typeText = inferredType.ok ? inferredType.typeText : 'unknown'
       }
@@ -360,6 +364,28 @@ namespace MebacoInjectionSource {
 
     path.forEach((node, index) => {
       const isTarget = index === path.length - 1
+      const nextNode = path[index + 1]
+
+      if (
+        node.element.kind === 'promise'
+        && nextNode?.element.kind === 'promise-then'
+        && node.element.resultType != null
+      ) {
+        fields.set(node.element.id, {
+          typeText: ValueTypeDefinition.getTypeText(
+            node.element.resultType,
+            (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
+          ),
+          readonly: true,
+        })
+      }
+      if (
+        node.element.kind === 'promise-catch'
+        && (!isTarget || includeTargetScope)
+      ) {
+        fields.set(node.element.id, { typeText: 'unknown', readonly: true })
+      }
+
       if (node.element.kind === 'loop' && (!isTarget || includeTargetScope)) {
         if (node.element.mode === 'collection') {
           const inferred = ExpressionTypeInference.inferArrayItem(
@@ -374,7 +400,6 @@ namespace MebacoInjectionSource {
         fields.set(node.element.indexId, { typeText: 'number', readonly: true })
       }
 
-      const nextNode = path[index + 1]
       const retentionNode = ContentHost.getRetentionNode(node)
       const elementsNode = ContentHost.getElementsNode(node)
       if (retentionNode != null && nextNode === elementsNode) {
@@ -384,6 +409,8 @@ namespace MebacoInjectionSource {
         (
           node.element.kind === 'retention'
           || node.element.kind === 'function-procedure'
+          || node.element.kind === 'promise-then'
+          || node.element.kind === 'promise-catch'
         )
         && nextNode != null
       ) {

@@ -32,6 +32,32 @@ const referFunction = (
 })
 
 describe('MebacoInjectionSource Loop variables', () => {
+  it('injects Promise result and error bindings only into their own branches', () => {
+    const thenAction = node(6, { kind: 'action', comment: '', source: '$var.result' })
+    const catchAction = node(8, { kind: 'action', comment: '', source: '$var.error' })
+    const promise = node(4, {
+      kind: 'promise', id: 'result',
+      resultType: { valueType: { type: 'number' }, nullable: false },
+      source: 'Promise.resolve(1)',
+    }, [
+      node(5, { kind: 'promise-then' }, [thenAction]),
+      node(7, { kind: 'promise-catch', id: 'error' }, [catchAction]),
+    ])
+    const root = node(1, { kind: 'project' }, [
+      node(2, inlineFunction('load'), [
+        node(3, { kind: 'function-procedure' }, [promise]),
+      ]),
+    ])
+
+    const thenSource = MebacoInjectionSource.createForNode(root, thenAction.id, 'action')
+    expect(thenSource).toContain('readonly result: number;')
+    expect(thenSource).not.toContain('readonly error: unknown;')
+
+    const catchSource = MebacoInjectionSource.createForNode(root, catchAction.id, 'action')
+    expect(catchSource).toContain('readonly error: unknown;')
+    expect(catchSource).not.toContain('readonly result: number;')
+  })
+
   it('does not inject App State while editing a Common Style', () => {
     const commonStyleNode = node(8, {
       kind: 'style',
@@ -448,6 +474,45 @@ describe('MebacoInjectionSource Function scope', () => {
 
     expect(source).not.toContain('declare var $args:')
     expect(source).toContain('declare var $system:')
+  })
+
+  it('injects the resolved type of an awaited async Variable initializer', () => {
+    const loadNode = node(3, inlineFunction(
+      'load',
+      SignatureDefinition.create(
+        true,
+        [],
+        { valueType: { type: 'number' }, nullable: false },
+      ),
+    ), [node(4, { kind: 'function-procedure' })])
+    const loadedVariable = node(7, {
+      kind: 'variable', id: 'loaded', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: 'await $fn.load()',
+    })
+    const actionNode = node(8, {
+      kind: 'action', comment: '', source: '$state.value = $var.loaded',
+    })
+    const consumerNode = node(5, inlineFunction(
+      'consume',
+      SignatureDefinition.create(true),
+    ), [
+      node(6, { kind: 'function-procedure' }, [loadedVariable, actionNode]),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(9, { kind: 'declares' }, [
+          node(10, { kind: 'functions' }, [loadNode, consumerNode]),
+        ]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(
+      rootNode,
+      actionNode.id,
+      'action',
+    )
+
+    expect(source).toContain('readonly loaded: number;')
   })
 
   it('injects arguments, async, and return type from a Refer Function Signature', () => {

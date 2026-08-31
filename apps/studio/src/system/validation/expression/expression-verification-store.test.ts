@@ -97,4 +97,24 @@ describe('ExpressionVerificationStore', () => {
 
     expect(ExpressionVerificationStore.getStatus(root, action)).toBe('unverified')
   })
+
+  it('treats Procedure structure as a verification candidate and tracks child order', () => {
+    const procedure = node(20, { kind: 'function-procedure' })
+    procedure.children = [
+      node(21, { kind: 'function-return' }),
+      node(22, { kind: 'action', comment: '', source: 'after()' }),
+    ]
+    const root = node(1, { kind: 'project' })
+    root.children = [procedure]
+
+    expect(ExpressionVerificationStore.getStatus(root, procedure)).toBe('unverified')
+    ExpressionVerificationStore.setResult(procedure, {
+      status: 'error',
+      messages: ['unreachable'],
+    })
+    expect(ExpressionVerificationStore.getStatus(root, procedure)).toBe('error')
+
+    procedure.children.reverse()
+    expect(ExpressionVerificationStore.getStatus(root, procedure)).toBe('unverified')
+  })
 })

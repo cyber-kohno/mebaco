@@ -11,7 +11,7 @@ namespace ExpressionVerificationActions {
     rootNode: TreeNode.Node,
     node: TreeNode.Node,
   ): ActionMenuState.Item[] => {
-    if (!ExpressionSourceCatalog.collect(rootNode, node).hasExpressionField) {
+    if (!ExpressionSourceCatalog.isVerificationCandidate(rootNode, node)) {
       return items
     }
 

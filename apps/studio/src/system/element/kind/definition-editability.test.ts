@@ -16,6 +16,7 @@ import StateElement from './variable/store/state-element'
 import VariableElement from './variable/variable-element'
 import StyleElement from './view/style/style-element'
 import StyleParamElement from './view/style/style-param-element'
+import PromiseElement from './promise/promise-element'
 
 vi.mock('../../store/tree-store', () => ({
   default: {
@@ -53,6 +54,7 @@ describe('definition update editability', () => {
     ['Union Type', UnionTypeElement.createSchema()],
     ['State', StateElement.createSchema()],
     ['Variable', VariableElement.createSchema()],
+    ['Promise Result', PromiseElement.createSchema()],
     ['Style', StyleElement.createSchema()],
     ['Style Parameter', StyleParamElement.createSchema()],
   ]
@@ -67,6 +69,7 @@ describe('definition update editability', () => {
     ['Function Signature', FunctionElement.createSchema(), 'signatureDefinition'],
     ['State', StateElement.createSchema(), 'valueType'],
     ['Variable', VariableElement.createSchema(), 'valueType'],
+    ['Promise Result', PromiseElement.createSchema(), 'valueType'],
     ['Style Parameter', StyleParamElement.createSchema(), 'valueType'],
     ['Switch', SwitchElement.createSchema(), 'valueType'],
   ]

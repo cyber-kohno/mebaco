@@ -53,6 +53,9 @@ import BlockElement from './kind/block/block-element'
 import FunctionElement from './kind/function/function-element'
 import FunctionProcedureElement from './kind/function/function-procedure-element'
 import FunctionReturnElement from './kind/function/function-return-element'
+import PromiseElement from './kind/promise/promise-element'
+import PromiseThenElement from './kind/promise/promise-then-element'
+import PromiseCatchElement from './kind/promise/promise-catch-element'
 
 const MebacoElement = {}
 
@@ -113,6 +116,9 @@ namespace MebacoElement {
     | FunctionElement.Kind
     | FunctionProcedureElement.Kind
     | FunctionReturnElement.Kind
+    | PromiseElement.Kind
+    | PromiseThenElement.Kind
+    | PromiseCatchElement.Kind
 
   export type Element =
     | AppElement.Element
@@ -170,6 +176,9 @@ namespace MebacoElement {
     | FunctionElement.Element
     | FunctionProcedureElement.Element
     | FunctionReturnElement.Element
+    | PromiseElement.Element
+    | PromiseThenElement.Element
+    | PromiseCatchElement.Element
 }
 
 export default MebacoElement

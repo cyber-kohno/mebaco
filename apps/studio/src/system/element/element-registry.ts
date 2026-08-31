@@ -55,6 +55,9 @@ import BlockElement from './kind/block/block-element'
 import FunctionElement from './kind/function/function-element'
 import FunctionProcedureElement from './kind/function/function-procedure-element'
 import FunctionReturnElement from './kind/function/function-return-element'
+import PromiseElement from './kind/promise/promise-element'
+import PromiseThenElement from './kind/promise/promise-then-element'
+import PromiseCatchElement from './kind/promise/promise-catch-element'
 
 namespace ElementRegistry {
   type DefinitionMap = {
@@ -119,6 +122,9 @@ namespace ElementRegistry {
     function: FunctionElement.definition,
     'function-procedure': FunctionProcedureElement.definition,
     'function-return': FunctionReturnElement.definition,
+    promise: PromiseElement.definition,
+    'promise-then': PromiseThenElement.definition,
+    'promise-catch': PromiseCatchElement.definition,
   } satisfies DefinitionMap
 
   export const get = <TElement extends MebacoElement.Element>(

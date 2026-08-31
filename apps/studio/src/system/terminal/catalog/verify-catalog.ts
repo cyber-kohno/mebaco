@@ -49,10 +49,9 @@ const verifyNodes = async (
 
   for (const node of nodes) {
     const kind = node.element.kind
-    const catalog = ExpressionSourceCatalog.collect(context.rootNode, node)
-    if (!catalog.hasExpressionField) {
+    if (!ExpressionSourceCatalog.isVerificationCandidate(context.rootNode, node)) {
       skipped += 1
-      context.appendOutput('normal', `node-${node.id} ${kind}: skipped (no expressions)`)
+      context.appendOutput('normal', `node-${node.id} ${kind}: skipped (no verification rules)`)
       continue
     }
 

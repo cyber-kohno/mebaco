@@ -8,6 +8,8 @@ import SignatureDefinition from '../type/signature/signature-definition'
 import TypeExpression from '../type/type-expression'
 import ValueTypeDefinition from '../type/value-type-definition'
 import type TreeNode from '../../../tree/tree-node'
+import BlockElement from '../block/block-element'
+import VariableElement from '../variable/variable-element'
 
 vi.mock('../../../store/tree-store', () => ({
   default: {
@@ -269,7 +271,7 @@ describe('Function editing UI models', () => {
     })
   })
 
-  it('offers one Return and inserts later Procedure items before it', () => {
+  it('always offers Return and appends later Procedure items normally', () => {
     const withoutReturn = createTree()
     const initialItems = FunctionProcedureElement.definition.getContextMenu({
       element: withoutReturn.procedure.element,
@@ -287,7 +289,7 @@ describe('Function editing UI models', () => {
     expect(initialStatement.type).toBe('parent')
     if (initialStatement.type === 'parent') {
       expect(initialStatement.children.map((item) => item.label))
-        .toEqual(['Action', 'Transition', 'Return'])
+        .toEqual(['Action', 'Promise', 'Transition', 'Return'])
     }
 
     const withReturn = createTree(true)
@@ -300,7 +302,8 @@ describe('Function editing UI models', () => {
     const addAction = items[1]
     expect(addAction.type).toBe('parent')
     if (addAction.type !== 'parent') return
-    expect(addAction.children.map((item) => item.label)).toEqual(['Action', 'Transition'])
+    expect(addAction.children.map((item) => item.label))
+      .toEqual(['Action', 'Promise', 'Transition', 'Return'])
     const actionItem = addAction.children[0]
     expect(actionItem.type).toBe('action')
     if (actionItem.type !== 'action') return
@@ -308,7 +311,7 @@ describe('Function editing UI models', () => {
     expect(get(elementDialogStore)).toMatchObject({
       mode: 'create',
       parentNodeId: withReturn.procedure.id,
-      insertIndex: 0,
+      insertIndex: undefined,
     })
   })
 
@@ -317,5 +320,39 @@ describe('Function editing UI models', () => {
       .toMatchObject({ type: 'formula', required: false })
     expect(FunctionReturnElement.createSchema({ required: true }).fields[0])
       .toMatchObject({ type: 'formula', required: true })
+  })
+
+  it('marks Variable initialization as await-capable only when owned by an async Function', () => {
+    const sourceField = VariableElement.createSchema().fields
+      .find((field) => field.key === 'source')
+    expect(sourceField).toMatchObject({
+      type: 'formula',
+      allowAwaitInAsyncFunction: true,
+    })
+  })
+
+  it('offers Return inside a Procedure Block and allows sibling reordering', () => {
+    const { root, procedure } = createTree()
+    const block: TreeNode.Node & { element: BlockElement.Element } = {
+      id: 6,
+      element: BlockElement.create('guard'),
+      isOpen: true,
+      children: [],
+    }
+    procedure.children.push(block)
+
+    const items = BlockElement.definition.getContextMenu({
+      element: block.element,
+      node: block,
+      parentNode: procedure,
+      rootNode: root,
+    })
+    const statementMenu = items.find((item) => item.label === 'Add statement')
+    expect(statementMenu?.type).toBe('parent')
+    if (statementMenu?.type === 'parent') {
+      expect(statementMenu.children.map((item) => item.label))
+        .toEqual(['Action', 'Promise', 'Transition', 'Return'])
+    }
+    expect(FunctionReturnElement.definition.reorderGroup).toBe('siblings')
   })
 })

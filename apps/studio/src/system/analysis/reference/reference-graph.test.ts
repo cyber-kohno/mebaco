@@ -14,6 +14,30 @@ const node = (
 })
 
 describe('ReferenceGraph', () => {
+  it('reuses one analyzed snapshot while selecting different nodes', () => {
+    const component = node(2, {
+      kind: 'component',
+      componentId: 'component-uuid',
+      id: 'Card',
+    })
+    const use = node(3, {
+      kind: 'component-use',
+      componentId: 'component-uuid',
+      propBindings: [],
+    })
+    const root = node(1, { kind: 'project' }, [component, use])
+    const snapshot = ReferenceGraph.createSnapshot(root)
+
+    const componentGraph = snapshot.select(component.id)
+    expect(componentGraph.references).toHaveLength(1)
+    expect(snapshot.select(use.id).dependencies).toEqual([{
+      sourceNodeId: use.id,
+      targetNodeId: component.id,
+      targetLabel: 'component.Card',
+    }])
+    expect(snapshot.select(component.id)).toBe(componentGraph)
+  })
+
   it('resolves structured references by stable definition UUID only', () => {
     const component = node(2, {
       kind: 'component',

@@ -9,16 +9,10 @@
   import ReferenceGraphController from './reference-graph-controller'
 
   const rootNodeStore = TreeStore.rootNode
-  const referenceGraphNodeId = ReferenceGraphController.selectedNodeId
+  const selectedNodeIdStore = TreeStore.selectedNodeId
+  const referenceGraphVisible = ReferenceGraphController.visible
 
   onMount(() => {
-    let previousNodeId: number | undefined
-    const unsubscribeSelection = TreeStore.selectedNodeId.subscribe((nodeId) => {
-      if (previousNodeId != null && previousNodeId !== nodeId) {
-        ReferenceGraphController.close()
-      }
-      previousNodeId = nodeId
-    })
     const unsubscribeElementDialog = elementDialogStore.subscribe((session) => {
       if (session != null) ReferenceGraphController.close()
     })
@@ -27,22 +21,25 @@
     })
 
     return () => {
-      unsubscribeSelection()
       unsubscribeElementDialog()
       unsubscribeCommandSession()
     }
   })
 
+  const graphSnapshot = $derived(
+    $referenceGraphVisible
+      ? ReferenceGraph.createSnapshot($rootNodeStore)
+      : null,
+  )
+
   const graph = $derived(
-    $referenceGraphNodeId == null
-      ? null
-      : ReferenceGraph.build($rootNodeStore, $referenceGraphNodeId),
+    graphSnapshot?.select($selectedNodeIdStore) ?? null,
   )
 
   const selectedNode = $derived(
-    $referenceGraphNodeId == null
+    !$referenceGraphVisible
       ? null
-      : TreeNode.findNode($rootNodeStore, $referenceGraphNodeId),
+      : TreeNode.findNode($rootNodeStore, $selectedNodeIdStore),
   )
 
   const splitTargetLabel = (label: string) => {
@@ -54,11 +51,10 @@
 
   const navigateToNode = (nodeId: number) => {
     TreeNavigationController.jumpToNode(nodeId)
-    ReferenceGraphController.close()
   }
 </script>
 
-{#if $referenceGraphNodeId != null && selectedNode != null && graph != null}
+{#if $referenceGraphVisible && selectedNode != null && graph != null}
   <aside class="reference-graph" aria-label="Reference Graph">
     <header>
       <div>

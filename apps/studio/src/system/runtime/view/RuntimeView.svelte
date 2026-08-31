@@ -69,6 +69,8 @@
     $system: runtimeSystem,
     $transition: runtimeTransition,
     requestTransition,
+    reportError: (nodeId, error) => setActionError(nodeId, error),
+    requestRender: () => invalidateRuntime(),
   }))
   const launchResult = $derived(RuntimeLaunch.resolve({
     appNode: appNode as TreeNode.Node & { element: AppElement.Element },

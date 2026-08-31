@@ -6,6 +6,7 @@ import MonacoFactory from '../../ui/monaco/monaco-factory'
 import MebacoInjection from '../../ui/monaco/monaco-injection'
 import MebacoInjectionSource from '../../ui/monaco/mebaco-injection-source'
 import ScriptPolicy from '../../runtime/script/script-policy'
+import ProcedureStructureVerifier from '../procedure/procedure-structure-verifier'
 import ExpressionSourceCatalog from './expression-source-catalog'
 
 namespace ExpressionVerifier {
@@ -30,11 +31,15 @@ namespace ExpressionVerifier {
     node: TreeNode.Node,
   ): Promise<Result | null> => {
     const catalog = ExpressionSourceCatalog.collect(rootNode, node)
-    if (!catalog.hasExpressionField) return null
-    if (catalog.sources.length === 0) return { status: 'verified', messages: [] }
+    if (!ExpressionSourceCatalog.isVerificationCandidate(rootNode, node)) return null
+    const messages = [...ProcedureStructureVerifier.verify(node)]
+    if (catalog.sources.length === 0) {
+      return messages.length === 0
+        ? { status: 'verified', messages: [] }
+        : { status: 'error', messages: [...new Set(messages)] }
+    }
 
     const monaco = await MonacoFactory.createMonaco()
-    const messages: string[] = []
 
     for (const [index, source] of catalog.sources.entries()) {
       const uri = createUri(node.id, index)
@@ -91,6 +96,7 @@ namespace ExpressionVerifier {
             injectionSource,
             source.source,
             source.expectedTypeText,
+            source.allowAwait === true,
           )
           if (typeError != null) messages.push(typeError)
         }

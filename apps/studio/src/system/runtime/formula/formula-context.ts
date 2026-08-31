@@ -1,4 +1,11 @@
+import type ScriptError from '../script/script-error'
+
 namespace FormulaContext {
+  export type ErrorReporter = (
+    nodeId: number,
+    error: ScriptError.Value,
+  ) => void
+
   export type TransitionValue = Readonly<Record<
     string,
     (launchValues?: Readonly<Record<string, unknown>>) => void
@@ -27,6 +34,8 @@ namespace FormulaContext {
     $transition: TransitionValue
     $event?: Event
     requestTransition: TransitionRequest
+    reportError?: ErrorReporter
+    requestRender?: () => void
   }
 
   export type CreateOptions = Partial<Value>
@@ -58,6 +67,8 @@ namespace FormulaContext {
     $transition: options.$transition ?? emptyTransition,
     $event: options.$event,
     requestTransition: options.requestTransition ?? unavailableTransition,
+    reportError: options.reportError,
+    requestRender: options.requestRender,
   })
 
   export const createEmpty = (): Value => create()

@@ -4,8 +4,9 @@
   import type ActionMenuState from './action-menu-state'
 
   const MENU_WIDTH = 220
-  const MENU_GAP = 0
+  const MENU_GAP = 1
   const ITEM_HEIGHT = 30
+  const FRAME_BORDER_WIDTH = 1
   const FRAME_PADDING = 6
 
   let frameRefs: HTMLElement[] = []
@@ -44,7 +45,11 @@
       const parentFrame = frameRefs[index - 1]
       if (parentLevel == null) break
 
+      // The first item keeps both menu frames flush at the top. Other items
+      // align the child frame with the selected parent item's top edge.
+      if (parentLevel.focus === 0) continue
       levelTop +=
+        FRAME_BORDER_WIDTH +
         FRAME_PADDING +
         parentLevel.focus * ITEM_HEIGHT -
         getTargetScrollTop(parentLevel.focus, parentFrame, levelTop)

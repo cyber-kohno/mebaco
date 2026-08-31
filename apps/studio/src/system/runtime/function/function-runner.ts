@@ -14,6 +14,7 @@ import SwitchResolver from '../switch/switch-resolver'
 import FunctionDefinition from '../../element/kind/function/function-definition'
 import TransitionExecutor from '../transition/transition-executor'
 import FunctionCodeEvaluator from './function-code-evaluator'
+import RuntimeRefRegistry from '../ref/runtime-ref-registry'
 
 namespace FunctionRunner {
   export type Success = {
@@ -49,7 +50,10 @@ namespace FunctionRunner {
 
   type Structure = {
     procedureNode: TreeNode.Node
-    returnNode: FunctionReturnNode
+  }
+
+  type PromiseNode = TreeNode.Node & {
+    element: Extract<TreeNode.Node['element'], { kind: 'promise' }>
   }
 
   const inspectStructure = (
@@ -62,17 +66,13 @@ namespace FunctionRunner {
       (child) => child.element.kind === 'function-procedure',
     )
     const procedureNode = procedureNodes[0]
-    const returnNode = procedureNode?.children.at(-1)
-    if (
-      procedureNode == null
-      || returnNode?.element.kind !== 'function-return'
-    ) {
+    if (procedureNode == null) {
       return failure(
         functionNode.id,
         `Function '${functionNode.element.id}' is not available for runtime execution.`,
       )
     }
-    return { procedureNode, returnNode: returnNode as FunctionReturnNode }
+    return { procedureNode }
   }
 
   const validateArguments = (
@@ -103,31 +103,127 @@ namespace FunctionRunner {
     return null
   }
 
+  type ReturnSignal = {
+    returned: true
+    returnNode: FunctionReturnNode
+    value: unknown
+  }
+
+  type ExecutionResult = Failure | ReturnSignal | null
+
+  const findPromiseBranch = (
+    promiseNode: PromiseNode,
+    kind: 'promise-then' | 'promise-catch',
+  ): TreeNode.Node | null => (
+    promiseNode.children.find((child) => child.element.kind === kind) ?? null
+  )
+
+  const isPromiseLike = (
+    value: unknown,
+  ): value is PromiseLike<unknown> => value != null
+    && (typeof value === 'object' || typeof value === 'function')
+    && typeof (value as { then?: unknown }).then === 'function'
+
+  const reportDetachedFailure = (
+    context: FormulaContext.Value,
+    result: Failure,
+  ) => {
+    if (context.reportError != null) {
+      context.reportError(result.errorNodeId, result.error)
+      return
+    }
+    console.error('[Mebaco runtime] Promise branch failed.', ScriptErrorValue.format(result.error))
+  }
+
+  const validatePromiseResult = (
+    promiseNode: PromiseNode,
+    value: unknown,
+    projectNode: TreeNode.Node,
+  ): Failure | null => {
+    const resultType = promiseNode.element.resultType
+    if (resultType == null) return null
+    if (
+      !(resultType.nullable && value === null)
+      && !TypeValue.isCompatible(resultType.valueType, value, projectNode)
+    ) {
+      return failure(
+        promiseNode.id,
+        `Promise result '${promiseNode.element.id}' does not match its declared type.`,
+      )
+    }
+    return null
+  }
+
+  const evaluateReturn = (
+    returnNode: FunctionReturnNode,
+    context: FormulaContext.Value,
+  ): ReturnSignal | Failure => {
+    const returnSource = returnNode.element.source ?? ''
+    if (returnSource.trim().length === 0) {
+      return { returned: true, returnNode, value: undefined }
+    }
+    const policyError = ScriptPolicy.validate(returnSource, {
+      allowAwait: false,
+    })[0]
+    if (policyError != null) return failure(returnNode.id, policyError)
+    const evaluated = FormulaEvaluator.evaluateExpression(returnSource, context)
+    if (!evaluated.ok) return failure(returnNode.id, evaluated.error)
+    return { returned: true, returnNode, value: evaluated.value }
+  }
+
+  const evaluateReturnAsync = async (
+    returnNode: FunctionReturnNode,
+    context: FormulaContext.Value,
+  ): Promise<ReturnSignal | Failure> => {
+    const returnSource = returnNode.element.source ?? ''
+    if (returnSource.trim().length === 0) {
+      return { returned: true, returnNode, value: undefined }
+    }
+    const policyError = ScriptPolicy.validate(returnSource, {
+      allowAwait: true,
+    })[0]
+    if (policyError != null) return failure(returnNode.id, policyError)
+    const evaluated = await FormulaEvaluator.evaluateExpressionAsync(returnSource, context)
+    if (!evaluated.ok) return failure(returnNode.id, evaluated.error)
+    return { returned: true, returnNode, value: evaluated.value }
+  }
+
   const executeChildren = (
     children: readonly TreeNode.Node[],
     context: FormulaContext.Value,
     frame: VariableFrame.Frame,
     projectNode: TreeNode.Node,
-  ): Failure | null => {
+  ): ExecutionResult => {
     for (const child of children) {
       if (child.disabled) continue
-      if (child.element.kind === 'control-conditional') {
+      if (child.element.kind === 'function-return') {
+        return evaluateReturn(child as FunctionReturnNode, context)
+      } else if (child.element.kind === 'control-conditional') {
         const selected = ConditionalResolver.resolve(child, context)
         if (selected.error != null) return failure(child.id, selected.error)
         if (selected.branchNode != null) {
-          const branchFailure = executeChildren(selected.branchNode.children, context, frame, projectNode)
-          if (branchFailure != null) return branchFailure
+          const branchResult = executeChildren(selected.branchNode.children, context, frame, projectNode)
+          if (branchResult != null) return branchResult
         }
       } else if (child.element.kind === 'control-switch') {
         const selected = SwitchResolver.resolve(child, context, projectNode)
         if (selected.error != null) return failure(child.id, selected.error)
         if (selected.branchNode != null) {
-          const branchFailure = executeChildren(selected.branchNode.children, context, frame, projectNode)
-          if (branchFailure != null) return branchFailure
+          const branchResult = executeChildren(selected.branchNode.children, context, frame, projectNode)
+          if (branchResult != null) return branchResult
         }
       } else if (child.element.kind === 'block') {
-        const blockFailure = executeChildren(child.children, context, frame, projectNode)
-        if (blockFailure != null) return blockFailure
+        const blockResult = executeChildren(child.children, context, frame, projectNode)
+        if (blockResult != null) return blockResult
+      } else if (child.element.kind === 'promise') {
+        const promiseFailure = startPromise(
+          child as PromiseNode,
+          context,
+          frame,
+          projectNode,
+          false,
+        )
+        if (promiseFailure != null) return promiseFailure
       } else if (child.element.kind === 'transition') {
         const executed = TransitionExecutor.execute(child.element, context, projectNode)
         if (!executed.ok) return failure(child.id, executed.error)
@@ -173,40 +269,54 @@ namespace FunctionRunner {
     context: FormulaContext.Value,
     frame: VariableFrame.Frame,
     projectNode: TreeNode.Node,
-  ): Promise<Failure | null> => {
+  ): Promise<ExecutionResult> => {
     for (const child of children) {
       if (child.disabled) continue
-      if (child.element.kind === 'control-conditional') {
+      if (child.element.kind === 'function-return') {
+        return evaluateReturnAsync(child as FunctionReturnNode, context)
+      } else if (child.element.kind === 'control-conditional') {
         const selected = ConditionalResolver.resolve(child, context)
         if (selected.error != null) return failure(child.id, selected.error)
         if (selected.branchNode != null) {
-          const branchFailure = await executeChildrenAsync(selected.branchNode.children, context, frame, projectNode)
-          if (branchFailure != null) return branchFailure
+          const branchResult = await executeChildrenAsync(selected.branchNode.children, context, frame, projectNode)
+          if (branchResult != null) return branchResult
         }
       } else if (child.element.kind === 'control-switch') {
         const selected = SwitchResolver.resolve(child, context, projectNode)
         if (selected.error != null) return failure(child.id, selected.error)
         if (selected.branchNode != null) {
-          const branchFailure = await executeChildrenAsync(selected.branchNode.children, context, frame, projectNode)
-          if (branchFailure != null) return branchFailure
+          const branchResult = await executeChildrenAsync(selected.branchNode.children, context, frame, projectNode)
+          if (branchResult != null) return branchResult
         }
       } else if (child.element.kind === 'block') {
-        const blockFailure = await executeChildrenAsync(
+        const blockResult = await executeChildrenAsync(
           child.children,
           context,
           frame,
           projectNode,
         )
-        if (blockFailure != null) return blockFailure
+        if (blockResult != null) return blockResult
+      } else if (child.element.kind === 'promise') {
+        const promiseFailure = startPromise(
+          child as PromiseNode,
+          context,
+          frame,
+          projectNode,
+          true,
+        )
+        if (promiseFailure != null) return promiseFailure
       } else if (child.element.kind === 'transition') {
         const executed = TransitionExecutor.execute(child.element, context, projectNode)
         if (!executed.ok) return failure(child.id, executed.error)
       } else if (child.element.kind === 'variable') {
         const policyError = ScriptPolicy.validate(child.element.source, {
-          allowAwait: false,
+          allowAwait: true,
         })[0]
         if (policyError != null) return failure(child.id, policyError)
-        const evaluated = FormulaEvaluator.evaluateExpression(child.element.source, context)
+        const evaluated = await FormulaEvaluator.evaluateExpressionAsync(
+          child.element.source,
+          context,
+        )
         if (!evaluated.ok) return failure(child.id, evaluated.error)
         if (
           child.element.typeSetting.type === 'explicit'
@@ -235,6 +345,128 @@ namespace FunctionRunner {
         if (!executed.ok) return failure(child.id, executed.error)
       }
     }
+    return null
+  }
+
+  const executePromiseBranch = async (
+    promiseNode: PromiseNode,
+    branchNode: TreeNode.Node,
+    context: FormulaContext.Value,
+    capturedFrame: VariableFrame.Frame,
+    projectNode: TreeNode.Node,
+    asyncProcedure: boolean,
+    binding: { id: string; value: unknown } | null,
+  ): Promise<void> => {
+    const transaction = RuntimeRefRegistry.beginAction(context.$system, promiseNode.id)
+    const branchFrame = VariableFrame.createLinked(capturedFrame.values)
+    if (binding != null) {
+      try {
+        branchFrame.declare(binding.id, 'const', binding.value)
+      } catch (error) {
+        reportDetachedFailure(context, failure(branchNode.id, error))
+        transaction.complete(false)
+        return
+      }
+    }
+    const branchContext = FormulaContextValue.create({
+      ...context,
+      $var: branchFrame.values,
+    })
+    branchContext.$fn = createNamespace(projectNode, branchNode.id, branchContext)
+    const result = asyncProcedure
+      ? await executeChildrenAsync(
+          branchNode.children,
+          branchContext,
+          branchFrame,
+          projectNode,
+        )
+      : executeChildren(
+          branchNode.children,
+          branchContext,
+          branchFrame,
+          projectNode,
+        )
+    if (result == null) {
+      transaction.complete(true)
+      context.requestRender?.()
+      return
+    }
+    transaction.complete(false)
+    if ('ok' in result) {
+      reportDetachedFailure(context, result)
+      context.requestRender?.()
+      return
+    }
+    reportDetachedFailure(context, failure(
+      result.returnNode.id,
+      'Return is not allowed inside a Promise Then or Catch branch.',
+    ))
+    context.requestRender?.()
+  }
+
+  const startPromise = (
+    promiseNode: PromiseNode,
+    context: FormulaContext.Value,
+    frame: VariableFrame.Frame,
+    projectNode: TreeNode.Node,
+    asyncProcedure: boolean,
+  ): Failure | null => {
+    const policyError = ScriptPolicy.validate(promiseNode.element.source, {
+      allowAwait: false,
+    })[0]
+    if (policyError != null) return failure(promiseNode.id, policyError)
+
+    const evaluated = FormulaEvaluator.evaluateExpression(
+      promiseNode.element.source,
+      context,
+    )
+    if (!evaluated.ok) return failure(promiseNode.id, evaluated.error)
+    if (!isPromiseLike(evaluated.value)) {
+      return failure(promiseNode.id, 'Promise expression must return a Promise.')
+    }
+
+    const thenNode = findPromiseBranch(promiseNode, 'promise-then')
+    if (thenNode == null) return failure(promiseNode.id, 'Promise requires one Then branch.')
+    const catchNode = findPromiseBranch(promiseNode, 'promise-catch')
+
+    void Promise.resolve(evaluated.value).then(
+      async (value) => {
+        const typeFailure = validatePromiseResult(promiseNode, value, projectNode)
+        if (typeFailure != null) {
+          reportDetachedFailure(context, typeFailure)
+          return
+        }
+        await executePromiseBranch(
+          promiseNode,
+          thenNode,
+          context,
+          frame,
+          projectNode,
+          asyncProcedure,
+          promiseNode.element.resultType == null
+            ? null
+            : { id: promiseNode.element.id, value },
+        )
+      },
+      async (error) => {
+        if (catchNode == null || catchNode.element.kind !== 'promise-catch') {
+          reportDetachedFailure(context, failure(promiseNode.id, error))
+          return
+        }
+        await executePromiseBranch(
+          promiseNode,
+          catchNode,
+          context,
+          frame,
+          projectNode,
+          asyncProcedure,
+          { id: catchNode.element.id, value: error },
+        )
+      },
+    ).catch((error: unknown) => {
+      reportDetachedFailure(context, failure(promiseNode.id, error))
+    })
+
     return null
   }
 
@@ -335,30 +567,25 @@ namespace FunctionRunner {
 
     const structure = inspectStructure(functionNode)
     if ('ok' in structure) return structure
-    const { procedureNode, returnNode } = structure
+    const { procedureNode } = structure
     context.$fn = createNamespace(projectNode, procedureNode.id, context)
 
-    const executionFailure = executeChildren(
+    const executionResult = executeChildren(
       procedureNode.children,
       context,
       frame,
       projectNode,
     )
-    if (executionFailure != null) return executionFailure
-
-    let value: unknown = undefined
-    const returnSource = returnNode.element.source ?? ''
-    if (returnSource.trim().length > 0) {
-      const policyError = ScriptPolicy.validate(returnSource, {
-        allowAwait: false,
-      })[0]
-      if (policyError != null) return failure(returnNode.id, policyError)
-      const evaluated = FormulaEvaluator.evaluateExpression(returnSource, context)
-      if (!evaluated.ok) return failure(returnNode.id, evaluated.error)
-      value = evaluated.value
+    if (executionResult != null) {
+      if ('ok' in executionResult) return executionResult
+      return validateReturnValue(
+        functionNode,
+        executionResult.returnNode.id,
+        executionResult.value,
+        projectNode,
+      )
     }
-
-    return validateReturnValue(functionNode, returnNode.id, value, projectNode)
+    return validateReturnValue(functionNode, functionNode.id, undefined, projectNode)
   }
 
   export const runAsync = async (
@@ -408,28 +635,25 @@ namespace FunctionRunner {
 
     const structure = inspectStructure(functionNode)
     if ('ok' in structure) return structure
-    const { procedureNode, returnNode } = structure
+    const { procedureNode } = structure
     context.$fn = createNamespace(projectNode, procedureNode.id, context)
 
-    const executionFailure = await executeChildrenAsync(
+    const executionResult = await executeChildrenAsync(
       procedureNode.children,
       context,
       frame,
       projectNode,
     )
-    if (executionFailure != null) return executionFailure
-
-    let value: unknown = undefined
-    const returnSource = returnNode.element.source ?? ''
-    if (returnSource.trim().length > 0) {
-      const evaluated = await FormulaEvaluator.evaluateExpressionAsync(
-        returnSource,
-        context,
+    if (executionResult != null) {
+      if ('ok' in executionResult) return executionResult
+      return validateReturnValue(
+        functionNode,
+        executionResult.returnNode.id,
+        executionResult.value,
+        projectNode,
       )
-      if (!evaluated.ok) return failure(returnNode.id, evaluated.error)
-      value = evaluated.value
     }
-    return validateReturnValue(functionNode, returnNode.id, value, projectNode)
+    return validateReturnValue(functionNode, functionNode.id, undefined, projectNode)
   }
 }
 

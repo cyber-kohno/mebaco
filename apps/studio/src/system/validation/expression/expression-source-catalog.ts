@@ -5,6 +5,7 @@ import TypeExpression from '../../element/kind/type/type-expression'
 import SwitchValueType from '../../element/kind/directive/switch-value-type'
 import type TreeNode from '../../tree/tree-node'
 import ElementExpressionFields from '../../analysis/reference/element-expression-fields'
+import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
 
 namespace ExpressionSourceCatalog {
   export type Mode = 'expression' | 'action' | 'code'
@@ -66,6 +67,17 @@ namespace ExpressionSourceCatalog {
 
     if (element.kind === 'text' && key === 'source') return 'string'
     if (element.kind === 'tag' && key === 'refKey') return 'string'
+
+    if (element.kind === 'promise' && key === 'source') {
+      const resultType = element.resultType
+      if (resultType == null) return 'Promise<void>'
+      if (typeof resultType === 'object') {
+        return `Promise<${ValueTypeDefinition.getTypeText(
+          resultType as ValueTypeDefinition.Definition,
+          (typeId) => TypeCatalog.resolveTypeScriptName(rootNode, typeId),
+        )}>`
+      }
+    }
 
     if (
       (element.kind === 'state' || element.kind === 'variable')
@@ -148,7 +160,11 @@ namespace ExpressionSourceCatalog {
       node.element.kind === 'function'
       && node.element.implementation.mode === 'code'
     ) return FunctionDefinition.getAsync(rootNode, node.element)
-    if (mode !== 'action') return false
+    if (
+      mode !== 'action'
+      && node.element.kind !== 'variable'
+      && node.element.kind !== 'function-return'
+    ) return false
     const owner = FunctionScope.findOwnerFunction(rootNode, node.id)
     return owner != null && FunctionDefinition.getAsync(rootNode, owner.element)
   }
@@ -245,6 +261,14 @@ namespace ExpressionSourceCatalog {
     visit(node.element, [])
     return { hasExpressionField, sources }
   }
+
+  export const isVerificationCandidate = (
+    rootNode: TreeNode.Node,
+    node: TreeNode.Node,
+  ): boolean => (
+    node.element.kind === 'function-procedure'
+    || collect(rootNode, node).hasExpressionField
+  )
 }
 
 export default ExpressionSourceCatalog

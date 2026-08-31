@@ -25,6 +25,13 @@ namespace ExpressionTypeInference {
   const typeCache = new Map<string, TypeResult>()
 
   const collectionLibrary = [
+    'interface PromiseLike<T> {',
+    '  then<TResult1 = T, TResult2 = never>(',
+    '    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,',
+    '    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,',
+    '  ): PromiseLike<TResult1 | TResult2>;',
+    '}',
+    'interface Promise<T> extends PromiseLike<T> {}',
     'interface Array<T> {',
     '  readonly length: number;',
     '  [index: number]: T;',
@@ -183,17 +190,23 @@ namespace ExpressionTypeInference {
     injectionSource: string,
     expressionSource: string,
     widenLiterals = false,
+    allowAwait = false,
   ): TypeResult => {
-    const cacheKey = `${widenLiterals}\u0000${injectionSource}\u0000${expressionSource}`
+    const cacheKey = `${widenLiterals}\u0000${allowAwait}\u0000${injectionSource}\u0000${expressionSource}`
     const cached = typeCache.get(cacheKey)
     if (cached != null) return cached
 
-    const source = [
-      collectionLibrary,
-      injectionSource,
+    const expressionLines = [
       `const ${resultName} = (`,
       expressionSource.length === 0 ? 'undefined' : expressionSource,
       ');',
+    ]
+    const source = [
+      collectionLibrary,
+      injectionSource,
+      ...(allowAwait
+        ? ['async function __mebacoInferAsync() {', ...expressionLines, '}']
+        : expressionLines),
     ].join('\n')
     const program = createProgram(source)
     const sourceFile = program.getSourceFile(fileName)
@@ -234,13 +247,19 @@ namespace ExpressionTypeInference {
     injectionSource: string,
     expressionSource: string,
     expectedTypeText: string,
+    allowAwait = false,
   ): string | null => {
-    const source = [
-      collectionLibrary,
-      injectionSource,
+    const expressionLines = [
       `const __mebacoExpected: ${expectedTypeText} = (`,
       expressionSource.length === 0 ? 'undefined' : expressionSource,
       ');',
+    ]
+    const source = [
+      collectionLibrary,
+      injectionSource,
+      ...(allowAwait
+        ? ['async function __mebacoValidateAsync() {', ...expressionLines, '}']
+        : expressionLines),
     ].join('\n')
     const program = createProgram(source)
     const sourceFile = program.getSourceFile(fileName)

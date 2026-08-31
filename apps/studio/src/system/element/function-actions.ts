@@ -17,6 +17,7 @@ import ControlConditionalElement from './kind/directive/control-conditional-elem
 import ControlSwitchElement from './kind/directive/control-switch-element'
 import SwitchElement from './kind/directive/switch-element'
 import TransitionElement from './kind/variable/transition-element'
+import PromiseElement from './kind/promise/promise-element'
 
 namespace FunctionActions {
   const findNode = (
@@ -46,9 +47,24 @@ namespace FunctionActions {
   ): string[] => {
     const frameNode = getFrameNode(rootNode, parentNodeId)
     if (frameNode == null) return []
-    return kind === 'function'
-      ? FunctionScope.collectFrameFunctions(frameNode).map((entry) => entry.element.id)
-      : FunctionScope.collectFrameVariables(frameNode).map((entry) => entry.element.id)
+    if (kind === 'function') {
+      return FunctionScope.collectFrameFunctions(frameNode).map((entry) => entry.element.id)
+    }
+    const ids = FunctionScope.collectFrameVariables(frameNode).map((entry) => entry.element.id)
+    const path = FunctionScope.findPath(rootNode, parentNodeId) ?? []
+    const branchNode = [...path].reverse().find((node) => (
+      node.element.kind === 'promise-then'
+      || node.element.kind === 'promise-catch'
+    ))
+    if (branchNode?.element.kind === 'promise-catch') ids.push(branchNode.element.id)
+    if (branchNode?.element.kind === 'promise-then') {
+      const branchIndex = path.indexOf(branchNode)
+      const promiseNode = path[branchIndex - 1]
+      if (promiseNode?.element.kind === 'promise' && promiseNode.element.resultType != null) {
+        ids.push(promiseNode.element.id)
+      }
+    }
+    return [...new Set(ids)]
   }
 
   export const createAddFunctionItem = (
@@ -143,6 +159,23 @@ namespace FunctionActions {
     ))
   }
 
+  export const createAddPromiseItem = (
+    parentNodeId: number,
+    rootNode: TreeNode.Node,
+    insertIndex?: number,
+  ): ActionMenuState.ActionItem => {
+    const { action } = ActionMenu.createFactory()
+    return action('Promise', () => ElementDialog.openCreate(
+      parentNodeId,
+      PromiseElement.createSchema({
+        reservedNames: collectFrameIds(rootNode, parentNodeId, 'variable'),
+        referenceOptions: TypeCatalog.getReferenceOptions(rootNode, parentNodeId),
+        namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
+      }),
+      insertIndex,
+    ))
+  }
+
   export const createAddStatementMenu = (
     parentNodeId: number,
     rootNode: TreeNode.Node,
@@ -150,10 +183,17 @@ namespace FunctionActions {
     includeReturn = true,
   ): ActionMenuState.ParentItem => {
     const { parent } = ActionMenu.createFactory()
+    const isPromiseBranch = FunctionScope.findPath(rootNode, parentNodeId)?.some(
+      (node) => (
+        node.element.kind === 'promise-then'
+        || node.element.kind === 'promise-catch'
+      ),
+    ) === true
     return parent('Add statement', [
       createAddActionItem(parentNodeId, insertIndex),
+      createAddPromiseItem(parentNodeId, rootNode, insertIndex),
       createAddTransitionItem(parentNodeId, rootNode, insertIndex),
-      ...(includeReturn
+      ...(includeReturn && !isPromiseBranch
         ? [createAddReturnItem(parentNodeId, rootNode)]
         : []),
     ])

@@ -89,6 +89,7 @@ namespace VariableElement {
       },
       {
         type: 'formula', key: 'source', label: 'Initial', required: true, maxLength: 4000,
+        allowAwaitInAsyncFunction: true,
         getExpectedTypeText: (values) => {
           if (values.explicitType !== 'true') return undefined
           const definition = parseValueType(values)

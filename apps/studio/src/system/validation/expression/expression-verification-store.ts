@@ -13,8 +13,18 @@ namespace ExpressionVerificationStore {
 
   export const entries = writable<Record<number, Entry>>({})
 
+  const structureFingerprint = (node: TreeNode.Node): unknown => ({
+    kind: node.element.kind,
+    disabled: node.disabled === true,
+    children: node.element.kind === 'function'
+      ? []
+      : node.children.map(structureFingerprint),
+  })
+
   const fingerprint = (node: TreeNode.Node): string => JSON.stringify(
-    node.element.kind === 'action'
+    node.element.kind === 'function-procedure'
+      ? structureFingerprint(node)
+      : node.element.kind === 'action'
       ? { kind: node.element.kind, source: node.element.source }
       : node.element,
   )
@@ -33,7 +43,7 @@ namespace ExpressionVerificationStore {
     node: TreeNode.Node,
     currentEntries: Readonly<Record<number, Entry>> = get(entries),
   ): ExpressionVerifier.Status | null => {
-    if (!ExpressionSourceCatalog.collect(rootNode, node).hasExpressionField) {
+    if (!ExpressionSourceCatalog.isVerificationCandidate(rootNode, node)) {
       return null
     }
     const entry = currentEntries[node.id]

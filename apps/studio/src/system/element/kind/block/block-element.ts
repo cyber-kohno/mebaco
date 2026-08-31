@@ -95,8 +95,6 @@ namespace BlockElement {
           FunctionActions.createAddStatementMenu(
             context.node.id,
             context.rootNode,
-            undefined,
-            false,
           ),
           FunctionActions.createAddControlMenu(context.node.id, context.rootNode),
           FunctionActions.createAddBlockItem(context.node.id),

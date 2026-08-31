@@ -5,14 +5,36 @@ import type TreeNode from '../../tree/tree-node'
 const node = (
   id: number,
   element: Record<string, unknown>,
+  children: TreeNode.Node[] = [],
 ): TreeNode.Node => ({
   id,
   element: element as TreeNode.Node['element'],
   isOpen: true,
-  children: [],
+  children,
 })
 
 describe('ExpressionSourceCatalog', () => {
+  it('requires a Promise expression matching the declared resolved type', () => {
+    const promise = node(2, {
+      kind: 'promise', id: 'users',
+      resultType: {
+        valueType: { type: 'array', item: { type: 'string' } },
+        nullable: false,
+      },
+      source: '$fs.searchUsers()',
+    })
+    const root = node(1, { kind: 'project' }, [promise])
+
+    expect(ExpressionSourceCatalog.collect(root, promise).sources).toEqual([{
+      source: '$fs.searchUsers()',
+      mode: 'expression',
+      label: 'source',
+      expectedTypeText: 'Promise<string[]>',
+      allowAwait: false,
+      functionParameters: undefined,
+    }])
+  })
+
   it('treats literal value-source fields as verification candidates', () => {
     const state = node(3, {
       kind: 'state',
@@ -125,5 +147,30 @@ describe('ExpressionSourceCatalog', () => {
         functionParameters: [{ name: 'value', typeText: 'number' }],
       }),
     ])
+  })
+
+  it('allows await only for Variables owned by an async Function', () => {
+    const asyncVariable = node(4, {
+      kind: 'variable', id: 'loaded', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: 'await $fn.load()',
+    })
+    const asyncConditional = node(5, {
+      kind: 'if', condition: 'await $fn.isReady()',
+    })
+    const control = node(6, { kind: 'control-conditional' }, [asyncConditional])
+    const asyncFunction = node(2, {
+      kind: 'function', id: 'run',
+      signature: {
+        mode: 'inline',
+        definition: { async: true, parameters: [], returnType: null },
+      },
+      implementation: { mode: 'procedure' },
+    }, [node(3, { kind: 'function-procedure' }, [asyncVariable, control])])
+    const root = node(1, { kind: 'project' }, [asyncFunction])
+
+    expect(ExpressionSourceCatalog.collect(root, asyncVariable).sources)
+      .toEqual([expect.objectContaining({ allowAwait: true })])
+    expect(ExpressionSourceCatalog.collect(root, asyncConditional).sources)
+      .toEqual([expect.objectContaining({ allowAwait: false })])
   })
 })

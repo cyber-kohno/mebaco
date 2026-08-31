@@ -63,8 +63,7 @@ describe('FunctionElement', () => {
       'function-procedure',
     ])
     expect(codeChildren).toEqual([])
-    expect(FunctionProcedureElement.definition.createInitialChildren?.()
-      .map((seed) => seed.element.kind)).toEqual(['function-return'])
+    expect(FunctionProcedureElement.definition.createInitialChildren?.()).toEqual([])
   })
 
   it('stores parameters in the owned Signature definition', () => {

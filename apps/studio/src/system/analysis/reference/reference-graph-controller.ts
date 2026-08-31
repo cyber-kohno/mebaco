@@ -1,18 +1,18 @@
 import { writable } from 'svelte/store'
 
 namespace ReferenceGraphController {
-  export const selectedNodeId = writable<number | null>(null)
+  export const visible = writable(false)
 
-  export const open = (nodeId: number) => {
-    selectedNodeId.set(nodeId)
+  export const open = () => {
+    visible.set(true)
   }
 
   export const close = () => {
-    selectedNodeId.set(null)
+    visible.set(false)
   }
 
-  export const toggle = (nodeId: number) => {
-    selectedNodeId.update((current) => current === nodeId ? null : nodeId)
+  export const toggle = () => {
+    visible.update((current) => !current)
   }
 }
 

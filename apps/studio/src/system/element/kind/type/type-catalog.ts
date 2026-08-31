@@ -180,6 +180,8 @@ namespace TypeCatalog {
       if (
         node.element.kind === 'retention'
         || node.element.kind === 'function-procedure'
+        || node.element.kind === 'promise-then'
+        || node.element.kind === 'promise-catch'
       ) {
         add(collectFrameNamedTypes(node))
       }
