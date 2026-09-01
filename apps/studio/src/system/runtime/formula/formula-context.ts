@@ -30,6 +30,7 @@ namespace FormulaContext {
     $props: Record<string, unknown>
     $var: Record<string, unknown>
     $fn: Record<string, unknown>
+    $resource: Readonly<Record<string, unknown>>
     $system: SystemValue
     $transition: TransitionValue
     $event?: Event
@@ -63,6 +64,7 @@ namespace FormulaContext {
     $props: options.$props ?? {},
     $var: options.$var ?? {},
     $fn: options.$fn ?? {},
+    $resource: options.$resource ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
     $system: options.$system ?? emptySystem,
     $transition: options.$transition ?? emptyTransition,
     $event: options.$event,

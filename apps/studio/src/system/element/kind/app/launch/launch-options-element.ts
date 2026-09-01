@@ -1,6 +1,5 @@
 import type ElementDefinition from '../../../element-definition'
 import LaunchArgumentsElement from './launch-arguments-element'
-import ImportsElement from '../import/imports-element'
 
 namespace LaunchOptionsElement {
   export type Kind = 'launch-options'
@@ -9,10 +8,7 @@ namespace LaunchOptionsElement {
   export const definition = {
     kind: 'launch-options',
     treeLabel: { type: 'static', kindText: 'Launch', tone: 'manager' },
-    createInitialChildren: () => [
-      { element: LaunchArgumentsElement.create() },
-      { element: ImportsElement.create() },
-    ],
+    createInitialChildren: () => [{ element: LaunchArgumentsElement.create() }],
     getContextMenu: () => [], childSlots: [], canDisable: false,
   } satisfies ElementDefinition.Definition<Element>
 }

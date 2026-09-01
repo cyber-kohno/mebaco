@@ -12,6 +12,7 @@ import TypesElement from '../declare/types-element'
 import StylesElement from '../declare/styles-element'
 import AppTreeLabel from './AppTreeLabel.svelte'
 import LaunchOptionsElement from './launch/launch-options-element'
+import ImportsElement from './import/imports-element'
 import TreeStore from '../../../store/tree-store'
 
 namespace AppElement {
@@ -75,6 +76,7 @@ namespace AppElement {
     },
     createInitialChildren: () => [
       { element: LaunchOptionsElement.create() },
+      { element: ImportsElement.create() },
       {
         element: StoreElement.create(),
         children: [

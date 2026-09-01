@@ -86,7 +86,7 @@ namespace ContentActions {
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
 
-    return action('Add Block', () => {
+    return action('Add block', () => {
       TreeStore.addChild(parentNodeId, { kind: 'block', label: '' })
     })
   }
@@ -99,7 +99,7 @@ namespace ContentActions {
 
     if (ContentHost.usesRetention(node)) {
       return ContentHost.canRemoveRetention(node)
-        ? [action('Remove Retention', () => {
+        ? [action('Remove retention', () => {
             TreeStore.transformNode(node.id, ContentHost.removeRetention)
           })]
         : []
@@ -109,7 +109,7 @@ namespace ContentActions {
       createAddMenu(node.id, rootNode),
       createAddDirectiveMenu(node.id, rootNode),
       createAddBlockItem(node.id),
-      action('Use Retention', () => {
+      action('Use retention', () => {
         TreeStore.transformNode(node.id, ContentHost.useRetention)
       }),
     ]

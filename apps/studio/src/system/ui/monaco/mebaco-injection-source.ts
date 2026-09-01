@@ -16,6 +16,10 @@ import FunctionDefinition from '../../element/kind/function/function-definition'
 import AppId from '../../element/kind/app/app-id'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
 import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
+import SequentialVariableScope from '../../element/kind/variable/sequential-variable-scope'
+import type DirectoryResourceElement from '../../element/kind/resource/directory-resource-element'
+import type TextResourceElement from '../../element/kind/resource/text-resource-element'
+import type SqliteResourceElement from '../../element/kind/resource/sqlite-resource-element'
 
 namespace MebacoInjectionSource {
   export type CreateOptions = {
@@ -176,6 +180,106 @@ namespace MebacoInjectionSource {
     })
 
     return ['declare var $transition: {', ...methods, '};'].join('\n')
+  }
+
+  type ResourceElement =
+    | DirectoryResourceElement.Element
+    | TextResourceElement.Element
+    | SqliteResourceElement.Element
+
+  const collectResources = (
+    rootNode: TreeNode.Node,
+  ): ResourceElement[] => {
+    const resources: ResourceElement[] = []
+    const collect = (node: TreeNode.Node) => {
+      if (
+        node.element.kind === 'directory-resource'
+        || node.element.kind === 'text-resource'
+        || node.element.kind === 'sqlite-resource'
+      ) {
+        resources.push(node.element)
+      }
+      node.children.forEach(collect)
+    }
+    collect(rootNode)
+    return resources
+  }
+
+  const getTextResourceType = (
+    access: 'read' | 'read-write',
+  ): string => access === 'read-write'
+    ? '$MebacoWritableTextResource'
+    : '$MebacoReadonlyTextResource'
+
+  const createDirectoryResourceType = (
+    resource: DirectoryResourceElement.Element,
+  ): string => {
+    const methods = [
+      '    exists(relativePath: string): Promise<boolean>;',
+      '    list(relativePath?: string): Promise<$MebacoDirectoryEntry[]>;',
+    ]
+
+    if (resource.permissions.access === 'read-write') {
+      methods.push(
+        '    renameFile(sourceRelativePath: string, destinationRelativePath: string): Promise<void>;',
+        '    copyFile(sourceRelativePath: string, destinationRelativePath: string): Promise<void>;',
+        '    createDir(relativePath: string): Promise<void>;',
+        '    createFile(relativePath: string): Promise<void>;',
+      )
+      if (resource.permissions.deleteFile) {
+        methods.push('    deleteFile(relativePath: string): Promise<void>;')
+      }
+    }
+
+    if (resource.permissions.text != null) {
+      methods.push(
+        `    text(relativePath: string): ${getTextResourceType(resource.permissions.text.access)};`,
+      )
+    }
+    if (resource.permissions.sqlite != null) {
+      methods.push('    sqlite(relativePath: string): $MebacoSqliteResource;')
+    }
+
+    return ['  {', ...methods, '  }'].join('\n')
+  }
+
+  const createResourceDeclaration = (
+    rootNode: TreeNode.Node,
+  ): string | null => {
+    const resources = collectResources(rootNode)
+    if (resources.length === 0) return null
+
+    const fields = resources.map((resource) => {
+      switch (resource.kind) {
+        case 'directory-resource':
+          return `  ${resource.id}: ${createDirectoryResourceType(resource)};`
+        case 'text-resource':
+          return `  ${resource.id}: ${getTextResourceType(resource.access)};`
+        case 'sqlite-resource':
+          return `  ${resource.id}: $MebacoSqliteResource;`
+      }
+    })
+
+    return [
+      "type $MebacoTextEncoding = 'utf8';",
+      'type $MebacoDirectoryEntry = {',
+      '  readonly name: string;',
+      '  readonly relativePath: string;',
+      "  readonly kind: 'file' | 'directory';",
+      '};',
+      'interface $MebacoReadonlyTextResource {',
+      '  read(encoding?: $MebacoTextEncoding): Promise<string>;',
+      '}',
+      'interface $MebacoWritableTextResource extends $MebacoReadonlyTextResource {',
+      '  write(text: string, encoding?: $MebacoTextEncoding): Promise<void>;',
+      '}',
+      'interface $MebacoSqliteResource {',
+      '  open(): Promise<{}>;',
+      '}',
+      'declare var $resource: {',
+      ...fields,
+      '};',
+    ].join('\n')
   }
 
   const collectValueProps = (
@@ -396,20 +500,14 @@ namespace MebacoInjectionSource {
       const retentionNode = ContentHost.getRetentionNode(node)
       const elementsNode = ContentHost.getElementsNode(node)
       if (retentionNode != null && nextNode === elementsNode) {
-        retentionNode.children.forEach(addVariable)
+        SequentialVariableScope.collectDeclarations(retentionNode.children)
+          .forEach(({ node: variableNode }) => addVariable(variableNode))
       }
-      if (
-        (
-          node.element.kind === 'retention'
-          || node.element.kind === 'function-procedure'
-          || node.element.kind === 'promise-then'
-          || node.element.kind === 'promise-catch'
-        )
-        && nextNode != null
-      ) {
-        const childIndex = node.children.indexOf(nextNode)
-        node.children.slice(0, childIndex).forEach(addVariable)
-      }
+      SequentialVariableScope.collectPrecedingDeclarations(
+        node,
+        nextNode,
+        isTarget && includeTargetScope,
+      ).forEach(({ node: variableNode }) => addVariable(variableNode))
     })
 
     return fields.size === 0 ? null : createDeclaration()
@@ -496,6 +594,9 @@ namespace MebacoInjectionSource {
       createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
       mode === 'code' ? null : createArgumentsDeclaration(rootNode, targetNodeId),
       createFunctionsDeclaration(rootNode, targetNodeId),
+      mode === 'action' || mode === 'code'
+        ? createResourceDeclaration(rootNode)
+        : null,
       mode === 'action' ? transitionDeclaration : null,
       mode === 'action'
         ? [

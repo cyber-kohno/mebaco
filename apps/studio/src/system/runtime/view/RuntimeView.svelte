@@ -17,15 +17,17 @@
   import RuntimeErrorScreen from './RuntimeErrorScreen.svelte'
   import RuntimeError from './runtime-error'
   import TransitionNamespace from '../transition/transition-namespace'
+  import type ResourceRuntime from '../resource/resource-runtime'
 
   type Props = {
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
+    resourceSession: ResourceRuntime.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
   }
 
-  let { appNode, projectNode, launcherId, launchValues }: Props = $props()
+  let { appNode, projectNode, resourceSession, launcherId, launchValues }: Props = $props()
 
   let renderRevision = $state(0)
   let actionError = $state<{
@@ -67,6 +69,7 @@
   const entryComponentNode = $derived(RuntimeTree.getEntryComponentNode(runtime))
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
+    $resource: resourceSession.namespace,
     $system: runtimeSystem,
     $transition: runtimeTransition,
     requestTransition,
@@ -178,6 +181,9 @@
   })
 
   $effect(() => () => RuntimeRefRegistry.dispose(runtimeSystem))
+  $effect(() => {
+    return resourceSession.attachRequestRender(() => invalidateRuntime())
+  })
 
   const invalidateRuntime = () => {
     renderRevision += 1

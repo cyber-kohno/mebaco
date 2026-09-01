@@ -19,8 +19,8 @@ namespace ControlConditionalElement {
       const elseNode = context.node.children.find((node) => node.element.kind === 'else')
       const elseIndex = elseNode == null ? context.node.children.length : context.node.children.indexOf(elseNode)
       return [
-        action('Add Else If', () => TreeStore.addChild(context.node.id, ElseIfElement.create(), elseIndex)),
-        ...(elseNode == null ? [action('Use Else', () => TreeStore.addChild(context.node.id, ElseElement.create()))] : []),
+        action('Add else if', () => TreeStore.addChild(context.node.id, ElseIfElement.create(), elseIndex)),
+        ...(elseNode == null ? [action('Use else', () => TreeStore.addChild(context.node.id, ElseElement.create()))] : []),
         action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },

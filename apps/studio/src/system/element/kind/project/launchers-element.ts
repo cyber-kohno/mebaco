@@ -24,7 +24,7 @@ namespace LaunchersElement {
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = context.node.children.map((n) => n.element).filter((e): e is LauncherElement.Element => e.kind === 'launcher').map((e) => e.id)
-      return [action('Add Launcher', () => ElementDialog.openCreate(context.node.id, LauncherElement.createSchema(context.rootNode, reservedNames)))]
+      return [action('Add launcher', () => ElementDialog.openCreate(context.node.id, LauncherElement.createSchema(context.rootNode, reservedNames)))]
     },
     childSlots: [],
     canDisable: false,

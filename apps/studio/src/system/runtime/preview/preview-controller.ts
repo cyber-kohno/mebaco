@@ -3,6 +3,8 @@ import type TreeNode from '../../tree/tree-node'
 import RuntimeSessionStore from '../runtime-session-store'
 import RuntimeTree from '../runtime-tree'
 import ToastController from '../../feedback/toast/toast-controller'
+import ResourceRuntime from '../resource/resource-runtime'
+import { get } from 'svelte/store'
 
 namespace PreviewController {
   const findOwnerApp = (
@@ -41,16 +43,19 @@ namespace PreviewController {
     appNode: TreeNode.Node,
     launcherId?: string,
     launchValues?: Readonly<Record<string, unknown>>,
+    resourceSession?: ResourceRuntime.Session,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
     const runtime = RuntimeTree.createAppRuntime(appNode, rootNode)
     if (RuntimeTree.getEntryConfigurationError(runtime) != null) return false
+    const effectiveResourceSession = resourceSession ?? ResourceRuntime.create(rootNode)
 
     RuntimeSessionStore.open({
       app: appNode.element as AppElement.Element,
       appNode,
       projectNode: rootNode,
+      resourceSession: effectiveResourceSession,
       launcherId,
       launchValues,
     })
@@ -78,7 +83,9 @@ namespace PreviewController {
       ToastController.show('Transition target App was not found.', { tone: 'danger' })
       return false
     }
-    return openApp(rootNode, appNode, undefined, launchValues)
+    const resourceSession = get(RuntimeSessionStore.store)?.resourceSession
+      ?? ResourceRuntime.create(rootNode)
+    return openApp(rootNode, appNode, undefined, launchValues, resourceSession)
   }
 
   export const close = () => {

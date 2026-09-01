@@ -22,10 +22,11 @@ namespace TreeStore {
     createNode: (seed: TreeNode.Seed) => TreeNode.Node,
   ) => boolean
 
-  export const rootNode = writable<TreeNode.Node>(TreeNode.createRootNode())
+  const initialRootNode = TreeNode.createRootNode()
+  export const rootNode = writable<TreeNode.Node>(initialRootNode)
   export const selectedNodeId = writable<number>(1)
 
-  let nextNodeId = 10
+  let nextNodeId = findMaxNodeId(initialRootNode) + 1
   const lifecycleListeners = new Set<LifecycleListener>()
 
   export const onLifecycle = (
@@ -39,12 +40,12 @@ namespace TreeStore {
     lifecycleListeners.forEach((listener) => listener(event))
   }
 
-  const findMaxNodeId = (node: TreeNode.Node): number => (
-    node.children.reduce(
+  function findMaxNodeId(node: TreeNode.Node): number {
+    return node.children.reduce(
       (maxId, child) => Math.max(maxId, findMaxNodeId(child)),
       node.id,
     )
-  )
+  }
 
   type CreateNodeOptions = {
     collapseGeneratedChildren?: boolean

@@ -460,6 +460,55 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(source).toContain('readonly first: 1;')
     expect(source).not.toContain('readonly second:')
   })
+
+  it('exposes existing Variables while creating a Retention child', () => {
+    const retentionNode = node(2, { kind: 'retention' }, [
+      node(3, {
+        kind: 'variable', id: 'value', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '1',
+      }),
+    ])
+    const rootNode = node(1, { kind: 'project' }, [retentionNode])
+
+    const source = MebacoInjectionSource.createForNode(
+      rootNode,
+      retentionNode.id,
+      'action',
+      true,
+    )
+
+    expect(source).toContain('readonly value: 1;')
+  })
+
+  it('treats Blocks as transparent sequential containers', () => {
+    const insideAction = node(5, { kind: 'action', comment: '', source: '' })
+    const blockNode = node(3, { kind: 'block', label: '' }, [
+      node(4, {
+        kind: 'variable', id: 'value', binding: 'let',
+        typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+        source: '1',
+      }),
+      insideAction,
+    ])
+    const afterAction = node(6, { kind: 'action', comment: '', source: '' })
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'retention' }, [blockNode, afterAction]),
+    ])
+
+    const insideSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      insideAction.id,
+      'action',
+    )
+    const afterSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      afterAction.id,
+      'action',
+    )
+
+    expect(insideSource).toContain('value: number;')
+    expect(afterSource).toContain('value: number;')
+  })
 })
 
 describe('MebacoInjectionSource Function scope', () => {
@@ -634,10 +683,9 @@ describe('MebacoInjectionSource Function scope', () => {
   it('injects typed transition accessors for other Apps in Actions only', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
     const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [
-      node(4, { kind: 'launch-options' }, [
-        node(5, { kind: 'imports' }, [
-          node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
-        ]),
+      node(4, { kind: 'launch-options' }),
+      node(5, { kind: 'imports' }, [
+        node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
       ]),
       target,
     ])
@@ -686,10 +734,9 @@ describe('MebacoInjectionSource Function scope', () => {
   it('makes defaulted and nullable transition arguments optional', () => {
     const target = node(8, { kind: 'action', comment: '', source: '' })
     const currentApp = node(3, { kind: 'app', appId: 'current-app-id', id: 'current-app' }, [
-      node(4, { kind: 'launch-options' }, [
-        node(5, { kind: 'imports' }, [
-          node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
-        ]),
+      node(4, { kind: 'launch-options' }),
+      node(5, { kind: 'imports' }, [
+        node(6, { kind: 'transitions', appIds: ['details-app-id'] }),
       ]),
       target,
     ])
@@ -728,5 +775,106 @@ describe('MebacoInjectionSource Function scope', () => {
     const source = MebacoInjectionSource.createForNode(rootNode, target.id, 'action')
 
     expect(source).not.toContain('$transition')
+  })
+
+  it('injects Resources into Actions and Function Code, but not Expressions', () => {
+    const action = node(20, { kind: 'action', comment: '', source: '' })
+    const functionNode = node(21, inlineFunction('load'))
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(3, { kind: 'resources' }, [
+          node(4, {
+            kind: 'directory-resource',
+            resourceId: 'workspace-resource-id',
+            id: 'workspace',
+            permissions: {
+              access: 'read-write',
+              deleteFile: true,
+              text: { access: 'read', pattern: '**/*' },
+              sqlite: { access: 'read-write', pattern: '**/*.db', create: true },
+            },
+          }),
+          node(5, {
+            kind: 'text-resource',
+            resourceId: 'settings-resource-id',
+            id: 'settings',
+            access: 'read-write',
+          }),
+          node(6, {
+            kind: 'sqlite-resource',
+            resourceId: 'database-resource-id',
+            id: 'database',
+            access: 'read',
+            create: false,
+          }),
+        ]),
+      ]),
+      action,
+      functionNode,
+    ])
+
+    const actionSource = MebacoInjectionSource.createForNode(rootNode, action.id, 'action')
+    const codeSource = MebacoInjectionSource.createForNode(rootNode, functionNode.id, 'code')
+    const expressionSource = MebacoInjectionSource.createForNode(rootNode, action.id, 'expression')
+
+    expect(actionSource).toContain('declare var $resource: {')
+    expect(codeSource).toContain('declare var $resource: {')
+    expect(expressionSource).not.toContain('$resource')
+    expect(actionSource).toContain('settings: $MebacoWritableTextResource;')
+    expect(actionSource).toContain('database: $MebacoSqliteResource;')
+    expect(actionSource).toContain('read(encoding?: $MebacoTextEncoding): Promise<string>;')
+    expect(actionSource).toContain('write(text: string, encoding?: $MebacoTextEncoding): Promise<void>;')
+    expect(actionSource).toContain('open(): Promise<{}>;')
+  })
+
+  it('exposes only the APIs allowed by each Directory Resource', () => {
+    const action = node(20, { kind: 'action', comment: '', source: '' })
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'resources' }, [
+        node(3, {
+          kind: 'directory-resource',
+          resourceId: 'readonly-resource-id',
+          id: 'readonlyWorkspace',
+          permissions: {
+            access: 'read',
+            deleteFile: false,
+            text: null,
+            sqlite: null,
+          },
+        }),
+        node(4, {
+          kind: 'directory-resource',
+          resourceId: 'writable-resource-id',
+          id: 'writableWorkspace',
+          permissions: {
+            access: 'read-write',
+            deleteFile: false,
+            text: { access: 'read-write', pattern: '**/*.txt' },
+            sqlite: { access: 'read', pattern: '**/*.db', create: false },
+          },
+        }),
+      ]),
+      action,
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, action.id, 'action')
+    const readonlyDeclaration = source.slice(
+      source.indexOf('readonlyWorkspace:'),
+      source.indexOf('writableWorkspace:'),
+    )
+    const writableDeclaration = source.slice(source.indexOf('writableWorkspace:'))
+
+    expect(readonlyDeclaration).toContain('exists(relativePath: string): Promise<boolean>;')
+    expect(readonlyDeclaration).toContain('list(relativePath?: string): Promise<$MebacoDirectoryEntry[]>;')
+    expect(readonlyDeclaration).not.toContain('createFile(')
+    expect(readonlyDeclaration).not.toContain('text(')
+    expect(readonlyDeclaration).not.toContain('sqlite(')
+    expect(writableDeclaration).toContain('renameFile(')
+    expect(writableDeclaration).toContain('copyFile(')
+    expect(writableDeclaration).toContain('createDir(')
+    expect(writableDeclaration).toContain('createFile(')
+    expect(writableDeclaration).not.toContain('deleteFile(')
+    expect(writableDeclaration).toContain('text(relativePath: string): $MebacoWritableTextResource;')
+    expect(writableDeclaration).toContain('sqlite(relativePath: string): $MebacoSqliteResource;')
   })
 })

@@ -12,6 +12,7 @@ import ExpressionVerificationScope from '../../validation/expression/expression-
 import ObjectDefinitionUpdatePolicy from '../kind/type/object/object-definition-update-policy'
 import FunctionDefinitionUpdatePolicy from '../kind/function/function-definition-update-policy'
 import StyleLocalScope from '../kind/view/style/style-local-scope'
+import DebugResourceBindingSync from '../kind/debug/debug-resource-binding-sync'
 
 namespace ElementMutationCoordinator {
   export const afterAdd = (
@@ -26,6 +27,13 @@ namespace ElementMutationCoordinator {
       correctedNodeCount = LaunchArgumentBindingSync.add(rootNode, addedNode.id, element)
     } else if (element.kind === 'style-param') {
       correctedNodeCount = StyleParameterBindingSync.add(rootNode, addedNode.id, element)
+    } else if (
+      element.kind === 'directory-resource'
+      || element.kind === 'text-resource'
+      || element.kind === 'sqlite-resource'
+      || element.kind === 'debug-configuration'
+    ) {
+      correctedNodeCount = DebugResourceBindingSync.sync(rootNode)
     }
     const localVariableReferences = element.kind === 'variable'
       && StyleLocalScope.isLocalVariable(rootNode, addedNode.id)
@@ -193,6 +201,24 @@ namespace ElementMutationCoordinator {
     removedNode: TreeNode.Node,
   ): ElementMutationReport.Value => {
     let correctedNodeCount = 0
+    const removedResourceIds = new Set<string>()
+    const collectRemovedResourceIds = (node: TreeNode.Node) => {
+      if (
+        node.element.kind === 'directory-resource'
+        || node.element.kind === 'text-resource'
+        || node.element.kind === 'sqlite-resource'
+      ) {
+        removedResourceIds.add(node.element.resourceId)
+      }
+      node.children.forEach(collectRemovedResourceIds)
+    }
+    collectRemovedResourceIds(removedNode)
+    if (removedResourceIds.size > 0) {
+      correctedNodeCount += DebugResourceBindingSync.remove(
+        rootNode,
+        removedResourceIds,
+      )
+    }
     if (removedNode.element.kind === 'value-prop') {
       correctedNodeCount += ComponentPropBindingSync.remove(
         rootNode,

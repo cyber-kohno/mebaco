@@ -58,6 +58,14 @@ import FunctionReturnElement from './kind/function/function-return-element'
 import PromiseElement from './kind/promise/promise-element'
 import PromiseThenElement from './kind/promise/promise-then-element'
 import PromiseCatchElement from './kind/promise/promise-catch-element'
+import ResourcesElement from './kind/resource/resources-element'
+import DirectoryResourceElement from './kind/resource/directory-resource-element'
+import TextResourceElement from './kind/resource/text-resource-element'
+import SqliteResourceElement from './kind/resource/sqlite-resource-element'
+import DebugElement from './kind/debug/debug-element'
+import DebugConfigurationsElement from './kind/debug/debug-configurations-element'
+import DebugConfigurationElement from './kind/debug/debug-configuration-element'
+import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 
 const MebacoElement = {}
 
@@ -123,6 +131,14 @@ namespace MebacoElement {
     | PromiseElement.Kind
     | PromiseThenElement.Kind
     | PromiseCatchElement.Kind
+    | ResourcesElement.Kind
+    | DirectoryResourceElement.Kind
+    | TextResourceElement.Kind
+    | SqliteResourceElement.Kind
+    | DebugElement.Kind
+    | DebugConfigurationsElement.Kind
+    | DebugConfigurationElement.Kind
+    | DebugResourceBindingsElement.Kind
 
   export type Element =
     | AppElement.Element
@@ -185,6 +201,14 @@ namespace MebacoElement {
     | PromiseElement.Element
     | PromiseThenElement.Element
     | PromiseCatchElement.Element
+    | ResourcesElement.Element
+    | DirectoryResourceElement.Element
+    | TextResourceElement.Element
+    | SqliteResourceElement.Element
+    | DebugElement.Element
+    | DebugConfigurationsElement.Element
+    | DebugConfigurationElement.Element
+    | DebugResourceBindingsElement.Element
 }
 
 export default MebacoElement

@@ -283,7 +283,7 @@ describe('Function editing UI models', () => {
       'Add declare',
       'Add statement',
       'Add directive',
-      'Add Block',
+      'Add block',
     ])
     const initialStatement = initialItems[1]
     expect(initialStatement.type).toBe('parent')

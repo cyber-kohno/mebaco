@@ -18,10 +18,9 @@ describe('TransitionNamespace', () => {
     const request = vi.fn()
     const project = node(1, { kind: 'project' }, [
       node(2, { kind: 'app', appId: 'main-uuid', id: 'main-app' }, [
-        node(4, { kind: 'launch-options' }, [
-          node(5, { kind: 'imports' }, [
-            node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
-          ]),
+        node(4, { kind: 'launch-options' }),
+        node(5, { kind: 'imports' }, [
+          node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
         ]),
       ]),
       node(3, { kind: 'app', appId: 'target-uuid', id: 'user-settings' }),
@@ -38,10 +37,9 @@ describe('TransitionNamespace', () => {
     const request = vi.fn()
     const project = node(1, { kind: 'project' }, [
       node(2, { kind: 'app', appId: 'main-uuid', id: 'main' }, [
-        node(4, { kind: 'launch-options' }, [
-          node(5, { kind: 'imports' }, [
-            node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
-          ]),
+        node(4, { kind: 'launch-options' }),
+        node(5, { kind: 'imports' }, [
+          node(6, { kind: 'transitions', appIds: ['target-uuid'] }),
         ]),
       ]),
       node(3, { kind: 'app', appId: 'target-uuid', id: 'target' }),

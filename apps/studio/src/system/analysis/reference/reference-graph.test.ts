@@ -184,9 +184,8 @@ describe('ReferenceGraph', () => {
     const targetApp = node(2, { kind: 'app', appId: 'target-app-id', id: 'target' })
     const imports = node(6, { kind: 'transitions', appIds: ['target-app-id'] })
     const sourceApp = node(3, { kind: 'app', appId: 'source-app-id', id: 'source' }, [
-      node(4, { kind: 'launch-options' }, [
-        node(5, { kind: 'imports' }, [imports]),
-      ]),
+      node(4, { kind: 'launch-options' }),
+      node(5, { kind: 'imports' }, [imports]),
     ])
     const root = node(1, { kind: 'project' }, [sourceApp, targetApp])
 

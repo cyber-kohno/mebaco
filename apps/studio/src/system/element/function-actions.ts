@@ -70,10 +70,13 @@ namespace FunctionActions {
   export const createAddFunctionItem = (
     parentNodeId: number,
     rootNode: TreeNode.Node,
-    insertIndex?: number,
+    options: {
+      insertIndex?: number
+      label?: string
+    } = {},
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Function', () => ElementDialog.openCreate(
+    return action(options.label ?? 'Function', () => ElementDialog.openCreate(
       parentNodeId,
       FunctionElement.createSchema({
         reservedNames: collectFrameIds(rootNode, parentNodeId, 'function'),
@@ -81,7 +84,7 @@ namespace FunctionActions {
         namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
         rootNode,
       }),
-      insertIndex,
+      options.insertIndex,
     ))
   }
 
@@ -107,7 +110,7 @@ namespace FunctionActions {
         }),
         insertIndex,
       )),
-      createAddFunctionItem(parentNodeId, rootNode, insertIndex),
+      createAddFunctionItem(parentNodeId, rootNode, { insertIndex }),
       action('Object', () => ElementDialog.openCreate(
         parentNodeId,
         ObjectTypeElement.createSchema({
@@ -204,7 +207,7 @@ namespace FunctionActions {
     insertIndex?: number,
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action('Add Block', () => TreeStore.addChild(
+    return action('Add block', () => TreeStore.addChild(
       parentNodeId,
       { kind: 'block', label: '' },
       insertIndex,

@@ -35,4 +35,22 @@ describe('ScopedVariableResolver Promise branches', () => {
     expect(ScopedVariableResolver.resolve(root, catchAction.id, 'result')).toBeNull()
     expect(ScopedVariableResolver.resolve(root, after.id, 'result')).toBeNull()
   })
+
+  it('resolves Variables through transparent Blocks in execution order', () => {
+    const insideAction = node(5, { kind: 'action', comment: '', source: '$var.value' })
+    const variable = node(4, {
+      kind: 'variable', id: 'value', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: '1',
+    })
+    const block = node(3, { kind: 'block', label: '' }, [variable, insideAction])
+    const afterAction = node(6, { kind: 'action', comment: '', source: '$var.value' })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'retention' }, [block, afterAction]),
+    ])
+
+    expect(ScopedVariableResolver.resolve(root, insideAction.id, 'value')?.node.id)
+      .toBe(variable.id)
+    expect(ScopedVariableResolver.resolve(root, afterAction.id, 'value')?.node.id)
+      .toBe(variable.id)
+  })
 })

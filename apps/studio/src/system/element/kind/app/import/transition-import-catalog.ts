@@ -30,8 +30,7 @@ namespace TransitionImportCatalog {
 
   export const getTransitionIds = (appNode: TreeNode.Node): readonly string[] => {
     const transitions = appNode.children
-      .find((child) => child.element.kind === 'launch-options')
-      ?.children.find((child) => child.element.kind === 'imports')
+      .find((child) => child.element.kind === 'imports')
       ?.children.find((child) => child.element.kind === 'transitions')
       ?.element
     return transitions?.kind === 'transitions'

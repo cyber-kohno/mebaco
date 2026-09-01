@@ -8,6 +8,11 @@ import AppsElement from '../element/kind/project/apps-element'
 import CommonElement from '../element/kind/project/common-element'
 import LaunchersElement from '../element/kind/project/launchers-element'
 import ProjectElement from '../element/kind/project/project-element'
+import ResourcesElement from '../element/kind/resource/resources-element'
+import DebugElement from '../element/kind/debug/debug-element'
+import DebugConfigurationsElement from '../element/kind/debug/debug-configurations-element'
+import DebugConfigurationElement from '../element/kind/debug/debug-configuration-element'
+import DebugResourceBindingsElement from '../element/kind/debug/debug-resource-bindings-element'
 
 namespace TreeNode {
   export type Node = {
@@ -85,6 +90,39 @@ namespace TreeNode {
                 element: ComponentsElement.create(),
                 isOpen: true,
                 children: [],
+              },
+            ],
+          },
+          {
+            id: 10,
+            element: ResourcesElement.create(),
+            isOpen: true,
+            children: [],
+          },
+        ],
+      },
+      {
+        id: 11,
+        element: DebugElement.create(),
+        isOpen: true,
+        children: [
+          {
+            id: 12,
+            element: DebugConfigurationsElement.create(),
+            isOpen: true,
+            children: [
+              {
+                id: 13,
+                element: DebugConfigurationElement.createDefault(),
+                isOpen: true,
+                children: [
+                  {
+                    id: 14,
+                    element: DebugResourceBindingsElement.create(),
+                    isOpen: true,
+                    children: [],
+                  },
+                ],
               },
             ],
           },

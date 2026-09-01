@@ -25,6 +25,12 @@ namespace DefinitionCatalog {
       case 'signature-type':
       case 'union-type':
         return element.typeId
+      case 'directory-resource':
+      case 'text-resource':
+      case 'sqlite-resource':
+        return element.resourceId
+      case 'debug-configuration':
+        return element.configurationId
       default:
         return null
     }

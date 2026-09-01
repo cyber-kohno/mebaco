@@ -20,7 +20,11 @@ namespace FunctionsElement {
       tone: 'folder',
     },
     getContextMenu: (context) => [
-      FunctionActions.createAddFunctionItem(context.node.id, context.rootNode),
+      FunctionActions.createAddFunctionItem(
+        context.node.id,
+        context.rootNode,
+        { label: 'Add function' },
+      ),
     ],
     childSlots: [],
     canDisable: false,

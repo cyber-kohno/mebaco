@@ -1,5 +1,6 @@
 import ContentHost from '../../element/content-host'
 import type TreeNode from '../../tree/tree-node'
+import SequentialVariableScope from '../../element/kind/variable/sequential-variable-scope'
 
 namespace ScopedVariableResolver {
   export type Declaration =
@@ -62,19 +63,11 @@ namespace ScopedVariableResolver {
       const retentionNode = ContentHost.getRetentionNode(node)
       const elementsNode = ContentHost.getElementsNode(node)
       if (retentionNode != null && nextNode === elementsNode) {
-        retentionNode.children.forEach(addVariable)
+        SequentialVariableScope.collectDeclarations(retentionNode.children)
+          .forEach(({ node: variableNode }) => addVariable(variableNode))
       }
-      if (
-        (
-          node.element.kind === 'retention'
-          || node.element.kind === 'function-procedure'
-          || node.element.kind === 'promise-then'
-          || node.element.kind === 'promise-catch'
-        )
-        && nextNode != null
-      ) {
-        node.children.slice(0, node.children.indexOf(nextNode)).forEach(addVariable)
-      }
+      SequentialVariableScope.collectPrecedingDeclarations(node, nextNode, false)
+        .forEach(({ node: variableNode }) => addVariable(variableNode))
     })
     return visible.get(id) ?? null
   }

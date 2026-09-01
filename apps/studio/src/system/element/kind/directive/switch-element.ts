@@ -166,7 +166,7 @@ namespace SwitchElement {
             }),
           )
         }),
-        action('Add Case', () => {
+        action('Add case', () => {
           ElementDialog.openCreate(
             context.node.id,
             CaseElement.createSchema({
@@ -182,7 +182,7 @@ namespace SwitchElement {
       ]
 
       if (defaultNode == null) {
-        items.push(action('Use Default', () => {
+        items.push(action('Use default', () => {
           TreeStore.addChild(context.node.id, DefaultElement.create())
         }))
       }

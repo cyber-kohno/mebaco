@@ -8,15 +8,16 @@
     valueReferenceText?: string
     valuePrefix?: string
     valueSuffix?: string
+    valueTone?: 'danger'
   }
 
-  let { tone, kindText, valueText, valueReferenceText, valuePrefix = '', valueSuffix = '' }: Props = $props()
+  let { tone, kindText, valueText, valueReferenceText, valuePrefix = '', valueSuffix = '', valueTone }: Props = $props()
 </script>
 
 <span class="node-label">
   <span class="node-kind" data-tone={tone}>{kindText}</span>
   {#if valueText != null || valueReferenceText != null}
-    <span class="node-value" class:master-value={tone === 'master'} class:reference-value={valueReferenceText != null}>{valuePrefix}{#if valueReferenceText != null}<span class="reference">{valueReferenceText}</span>{:else}{valueText}{/if}{valueSuffix}</span>
+    <span class="node-value" class:master-value={tone === 'master'} class:reference-value={valueReferenceText != null} data-tone={valueTone}>{valuePrefix}{#if valueReferenceText != null}<span class="reference">{valueReferenceText}</span>{:else}{valueText}{/if}{valueSuffix}</span>
   {/if}
 </span>
 
@@ -47,6 +48,10 @@
 
   .node-value .reference {
     color: #ffb36b;
+  }
+
+  .node-value[data-tone='danger'] {
+    color: #ff8f8f;
   }
 
   .node-kind {

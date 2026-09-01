@@ -38,7 +38,7 @@ namespace ConditionalElement {
         : context.node.children.indexOf(elseNode)
 
       const items: ActionMenuState.Item[] = [
-        action('Add Else If', () => {
+        action('Add else if', () => {
           TreeStore.addChild(
             context.node.id,
             ElseIfElement.create(),
@@ -48,7 +48,7 @@ namespace ConditionalElement {
       ]
 
       if (elseNode == null) {
-        items.push(action('Use Else', () => {
+        items.push(action('Use else', () => {
           TreeStore.addChild(context.node.id, ElseElement.create())
         }))
       }

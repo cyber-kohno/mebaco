@@ -63,7 +63,7 @@ describe('Optional feature menus', () => {
       parentNode: component,
       rootNode: root,
     })
-    expect(slotsItems.map((item) => item.label)).toEqual(['Add Slot', 'Delete'])
+    expect(slotsItems.map((item) => item.label)).toEqual(['Add slot', 'Delete'])
     getAction(slotsItems, 'Delete').callback()
     expect(TreeStore.removeNode).toHaveBeenCalledWith(slots.id)
   })

@@ -30,4 +30,37 @@ describe('ActionEvaluator transition scope', () => {
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.message).toContain('$transition is not defined')
   })
+
+  it('exposes Resource promises to synchronous Actions', async () => {
+    const state: Record<string, unknown> = {}
+    const read = vi.fn().mockResolvedValue('settings')
+    const context = FormulaContext.create({
+      $state: state,
+      $resource: { settings: { read } },
+    })
+
+    const result = ActionEvaluator.executeScript(
+      "$resource.settings.read().then((text) => { $state.value = text })",
+      context,
+    )
+
+    expect(result.ok).toBe(true)
+    expect(read).toHaveBeenCalledOnce()
+    await Promise.resolve()
+    expect(state.value).toBe('settings')
+  })
+
+  it('does not expose the Resource namespace to expressions', () => {
+    const context = FormulaContext.create({
+      $resource: { settings: { read: vi.fn() } },
+    })
+
+    const result = FormulaEvaluator.evaluateExpression(
+      '$resource.settings',
+      context,
+    )
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.message).toContain('$resource is not defined')
+  })
 })

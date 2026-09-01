@@ -19,6 +19,7 @@
       <RuntimeView
         appNode={$sessionStore.appNode}
         projectNode={$sessionStore.projectNode}
+        resourceSession={$sessionStore.resourceSession}
         launcherId={$sessionStore.launcherId}
         launchValues={$sessionStore.launchValues}
       />

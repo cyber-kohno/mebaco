@@ -75,7 +75,7 @@ namespace AppsElement {
         .map((element) => element.id)
 
       return [
-        action('Add App', () => {
+        action('Add app', () => {
           ElementDialog.openCreate(
             context.node.id,
             AppElement.createSchema({ reservedNames, afterCreate: (_element, nodeId) => createMainComponent(nodeId) }),

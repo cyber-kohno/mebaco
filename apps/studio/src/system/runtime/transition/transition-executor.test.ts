@@ -30,10 +30,9 @@ describe('TransitionExecutor', () => {
     ])
     const transitionNode = node({ kind: 'transition-placeholder' })
     const source = node({ kind: 'app', appId: 'source-app-id', id: 'Source' }, [
-      node({ kind: 'launch-options' }, [
-        node({ kind: 'imports' }, [
-          node({ kind: 'transitions', appIds: ['target-app-id'] }),
-        ]),
+      node({ kind: 'launch-options' }),
+      node({ kind: 'imports' }, [
+        node({ kind: 'transitions', appIds: ['target-app-id'] }),
       ]),
       transitionNode,
     ])
@@ -64,10 +63,9 @@ describe('TransitionExecutor', () => {
   it('rejects a target that is not imported by the current App', () => {
     const transitionNode = node({ kind: 'transition-placeholder' })
     const source = node({ kind: 'app', appId: 'source-app-id', id: 'Source' }, [
-      node({ kind: 'launch-options' }, [
-        node({ kind: 'imports' }, [
-          node({ kind: 'transitions', appIds: [] }),
-        ]),
+      node({ kind: 'launch-options' }),
+      node({ kind: 'imports' }, [
+        node({ kind: 'transitions', appIds: [] }),
       ]),
       transitionNode,
     ])

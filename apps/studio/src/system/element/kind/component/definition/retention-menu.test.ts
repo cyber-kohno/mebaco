@@ -58,7 +58,7 @@ describe('Retention statement menu', () => {
       'Add declare',
       'Add statement',
       'Add directive',
-      'Add Block',
+      'Add block',
     ])
     expectStatementMenu(items, 1)
   })
@@ -77,7 +77,7 @@ describe('Retention statement menu', () => {
       'Add declare',
       'Add statement',
       'Add directive',
-      'Add Block',
+      'Add block',
       'Delete',
     ])
     expectStatementMenu(items, 2)

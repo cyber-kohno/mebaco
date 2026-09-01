@@ -42,7 +42,7 @@ namespace StatesElement {
       )
 
       return [
-        action('Add State', () => {
+        action('Add state', () => {
           ElementDialog.openCreate(
             context.node.id,
             StateElement.createSchema({ reservedNames, referenceOptions, namedTypeOptions }),

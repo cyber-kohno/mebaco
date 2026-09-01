@@ -38,19 +38,19 @@ namespace TypesElement {
       )
 
       return [
-        action('Add Object', () => {
+        action('Add object', () => {
           ElementDialog.openCreate(
             context.node.id,
             ObjectTypeElement.createSchema({ reservedNames, objectOptions }),
           )
         }),
-        action('Add Union', () => {
+        action('Add union', () => {
           ElementDialog.openCreate(
             context.node.id,
             UnionTypeElement.createSchema({ reservedNames, objectOptions }),
           )
         }),
-        action('Add Signature', () => {
+        action('Add signature', () => {
           ElementDialog.openCreate(
             context.node.id,
             SignatureTypeElement.createSchema({

@@ -29,7 +29,7 @@ namespace ComponentsElement {
         .map((element) => element.id)
 
       return [
-        action('Add Component', () => {
+        action('Add component', () => {
           ElementDialog.openCreate(
             context.node.id,
             ComponentElement.createSchema({ reservedNames }),

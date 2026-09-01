@@ -14,6 +14,9 @@ namespace ReferenceLanguage {
     | 'union-type'
     | 'value-prop'
     | 'variable'
+    | 'directory-resource'
+    | 'text-resource'
+    | 'sqlite-resource'
 
   export const structuralFields: Readonly<Record<string, readonly Kind[]>> = {
     appId: ['app'],
@@ -29,6 +32,7 @@ namespace ReferenceLanguage {
     signatureTypeId: ['signature-type'],
     baseObjectId: ['object-type'],
     baseObjectIds: ['object-type'],
+    resourceId: ['directory-resource', 'text-resource', 'sqlite-resource'],
     objectTypeId: ['object-type'],
     objectTypeIds: ['object-type'],
   }

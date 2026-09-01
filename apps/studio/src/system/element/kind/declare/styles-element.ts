@@ -30,7 +30,7 @@ namespace StylesElement {
         .map((element) => element.id)
 
       return [
-        action('Add Style', () => {
+        action('Add style', () => {
           ElementDialog.openCreate(
             context.node.id,
             StyleElement.createSchema({

@@ -293,6 +293,20 @@ namespace ElementEditSchema {
     options: readonly SelectOption[]
   } & FieldBase
 
+  export type ResourceBindingResource = {
+    resourceId: string
+    label: string
+    kindLabel: string
+  }
+
+  export type ResourceBindingsField = {
+    type: 'resourceBindings'
+    key: string
+    label: string
+    defaultValue?: string
+    resources: readonly ResourceBindingResource[]
+  } & FieldBase
+
   export type CodeField = {
     type: 'code'
     key: string
@@ -323,6 +337,7 @@ namespace ElementEditSchema {
     | StyleApplicationsField
     | StyleBasesField
     | TransitionImportsField
+    | ResourceBindingsField
     | StyleMonitorField
     | TagStyleMonitorField
     | TagAttributesField

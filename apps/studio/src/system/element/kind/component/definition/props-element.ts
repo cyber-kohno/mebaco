@@ -38,7 +38,7 @@ namespace PropsElement {
       )
 
       return [
-        action('Add Value Prop', () => {
+        action('Add value prop', () => {
           ElementDialog.openCreate(
             context.node.id,
             ValuePropElement.createSchema({ reservedNames, referenceOptions, namedTypeOptions }),

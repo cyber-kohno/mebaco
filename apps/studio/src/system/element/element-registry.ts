@@ -60,6 +60,14 @@ import FunctionReturnElement from './kind/function/function-return-element'
 import PromiseElement from './kind/promise/promise-element'
 import PromiseThenElement from './kind/promise/promise-then-element'
 import PromiseCatchElement from './kind/promise/promise-catch-element'
+import ResourcesElement from './kind/resource/resources-element'
+import DirectoryResourceElement from './kind/resource/directory-resource-element'
+import TextResourceElement from './kind/resource/text-resource-element'
+import SqliteResourceElement from './kind/resource/sqlite-resource-element'
+import DebugElement from './kind/debug/debug-element'
+import DebugConfigurationsElement from './kind/debug/debug-configurations-element'
+import DebugConfigurationElement from './kind/debug/debug-configuration-element'
+import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 
 namespace ElementRegistry {
   type DefinitionMap = {
@@ -129,6 +137,14 @@ namespace ElementRegistry {
     promise: PromiseElement.definition,
     'promise-then': PromiseThenElement.definition,
     'promise-catch': PromiseCatchElement.definition,
+    resources: ResourcesElement.definition,
+    'directory-resource': DirectoryResourceElement.definition,
+    'text-resource': TextResourceElement.definition,
+    'sqlite-resource': SqliteResourceElement.definition,
+    debug: DebugElement.definition,
+    'debug-configurations': DebugConfigurationsElement.definition,
+    'debug-configuration': DebugConfigurationElement.definition,
+    'debug-resource-bindings': DebugResourceBindingsElement.definition,
   } satisfies DefinitionMap
 
   export const get = <TElement extends MebacoElement.Element>(

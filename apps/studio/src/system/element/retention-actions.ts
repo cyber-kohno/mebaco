@@ -75,7 +75,7 @@ namespace RetentionActions {
         }),
       )),
       FunctionActions.createAddFunctionItem(parentNodeId, rootNode),
-      action('Local Component', () => ElementDialog.openCreate(
+      action('Local component', () => ElementDialog.openCreate(
         parentNodeId,
         ComponentElement.createSchema({
           reservedNames: localComponentNames,

@@ -28,7 +28,7 @@ namespace SlotsElement {
         .map((element) => element.id)
 
       return [
-        action('Add Slot', () => {
+        action('Add slot', () => {
           ElementDialog.openCreate(
             context.node.id,
             SlotElement.createSchema({ reservedNames }),
