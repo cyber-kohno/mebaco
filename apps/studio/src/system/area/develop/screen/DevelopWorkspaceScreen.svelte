@@ -1,19 +1,28 @@
 <script lang="ts">
   import { developInteractionStore } from '../interaction/develop-interaction-store'
   import TreeView from '../../../tree/TreeView.svelte'
+  import TreeDestinationOperation from '../../../tree/destination/tree-destination-operation'
+
+  const transaction = $derived(
+    $developInteractionStore.type === 'destination-transaction'
+      ? $developInteractionStore
+      : null,
+  )
+  const presentation = $derived(
+    transaction == null ? null : TreeDestinationOperation.getPresentation(transaction),
+  )
 </script>
 
 <section
   class="develop-workspace-screen"
-  class:copy-mode={$developInteractionStore.type === 'tree-transfer' && $developInteractionStore.operation === 'copy'}
-  class:move-mode={$developInteractionStore.type === 'tree-transfer' && $developInteractionStore.operation === 'move'}
+  class:destination-mode={transaction != null}
   aria-label="Mebaco develop workspace"
 >
   <TreeView />
-  {#if $developInteractionStore.type === 'tree-transfer'}
+  {#if transaction != null && presentation != null}
     <div class="interaction-banner" role="status">
-      {$developInteractionStore.operation === 'copy' ? 'Copy' : 'Move'} mode —
-      {$developInteractionStore.sourceKind} "{$developInteractionStore.sourceLabel}"
+      {presentation.modeLabel} mode —
+      "{transaction.sourceLabel}"
       · Select a destination · Esc cancel
     </div>
   {/if}
@@ -30,12 +39,8 @@
     transition: background-color 140ms ease;
   }
 
-  .develop-workspace-screen.copy-mode {
+  .develop-workspace-screen.destination-mode {
     --mbc-develop-workspace-background: #e5f2fb;
-  }
-
-  .develop-workspace-screen.move-mode {
-    --mbc-develop-workspace-background: #fff0cf;
   }
 
   .interaction-banner {

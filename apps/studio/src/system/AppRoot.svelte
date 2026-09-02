@@ -19,7 +19,7 @@
   import ProjectGuard from './project/project-guard'
   import WindowTitle from './shell/window-title'
   import ExpressionVerificationStore from './validation/expression/expression-verification-store'
-  import TreeTransferDialog from './tree/transfer/TreeTransferDialog.svelte'
+  import TreeDestinationDialog from './tree/destination/TreeDestinationDialog.svelte'
   import DevelopInteractionController from './area/develop/interaction/develop-interaction-controller'
   import { developInteractionStore } from './area/develop/interaction/develop-interaction-store'
   import { developScreenStore } from './area/develop/develop-screen-store'
@@ -96,7 +96,7 @@
   <PreviewDialog />
   <CommandConsoleLayer />
   <ReferenceGraphPanel />
-  <TreeTransferDialog />
+  <TreeDestinationDialog />
   <ConfirmDialogLayer />
   <ToastLayer />
 </main>

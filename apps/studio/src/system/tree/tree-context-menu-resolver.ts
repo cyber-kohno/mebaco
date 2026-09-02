@@ -4,7 +4,7 @@ import ElementRegistry from '../element/element-registry'
 import TreeStore from '../store/tree-store'
 import ExpressionVerificationActions from '../validation/expression/expression-verification-actions'
 import type TreeNode from './tree-node'
-import TreeTransferController from './transfer/tree-transfer-controller'
+import TreeDestinationController from './destination/tree-destination-controller'
 
 namespace TreeContextMenuResolver {
   export const resolve = (
@@ -12,8 +12,8 @@ namespace TreeContextMenuResolver {
     node: TreeNode.Node,
     parentNode: TreeNode.Node | null,
   ): ActionMenuState.Item[] => {
-    const transferItems = TreeTransferController.getTransferMenu(rootNode, node)
-    if (transferItems != null) return transferItems
+    const destinationItems = TreeDestinationController.getDestinationMenu(rootNode, node)
+    if (destinationItems != null) return destinationItems
 
     const definition = ElementRegistry.get(node.element.kind)
     const elementItems = definition.getContextMenu({
@@ -32,7 +32,11 @@ namespace TreeContextMenuResolver {
           TreeStore.toggleDisabled(node.id)
         })
       : withVerification
-    return TreeTransferController.addCopyAction(withDisabled, node)
+    const withExtraction = TreeDestinationController.addSignatureExtractionAction(
+      withDisabled,
+      node,
+    )
+    return TreeDestinationController.addCopyAction(withExtraction, node)
   }
 }
 

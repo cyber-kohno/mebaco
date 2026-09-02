@@ -8,7 +8,7 @@
   import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
   import TreeContextMenuResolver from './tree-context-menu-resolver'
   import TreeNode from './tree-node'
-  import TreeTransferController from './transfer/tree-transfer-controller'
+  import TreeDestinationController from './destination/tree-destination-controller'
   import TreeViewportController from './tree-viewport-controller'
 
   type VisibleNode = {
@@ -32,8 +32,8 @@
   const selectionRelations = $derived(
     TreeNode.getSelectionRelations(displayRootNode, $selectedNodeIdStore),
   )
-  const pasteCandidateNodeIds = $derived(
-    TreeTransferController.collectPasteCandidateNodeIds(
+  const destinationCandidateNodeIds = $derived(
+    TreeDestinationController.collectDestinationCandidateNodeIds(
       $rootNodeStore,
       $developInteractionStore,
     ),
@@ -171,16 +171,16 @@
         row.node,
         $expressionVerificationEntries,
       )}
-      {@const transferActive = $developInteractionStore.type === 'tree-transfer'}
-      {@const pasteCandidate = pasteCandidateNodeIds.has(row.node.id)}
+      {@const destinationActive = $developInteractionStore.type === 'destination-transaction'}
+      {@const destinationCandidate = destinationCandidateNodeIds.has(row.node.id)}
       <div
         class:selected={$selectedNodeIdStore === row.node.id}
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
         class:sibling={selectionRelations.siblingIds.has(row.node.id)}
         class:editing={isEditingNode(row)}
         class:disabled-descendant={row.disabledDescendant}
-        class:transfer-unavailable={transferActive && !pasteCandidate}
-        class:transfer-candidate={pasteCandidate}
+        class:destination-unavailable={destinationActive && !destinationCandidate}
+        class:destination-candidate={destinationCandidate}
         class="tree-row"
         style:--tree-depth={row.depth}
         data-node-id={row.node.id}
@@ -284,7 +284,7 @@
     outline: none;
   }
 
-  .tree-row.transfer-unavailable::after {
+  .tree-row.destination-unavailable::after {
     position: absolute;
     z-index: 5;
     left: calc(var(--tree-depth, 0) * 40px + 33px);
@@ -296,7 +296,7 @@
     content: '';
   }
 
-  .tree-row.transfer-candidate {
+  .tree-row.destination-candidate {
     box-shadow: inset 0 0 0 2px rgba(38, 152, 118, 0.62);
   }
 

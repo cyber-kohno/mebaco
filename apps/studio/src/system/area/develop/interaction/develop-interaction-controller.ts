@@ -16,7 +16,7 @@ namespace DevelopInteractionController {
     ActionMenu.close()
     const mode = get(developInteractionStore)
     developInteractionStore.set(DevelopInteractionMode.normal())
-    if (!restoreViewport || mode.type !== 'tree-transfer') return
+    if (!restoreViewport || mode.type !== 'destination-transaction') return
 
     const rootNode = get(TreeStore.rootNode)
     if (TreeNode.findNode(rootNode, mode.sourceNodeId) == null) return
@@ -30,9 +30,9 @@ namespace DevelopInteractionController {
     TreeViewportController.requestReveal(mode.sourceNodeId)
   }
 
-  export const beginTreeTransfer = (
+  export const beginDestinationTransaction = (
     session: Omit<
-      DevelopInteractionMode.TreeTransfer,
+      DevelopInteractionMode.DestinationTransaction,
       'type' | 'phase' | 'originViewRootNodeId'
     >,
   ) => {
@@ -42,7 +42,7 @@ namespace DevelopInteractionController {
     TreeViewportController.setViewRootNodeId(rootNode, null)
     TreeViewportController.requestReveal(session.sourceNodeId)
     developInteractionStore.set({
-      type: 'tree-transfer',
+      type: 'destination-transaction',
       phase: 'select-destination',
       originViewRootNodeId,
       ...session,

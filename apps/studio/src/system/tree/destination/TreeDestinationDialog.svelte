@@ -2,26 +2,33 @@
   import { tick } from 'svelte'
   import DevelopInteractionController from '../../area/develop/interaction/develop-interaction-controller'
   import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
-  import TreeTransferController from './tree-transfer-controller'
+  import TreeDestinationController from './tree-destination-controller'
 
   let inputElement: HTMLInputElement | undefined = $state()
   let name = $state('')
   let submitError = $state<string | null>(null)
   let busy = $state(false)
-  let initializedDestinationNodeId = $state<number | null>(null)
+  let initializedSessionKey = $state('')
   const session = $derived(
-    $developInteractionStore.type === 'tree-transfer'
+    $developInteractionStore.type === 'destination-transaction'
     && $developInteractionStore.phase === 'confirm'
       ? $developInteractionStore
       : null,
   )
-  const nameError = $derived(session == null ? null : TreeTransferController.getNameError(name))
+  const presentation = $derived(session == null ? null : TreeDestinationController.getPresentation())
+  const nameError = $derived(session == null ? null : TreeDestinationController.getNameError(name))
 
   $effect(() => {
-    const destinationNodeId = session?.destinationNodeId ?? null
-    if (destinationNodeId == null || destinationNodeId === initializedDestinationNodeId) return
-    initializedDestinationNodeId = destinationNodeId
-    name = TreeTransferController.getSuggestedName()
+    const sessionKey = session == null
+      ? ''
+      : `${session.operation.type}:${session.sourceNodeId}:${session.destinationNodeId}`
+    if (sessionKey.length === 0) {
+      initializedSessionKey = ''
+      return
+    }
+    if (sessionKey === initializedSessionKey) return
+    initializedSessionKey = sessionKey
+    name = TreeDestinationController.getSuggestedName()
     submitError = null
     void tick().then(() => {
       inputElement?.focus()
@@ -30,12 +37,12 @@
   })
 
   const submit = async () => {
-    if (session == null || nameError != null || busy) return
+    if (session == null || presentation == null || nameError != null || busy) return
     busy = true
     submitError = null
-    const result = await TreeTransferController.paste(name)
+    const result = await TreeDestinationController.commit(name)
     busy = false
-    if (!result.ok) submitError = result.error ?? 'The element could not be copied.'
+    if (!result.ok) submitError = result.error ?? presentation.failureMessage
   }
 
   const handleKeydown = (event: KeyboardEvent) => {
@@ -56,17 +63,17 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if session != null}
+{#if session != null && presentation != null}
   <div class="scrim" role="presentation"></div>
-  <dialog open class="dialog" aria-label="Copy element" aria-modal="true">
-    <h2>Copy {session.sourceKind}</h2>
+  <dialog open class="dialog" aria-label={presentation.dialogTitle} aria-modal="true">
+    <h2>{presentation.dialogTitle}</h2>
     <dl>
       <div><dt>Source</dt><dd>{session.sourceLabel}</dd></div>
       <div><dt>Destination</dt><dd>node-{session.destinationNodeId}</dd></div>
     </dl>
-    <label for="tree-transfer-id">Id</label>
+    <label for="tree-destination-id">Id</label>
     <input
-      id="tree-transfer-id"
+      id="tree-destination-id"
       bind:this={inputElement}
       bind:value={name}
       aria-invalid={nameError != null}
@@ -79,7 +86,7 @@
     <div class="actions">
       <button type="button" onclick={() => DevelopInteractionController.cancel()} disabled={busy}>Cancel</button>
       <button type="button" class="primary" onclick={() => { void submit() }} disabled={busy || nameError != null}>
-        {busy ? 'Checking…' : 'Copy'}
+        {busy ? 'Checking…' : presentation.confirmLabel}
       </button>
     </div>
   </dialog>

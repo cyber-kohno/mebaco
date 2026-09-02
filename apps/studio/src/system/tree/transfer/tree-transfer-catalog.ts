@@ -63,20 +63,12 @@ namespace TreeTransferCatalog {
       || parent?.element.kind === 'control-switch'
   }
 
-  export const canPasteTo = (
+  export const canContainKind = (
     rootNode: TreeNode.Node,
-    sourceNode: TreeNode.Node,
     destinationNode: TreeNode.Node,
-    operation: 'copy' | 'move',
+    sourceKind: TransferableKind,
   ): boolean => {
-    if (!isTransferableKind(sourceNode.element.kind)) return false
-    if (operation === 'move') {
-      if (sourceNode.id === destinationNode.id) return false
-      if (TreeNode.isDescendantOrSelf(rootNode, sourceNode.id, destinationNode.id)) return false
-      if (TreeNode.findParent(rootNode, sourceNode.id)?.id === destinationNode.id) return false
-    }
-
-    if (sourceNode.element.kind === 'style') {
+    if (sourceKind === 'style') {
       return destinationNode.element.kind === 'styles'
         || destinationNode.element.kind === 'retention'
         || (
@@ -85,7 +77,6 @@ namespace TreeTransferCatalog {
         )
     }
 
-    if (!isTypeKind(sourceNode.element.kind)) return false
     return destinationNode.element.kind === 'types'
       || destinationNode.element.kind === 'retention'
       || destinationNode.element.kind === 'function-procedure'
@@ -99,6 +90,26 @@ namespace TreeTransferCatalog {
         )
       )
       || isControlBranch(rootNode, destinationNode)
+  }
+
+  export const canPasteTo = (
+    rootNode: TreeNode.Node,
+    sourceNode: TreeNode.Node,
+    destinationNode: TreeNode.Node,
+    operation: 'copy' | 'move',
+  ): boolean => {
+    if (!isTransferableKind(sourceNode.element.kind)) return false
+    if (operation === 'move') {
+      if (sourceNode.id === destinationNode.id) return false
+      if (TreeNode.isDescendantOrSelf(rootNode, sourceNode.id, destinationNode.id)) return false
+      if (TreeNode.findParent(rootNode, sourceNode.id)?.id === destinationNode.id) return false
+    }
+
+    if (
+      sourceNode.element.kind !== 'style'
+      && !isTypeKind(sourceNode.element.kind)
+    ) return false
+    return canContainKind(rootNode, destinationNode, sourceNode.element.kind)
   }
 
   const collectReservedNames = (

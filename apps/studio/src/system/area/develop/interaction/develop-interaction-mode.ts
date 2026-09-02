@@ -5,18 +5,26 @@ namespace DevelopInteractionMode {
     type: 'normal'
   }
 
-  export type TreeTransfer = {
-    type: 'tree-transfer'
-    operation: 'copy' | 'move'
+  export type DestinationOperation =
+    | {
+        type: 'copy'
+        sourceKind: MebacoElement.Kind
+      }
+    | {
+        type: 'extract-signature'
+      }
+
+  export type DestinationTransaction = {
+    type: 'destination-transaction'
+    operation: DestinationOperation
     phase: 'select-destination' | 'confirm'
     sourceNodeId: number
-    sourceKind: MebacoElement.Kind
     sourceLabel: string
     originViewRootNodeId: number | null
     destinationNodeId?: number
   }
 
-  export type Value = Normal | TreeTransfer
+  export type Value = Normal | DestinationTransaction
 
   export const normal = (): Normal => ({ type: 'normal' })
 }

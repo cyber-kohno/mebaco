@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import bodyPortal from '../body-portal'
+  import SuggestTextOptions from './suggest-text-options'
 
   type Option = {
     value: string
@@ -40,9 +41,7 @@
   const optionHeight = 28
 
   const filteredOptions = $derived(
-    options
-      .filter((option) => option.value.toLowerCase().includes(value.toLowerCase()))
-      .slice(0, 8),
+    SuggestTextOptions.getMatches(options, value),
   )
 
   const updatePopupPosition = () => {
