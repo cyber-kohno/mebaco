@@ -18,6 +18,7 @@ pub fn run() {
             resource::resource_dispose_session,
             resource::resource_exists,
             resource::resource_list,
+            resource::resource_glob,
             resource::resource_rename_file,
             resource::resource_copy_file,
             resource::resource_create_dir,

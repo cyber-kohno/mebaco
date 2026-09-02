@@ -107,6 +107,14 @@ pub struct DirectoryMoveRequest {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DirectoryGlobRequest {
+    session_id: String,
+    resource_id: String,
+    pattern: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WriteTextRequest {
     session_id: String,
     resource_id: String,
@@ -187,6 +195,22 @@ fn relative_path(value: &str, allow_empty: bool) -> Result<PathBuf, String> {
         return Err(format!("Invalid relative Resource path '{value}'."));
     }
     Ok(path)
+}
+
+fn glob_pattern(value: &str) -> Result<&str, String> {
+    if value.is_empty()
+        || value.len() > 1024
+        || value.contains('\0')
+        || value.contains('\\')
+        || value.starts_with('/')
+        || value.as_bytes().get(1) == Some(&b':')
+        || value
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+    {
+        return Err(format!("Invalid Resource glob pattern '{value}'."));
+    }
+    Ok(value)
 }
 
 fn canonical_directory(path: &Path) -> Result<PathBuf, String> {
@@ -271,7 +295,7 @@ fn directory_definition(
     Ok((canonical_directory(&bound_path(&path)?)?, delete_file))
 }
 
-fn matches_policy(relative: &str, policy: &ResourcePolicy) -> Result<(), String> {
+fn glob_matches(pattern: &str, value: &str) -> bool {
     fn matches(
         pattern: &[char],
         value: &[char],
@@ -316,9 +340,15 @@ fn matches_policy(relative: &str, policy: &ResourcePolicy) -> Result<(), String>
         result
     }
 
-    let pattern: Vec<char> = policy.pattern.replace('\\', "/").chars().collect();
-    let value: Vec<char> = relative.replace('\\', "/").chars().collect();
-    if !matches(&pattern, &value, 0, 0, &mut HashMap::new()) {
+    let pattern: Vec<char> = pattern.chars().collect();
+    let value: Vec<char> = value.chars().collect();
+    matches(&pattern, &value, 0, 0, &mut HashMap::new())
+}
+
+fn matches_policy(relative: &str, policy: &ResourcePolicy) -> Result<(), String> {
+    let pattern = policy.pattern.replace('\\', "/");
+    let value = relative.replace('\\', "/");
+    if !glob_matches(&pattern, &value) {
         return Err(format!(
             "Resource path '{relative}' is not allowed by pattern '{}'.",
             policy.pattern
@@ -497,6 +527,68 @@ pub fn resource_list(
         });
     }
     entries.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(entries)
+}
+
+fn collect_glob_entries(
+    boundary: &Path,
+    directory: &Path,
+    relative_directory: &str,
+    pattern: &str,
+    entries: &mut Vec<DirectoryEntry>,
+) -> Result<(), String> {
+    for item in fs::read_dir(directory)
+        .map_err(|error| format!("Failed to search the Resource directory: {error}"))?
+    {
+        let item =
+            item.map_err(|error| format!("Failed to read a Resource directory entry: {error}"))?;
+        let path = item.path();
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("The Resource path is unavailable: {error}"))?;
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+
+        let canonical = ensure_inside(boundary, &path)?;
+        let kind = if metadata.is_file() {
+            "file"
+        } else if metadata.is_dir() {
+            "directory"
+        } else {
+            continue;
+        };
+        let name = item.file_name().to_string_lossy().into_owned();
+        let relative_path = if relative_directory.is_empty() {
+            name.clone()
+        } else {
+            format!("{relative_directory}/{name}")
+        };
+
+        if glob_matches(pattern, &relative_path) {
+            entries.push(DirectoryEntry {
+                name,
+                relative_path: relative_path.clone(),
+                kind,
+            });
+        }
+        if metadata.is_dir() {
+            collect_glob_entries(boundary, &canonical, &relative_path, pattern, entries)?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn resource_glob(
+    request: DirectoryGlobRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<Vec<DirectoryEntry>, String> {
+    let resource = get_resource(&sessions, &request.session_id, &request.resource_id)?;
+    let (boundary, _) = directory_definition(resource, false)?;
+    let pattern = glob_pattern(&request.pattern)?;
+    let mut entries = Vec::new();
+    collect_glob_entries(&boundary, &boundary, "", pattern, &mut entries)?;
+    entries.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     Ok(entries)
 }
 
@@ -704,6 +796,47 @@ mod tests {
         };
         assert!(matches_policy("env.json", &policy).is_ok());
         assert!(matches_policy("config/env.json", &policy).is_ok());
+    }
+
+    #[test]
+    fn validates_glob_patterns() {
+        assert!(glob_pattern("src/**/*.java").is_ok());
+        assert!(glob_pattern("../**/*.java").is_err());
+        assert!(glob_pattern("C:/workspace/**/*.java").is_err());
+        assert!(glob_pattern("src\\**\\*.java").is_err());
+    }
+
+    #[test]
+    fn glob_searches_recursively_and_sorts_relative_paths() {
+        let directory = temporary_directory();
+        fs::create_dir(directory.join("src")).expect("source directory must be created");
+        fs::create_dir(directory.join("src").join("nested"))
+            .expect("nested source directory must be created");
+        fs::write(directory.join("src").join("Z.java"), "class Z {}")
+            .expect("root Java file must be created");
+        fs::write(
+            directory.join("src").join("nested").join("A.java"),
+            "class A {}",
+        )
+        .expect("nested Java file must be created");
+        fs::write(directory.join("src").join("notes.txt"), "notes")
+            .expect("nonmatching file must be created");
+        let boundary = fs::canonicalize(&directory).expect("temporary directory must resolve");
+        let mut entries = Vec::new();
+
+        collect_glob_entries(&boundary, &boundary, "", "src/**/*.java", &mut entries)
+            .expect("glob search must succeed");
+        entries.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["src/Z.java", "src/nested/A.java"]
+        );
+
+        fs::remove_dir_all(directory).expect("temporary directory must be removed");
     }
 
     #[test]

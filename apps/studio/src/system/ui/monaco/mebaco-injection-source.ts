@@ -217,6 +217,7 @@ namespace MebacoInjectionSource {
     const methods = [
       '    exists(relativePath: string): Promise<boolean>;',
       '    list(relativePath?: string): Promise<$MebacoDirectoryEntry[]>;',
+      '    glob(pattern: string): Promise<$MebacoDirectoryEntry[]>;',
     ]
 
     if (resource.permissions.access === 'read-write') {

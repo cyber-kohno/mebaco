@@ -181,6 +181,23 @@ namespace ResourceRuntime {
     return relativePath
   }
 
+  const normalizeGlobPattern = (
+    value: string,
+  ): string => {
+    if (value.length === 0 || value.length > 1024 || value.includes('\0')) {
+      throw new Error('A non-empty Resource glob pattern is required.')
+    }
+    if (
+      value.includes('\\')
+      || value.startsWith('/')
+      || /^[a-zA-Z]:/.test(value)
+      || value.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
+    ) {
+      throw new Error(`Invalid Resource glob pattern '${value}'.`)
+    }
+    return value
+  }
+
   export const create = (
     rootNode: TreeNode.Node,
     backend: Backend = tauriBackend,
@@ -274,6 +291,10 @@ namespace ResourceRuntime {
         ...(relativePath == null || relativePath.length === 0
           ? {}
           : { relativePath: normalizeRelativePath(relativePath) }),
+      }),
+      glob: (pattern: string) => execute<DirectoryEntry[]>('resource_glob', {
+        ...target(resource.resourceId),
+        pattern: normalizeGlobPattern(pattern),
       }),
       ...(resource.permissions.access === 'read-write' ? {
         renameFile: (sourceRelativePath: string, destinationRelativePath: string) => execute<void>('resource_rename_file', {

@@ -866,6 +866,7 @@ describe('MebacoInjectionSource Function scope', () => {
 
     expect(readonlyDeclaration).toContain('exists(relativePath: string): Promise<boolean>;')
     expect(readonlyDeclaration).toContain('list(relativePath?: string): Promise<$MebacoDirectoryEntry[]>;')
+    expect(readonlyDeclaration).toContain('glob(pattern: string): Promise<$MebacoDirectoryEntry[]>;')
     expect(readonlyDeclaration).not.toContain('createFile(')
     expect(readonlyDeclaration).not.toContain('text(')
     expect(readonlyDeclaration).not.toContain('sqlite(')

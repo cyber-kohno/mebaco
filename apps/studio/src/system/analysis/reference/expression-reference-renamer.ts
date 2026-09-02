@@ -175,6 +175,7 @@ namespace ExpressionReferenceRenamer {
     targetNodeId: number,
     oldId: string,
     nextId: string,
+    validateCapture: boolean,
   ): { source: string; count: number } => {
     if (source.trim().length === 0) return { source, count: 0 }
     const sourceFile = TypeScript.createSourceFile(
@@ -213,7 +214,9 @@ namespace ExpressionReferenceRenamer {
       if (referenceId !== oldId || !ReferenceLanguage.isExpressionRoot(expressionRoot)) return
       const resolved = resolveTargetNode(rootNode, sourceNode, expressionRoot, referenceId)
       if (resolved?.id !== targetNodeId) return
-      const captured = resolveTargetNode(rootNode, sourceNode, expressionRoot, nextId)
+      const captured = validateCapture
+        ? resolveTargetNode(rootNode, sourceNode, expressionRoot, nextId)
+        : null
       if (captured != null && captured.id !== targetNodeId) {
         throw new ReferenceCaptureError(sourceNode.id, expressionRoot, nextId)
       }
@@ -315,25 +318,52 @@ namespace ExpressionReferenceRenamer {
     targetNodeId: number,
     oldId: string,
     nextId: string,
+    validateCapture: boolean,
   ): { value: unknown; count: number } => {
     if (typeof value === 'string') {
       if (jsonFields.has(key)) {
         try {
           const parsed = JSON.parse(value)
-          const rewritten = rewriteValue(parsed, key, rootNode, sourceNode, targetNodeId, oldId, nextId)
+          const rewritten = rewriteValue(
+            parsed,
+            key,
+            rootNode,
+            sourceNode,
+            targetNodeId,
+            oldId,
+            nextId,
+            validateCapture,
+          )
           if (rewritten.count > 0) return { value: JSON.stringify(rewritten.value), count: rewritten.count }
         } catch {
           // Plain expressions are intentionally handled below.
         }
       }
       if (!expressionFields.has(key)) return { value, count: 0 }
-      const rewritten = replaceExpression(value, rootNode, sourceNode, targetNodeId, oldId, nextId)
+      const rewritten = replaceExpression(
+        value,
+        rootNode,
+        sourceNode,
+        targetNodeId,
+        oldId,
+        nextId,
+        validateCapture,
+      )
       return { value: rewritten.source, count: rewritten.count }
     }
     if (Array.isArray(value)) {
       let count = 0
       const result = value.map((item) => {
-        const rewritten = rewriteValue(item, key, rootNode, sourceNode, targetNodeId, oldId, nextId)
+        const rewritten = rewriteValue(
+          item,
+          key,
+          rootNode,
+          sourceNode,
+          targetNodeId,
+          oldId,
+          nextId,
+          validateCapture,
+        )
         count += rewritten.count
         return rewritten.value
       })
@@ -344,7 +374,16 @@ namespace ExpressionReferenceRenamer {
     let count = 0
     const result: Record<string, unknown> = { ...value }
     Object.entries(value).forEach(([childKey, child]) => {
-      const rewritten = rewriteValue(child, childKey, rootNode, sourceNode, targetNodeId, oldId, nextId)
+      const rewritten = rewriteValue(
+        child,
+        childKey,
+        rootNode,
+        sourceNode,
+        targetNodeId,
+        oldId,
+        nextId,
+        validateCapture,
+      )
       if (rewritten.count > 0) result[childKey] = rewritten.value
       count += rewritten.count
     })
@@ -393,6 +432,7 @@ namespace ExpressionReferenceRenamer {
         targetNodeId,
         oldId,
         nextId,
+        true,
       )
       if (rewritten.count === 0) return
       node.element = rewritten.value as MebacoElement.Element
@@ -408,6 +448,38 @@ namespace ExpressionReferenceRenamer {
       targetElement: nextTarget.element,
       changedNodeIds,
       occurrenceCount,
+    }
+  }
+
+  export const rewriteElementReferences = (
+    rootNode: TreeNode.Node,
+    sourceNodeId: number,
+    targetNodeId: number,
+    nextId: string,
+  ): { element: MebacoElement.Element; occurrenceCount: number } => {
+    const sourceNode = findNode(rootNode, sourceNodeId)
+    const targetNode = findNode(rootNode, targetNodeId)
+    if (sourceNode == null) throw new Error(`node-${sourceNodeId} was not found.`)
+    if (targetNode == null) throw new Error(`node-${targetNodeId} was not found.`)
+    const oldId = 'id' in targetNode.element
+      ? (targetNode.element as { id?: unknown }).id
+      : null
+    if (typeof oldId !== 'string') {
+      throw new Error(`node-${targetNodeId} does not define an Id.`)
+    }
+    const rewritten = rewriteValue(
+      sourceNode.element,
+      '',
+      rootNode,
+      sourceNode,
+      targetNodeId,
+      oldId,
+      nextId,
+      false,
+    )
+    return {
+      element: rewritten.value as MebacoElement.Element,
+      occurrenceCount: rewritten.count,
     }
   }
 }

@@ -12,6 +12,8 @@ import TypeCatalog from '../../element/kind/type/type-catalog'
 import FunctionDefinition from '../../element/kind/function/function-definition'
 import FunctionScope from '../../element/kind/function/function-scope'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
+import StateScope from '../../element/kind/variable/store/state-scope'
+import ScopedVariableResolver from './scoped-variable-resolver'
 
 namespace ReferenceGraph {
   export type ReferenceSourceType = 'structural' | 'expression'
@@ -88,6 +90,20 @@ namespace ReferenceGraph {
     if (node.id === nodeId) return node
     for (const child of node.children) {
       const found = findNode(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
+
+  const findPath = (
+    node: TreeNode.Node,
+    nodeId: number,
+    path: TreeNode.Node[] = [],
+  ): TreeNode.Node[] | null => {
+    const nextPath = [...path, node]
+    if (node.id === nodeId) return nextPath
+    for (const child of node.children) {
+      const found = findPath(child, nodeId, nextPath)
       if (found != null) return found
     }
     return null
@@ -387,57 +403,102 @@ namespace ReferenceGraph {
     const resolveExpression = (root: string, property: string) => {
       const kinds = expressionRoots[root]
       if (kinds == null) return
-      const candidates = root === '$fn'
-        ? (() => {
-            const resolved = FunctionScope.resolveFunction(
-              rootNode,
-              sourceNode.id,
-              property,
-            )
-            return resolved == null
-              ? []
-              : targets.filter((target) => (
-                  target.kind === 'function'
-                  && target.nodeId === resolved.node.id
-                ))
-          })()
-        : root === '$args'
-        ? (() => {
-            const owner = FunctionScope.findOwnerFunction(rootNode, sourceNode.id)
-            return owner == null
-              ? []
-              : targets.filter((target) => (
-                  target.kind === 'function-parameter'
-                  && target.nodeId === owner.node.id
-                  && target.nameAliases.has(property)
-                ))
-          })()
-        : root === '$props'
-        ? targets.filter((target) => (
+      let candidates: readonly Target[]
+      switch (root) {
+        case '$fn': {
+          const resolved = FunctionScope.resolveFunction(
+            rootNode,
+            sourceNode.id,
+            property,
+          )
+          candidates = resolved == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'function'
+                && target.nodeId === resolved.node.id
+              ))
+          break
+        }
+        case '$state': {
+          const resolved = StateScope.resolve(rootNode, sourceNode.id, property)
+          candidates = resolved == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'state'
+                && target.nodeId === resolved.node.id
+              ))
+          break
+        }
+        case '$var': {
+          const resolved = ScopedVariableResolver.resolve(
+            rootNode,
+            sourceNode.id,
+            property,
+          )
+          candidates = resolved == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'variable'
+                && target.nodeId === resolved.node.id
+              ))
+          break
+        }
+        case '$args': {
+          const owner = FunctionScope.findOwnerFunction(rootNode, sourceNode.id)
+          candidates = owner == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'function-parameter'
+                && target.nodeId === owner.node.id
+                && target.nameAliases.has(property)
+              ))
+          break
+        }
+        case '$launch': {
+          const ownerApp = [...(findPath(rootNode, sourceNode.id) ?? [])]
+            .reverse()
+            .find((node) => node.element.kind === 'app')
+          candidates = ownerApp == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'launch-argument'
+                && target.ownerAppNodeId === ownerApp.id
+                && target.nameAliases.has(property)
+              ))
+          break
+        }
+        case '$props':
+          candidates = targets.filter((target) => (
             target.kind === 'value-prop'
             && target.propsScope != null
             && target.propsScope === propsScope
             && target.nameAliases.has(property)
           ))
-        : root === '$param'
-          ? targets.filter((target) => (
-              target.kind === 'style-param'
-              && styleParameterTargetIds.has(target.nodeId)
-              && target.nameAliases.has(property)
-            ))
-        : root === '$local'
-          ? targets.filter((target) => (
-              target.kind === 'variable'
-              && styleLocalTargetIds.has(target.nodeId)
-              && target.nameAliases.has(property)
-            ))
-        : root === TypeCatalog.typeScriptNamespace
-          ? targets.filter((target) => (
-              visibleTypeTargetIds.has(target.nodeId)
-              && kinds.includes(target.kind as ReferenceKind)
-              && target.nameAliases.has(property)
-            ))
-        : getCandidates(targets, property, kinds, visibleLoopTargets, 'name')
+          break
+        case '$param':
+          candidates = targets.filter((target) => (
+            target.kind === 'style-param'
+            && styleParameterTargetIds.has(target.nodeId)
+            && target.nameAliases.has(property)
+          ))
+          break
+        case '$local':
+          candidates = targets.filter((target) => (
+            target.kind === 'variable'
+            && styleLocalTargetIds.has(target.nodeId)
+            && target.nameAliases.has(property)
+          ))
+          break
+        case TypeCatalog.typeScriptNamespace:
+          candidates = targets.filter((target) => (
+            visibleTypeTargetIds.has(target.nodeId)
+            && kinds.includes(target.kind as ReferenceKind)
+            && target.nameAliases.has(property)
+          ))
+          break
+        default:
+          candidates = getCandidates(targets, property, kinds, visibleLoopTargets, 'name')
+      }
       candidates
         .forEach((target) => addReference(
           references,

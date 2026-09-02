@@ -1,6 +1,8 @@
 import ElementEditSchema from '../../element-dialog/element-edit-schema'
 import type MebacoElement from '../../element/element'
 import TypeCatalog from '../../element/kind/type/type-catalog'
+import FunctionScope from '../../element/kind/function/function-scope'
+import ContentPlacement from '../../element/content-placement'
 import TreeNode from '../tree-node'
 
 namespace TreeTransferCatalog {
@@ -9,12 +11,16 @@ namespace TreeTransferCatalog {
     | 'object-type'
     | 'union-type'
     | 'signature-type'
+    | 'function'
+    | 'tag'
 
   const kinds = new Set<MebacoElement.Kind>([
     'style',
     'object-type',
     'union-type',
     'signature-type',
+    'function',
+    'tag',
   ])
 
   export const isTransferableKind = (
@@ -29,7 +35,10 @@ namespace TreeTransferCatalog {
       case 'object-type':
       case 'union-type':
       case 'signature-type':
+      case 'function':
         return element.id
+      case 'tag':
+        return `<${element.tagName}>`
       default:
         return element.kind
     }
@@ -37,7 +46,7 @@ namespace TreeTransferCatalog {
 
   const isTypeKind = (
     kind: MebacoElement.Kind,
-  ): kind is Exclude<TransferableKind, 'style'> => (
+  ): kind is Exclude<TransferableKind, 'style' | 'function' | 'tag'> => (
     kind === 'object-type'
     || kind === 'union-type'
     || kind === 'signature-type'
@@ -68,6 +77,10 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     sourceKind: TransferableKind,
   ): boolean => {
+    if (sourceKind === 'tag') {
+      return ContentPlacement.canAcceptViewChild(rootNode, destinationNode)
+    }
+
     if (sourceKind === 'style') {
       return destinationNode.element.kind === 'styles'
         || destinationNode.element.kind === 'retention'
@@ -75,6 +88,22 @@ namespace TreeTransferCatalog {
           destinationNode.element.kind === 'block'
           && isUnder(rootNode, destinationNode.id, 'retention')
         )
+    }
+
+    if (sourceKind === 'function') {
+      if (
+        destinationNode.element.kind === 'functions'
+        || destinationNode.element.kind === 'retention'
+        || destinationNode.element.kind === 'function-procedure'
+        || destinationNode.element.kind === 'promise-then'
+        || destinationNode.element.kind === 'promise-catch'
+      ) return true
+      if (
+        destinationNode.element.kind !== 'block'
+        && !isControlBranch(rootNode, destinationNode)
+      ) return false
+      const frame = FunctionScope.findFrameNode(rootNode, destinationNode.id)
+      return frame != null && frame.element.kind !== 'functions'
     }
 
     return destinationNode.element.kind === 'types'
@@ -107,6 +136,8 @@ namespace TreeTransferCatalog {
 
     if (
       sourceNode.element.kind !== 'style'
+      && sourceNode.element.kind !== 'function'
+      && sourceNode.element.kind !== 'tag'
       && !isTypeKind(sourceNode.element.kind)
     ) return false
     return canContainKind(rootNode, destinationNode, sourceNode.element.kind)
@@ -117,6 +148,17 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     sourceKind: TransferableKind,
   ): string[] => {
+    if (sourceKind === 'function') {
+      const frame = FunctionScope.findFrameNode(rootNode, destinationNode.id)
+      return [...new Set([
+        ...(frame == null
+          ? []
+          : FunctionScope.collectFrameFunctions(frame).map((entry) => entry.element.id)),
+        ...destinationNode.children.flatMap((child) => (
+          child.element.kind === 'function' ? [child.element.id] : []
+        )),
+      ])]
+    }
     if (sourceKind === 'style') {
       return destinationNode.children.flatMap((child) => (
         child.element.kind === 'style' ? [child.element.id] : []
@@ -144,16 +186,26 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     sourceKind: TransferableKind,
     name: string,
-  ): string | null => ElementEditSchema.validateText({
-    type: 'text',
-    key: 'id',
-    label: 'Id',
-    required: true,
-    charset: sourceKind === 'style' ? 'identifier' : 'pascalIdentifier',
-    minLength: 1,
-    maxLength: 32,
-    reservedNames: collectReservedNames(rootNode, destinationNode, sourceKind),
-  }, name)
+  ): string | null => sourceKind === 'tag'
+    ? null
+    : ElementEditSchema.validateText({
+      type: 'text',
+      key: 'id',
+      label: 'Id',
+      required: true,
+      charset: sourceKind === 'style'
+        ? 'identifier'
+        : sourceKind === 'function'
+          ? 'jsIdentifier'
+          : 'pascalIdentifier',
+      minLength: 1,
+      maxLength: 32,
+      reservedNames: collectReservedNames(rootNode, destinationNode, sourceKind),
+    }, name)
+
+  export const requiresName = (
+    kind: TransferableKind,
+  ): boolean => kind !== 'tag'
 
   export const getInsertIndex = (
     _destinationNode: TreeNode.Node,

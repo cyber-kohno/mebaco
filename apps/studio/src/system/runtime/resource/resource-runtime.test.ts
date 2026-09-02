@@ -113,10 +113,30 @@ describe('ResourceRuntime', () => {
     const settings = session.namespace.settings as Record<string, unknown>
 
     expect(Object.keys(workspace)).toEqual(expect.arrayContaining([
-      'exists', 'list', 'renameFile', 'copyFile', 'createDir', 'createFile', 'text', 'sqlite',
+      'exists', 'list', 'glob', 'renameFile', 'copyFile', 'createDir', 'createFile', 'text', 'sqlite',
     ]))
     expect(workspace).not.toHaveProperty('deleteFile')
     expect(settings).toHaveProperty('read')
     expect(settings).toHaveProperty('write')
+  })
+
+  it('validates glob patterns before invoking the backend', async () => {
+    const invoke = vi.fn().mockResolvedValue([])
+    const session = ResourceRuntime.create(createProject(), { invoke })
+    const workspace = session.namespace.workspace as {
+      glob: (pattern: string) => Promise<ResourceRuntime.DirectoryEntry[]>
+    }
+
+    expect(() => workspace.glob('../**/*.java')).toThrow('Invalid Resource glob pattern')
+    expect(() => workspace.glob('src\\**\\*.java')).toThrow('Invalid Resource glob pattern')
+    expect(invoke).not.toHaveBeenCalled()
+
+    await expect(workspace.glob('src/**/*.java')).resolves.toEqual([])
+    expect(invoke).toHaveBeenLastCalledWith('resource_glob', {
+      request: expect.objectContaining({
+        resourceId: 'workspace-id',
+        pattern: 'src/**/*.java',
+      }),
+    })
   })
 })

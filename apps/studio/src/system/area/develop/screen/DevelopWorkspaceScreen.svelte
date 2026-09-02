@@ -2,6 +2,7 @@
   import { developInteractionStore } from '../interaction/develop-interaction-store'
   import TreeView from '../../../tree/TreeView.svelte'
   import TreeDestinationOperation from '../../../tree/destination/tree-destination-operation'
+  import AncestorPathPanel from '../../../tree/path/AncestorPathPanel.svelte'
 
   const transaction = $derived(
     $developInteractionStore.type === 'destination-transaction'
@@ -18,18 +19,23 @@
   class:destination-mode={transaction != null}
   aria-label="Mebaco develop workspace"
 >
-  <TreeView />
-  {#if transaction != null && presentation != null}
-    <div class="interaction-banner" role="status">
-      {presentation.modeLabel} mode —
-      "{transaction.sourceLabel}"
-      · Select a destination · Esc cancel
-    </div>
-  {/if}
+  <AncestorPathPanel />
+  <div class="tree-panel">
+    <TreeView />
+    {#if transaction != null && presentation != null}
+      <div class="interaction-banner" role="status">
+        {presentation.modeLabel} mode —
+        "{transaction.sourceLabel}"
+        · Select a destination · Esc cancel
+      </div>
+    {/if}
+  </div>
 </section>
 
 <style>
   .develop-workspace-screen {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -37,6 +43,13 @@
     --mbc-develop-workspace-background: var(--mbc-color-surface);
     background: var(--mbc-develop-workspace-background);
     transition: background-color 140ms ease;
+  }
+
+  .tree-panel {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .develop-workspace-screen.destination-mode {

@@ -121,6 +121,11 @@ namespace TreeDestinationController {
     const rootNode = get(TreeStore.rootNode)
     const destinationNode = TreeNode.findNode(rootNode, mode.destinationNodeId)
     if (destinationNode == null) return 'The selected destination is no longer available.'
+    if (
+      mode.operation.type === 'copy'
+      && TreeTransferCatalog.isTransferableKind(mode.operation.sourceKind)
+      && !TreeTransferCatalog.requiresName(mode.operation.sourceKind)
+    ) return null
     return TreeDestinationOperation.validateName(rootNode, destinationNode, mode, name)
   }
 

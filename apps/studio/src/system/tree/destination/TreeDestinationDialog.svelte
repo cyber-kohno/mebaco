@@ -31,6 +31,7 @@
     name = TreeDestinationController.getSuggestedName()
     submitError = null
     void tick().then(() => {
+      if (presentation?.requiresName !== true) return
       inputElement?.focus()
       inputElement?.select()
     })
@@ -71,17 +72,19 @@
       <div><dt>Source</dt><dd>{session.sourceLabel}</dd></div>
       <div><dt>Destination</dt><dd>node-{session.destinationNodeId}</dd></div>
     </dl>
-    <label for="tree-destination-id">Id</label>
-    <input
-      id="tree-destination-id"
-      bind:this={inputElement}
-      bind:value={name}
-      aria-invalid={nameError != null}
-      autocomplete="off"
-      spellcheck="false"
-      disabled={busy}
-    />
-    {#if nameError != null}<div class="error">{nameError}</div>{/if}
+    {#if presentation.requiresName}
+      <label for="tree-destination-id">Id</label>
+      <input
+        id="tree-destination-id"
+        bind:this={inputElement}
+        bind:value={name}
+        aria-invalid={nameError != null}
+        autocomplete="off"
+        spellcheck="false"
+        disabled={busy}
+      />
+      {#if nameError != null}<div class="error">{nameError}</div>{/if}
+    {/if}
     {#if submitError != null}<div class="error">{submitError}</div>{/if}
     <div class="actions">
       <button type="button" onclick={() => DevelopInteractionController.cancel()} disabled={busy}>Cancel</button>

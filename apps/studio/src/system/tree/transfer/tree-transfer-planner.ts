@@ -6,6 +6,7 @@ namespace TreeTransferPlanner {
   export type CopyPlan = {
     rootNode: TreeNode.Node
     copiedNodeId: number
+    nodeIds: ReadonlyMap<number, number>
   }
 
   const findMaxNodeId = (node: TreeNode.Node): number => node.children.reduce(
@@ -17,7 +18,7 @@ namespace TreeTransferPlanner {
     rootNode: TreeNode.Node,
     sourceNodeId: number,
     destinationNodeId: number,
-    copiedName: string,
+    copiedName: string | null,
   ): CopyPlan => {
     const sourceNode = TreeNode.findNode(rootNode, sourceNodeId)
     const destinationNode = TreeNode.findNode(rootNode, destinationNodeId)
@@ -32,7 +33,7 @@ namespace TreeTransferPlanner {
           rootNode,
           destinationNode,
           sourceNode.element.kind,
-          copiedName,
+          copiedName ?? '',
         )
       : 'This element cannot be copied.'
     if (nameError != null) throw new Error(nameError)
@@ -41,6 +42,7 @@ namespace TreeTransferPlanner {
     const nextDestination = TreeNode.findNode(nextRoot, destinationNodeId)
     if (nextDestination == null) throw new Error(`node-${destinationNodeId} was not found.`)
     const copied = TreeTransferIdentity.copy(
+      rootNode,
       sourceNode,
       copiedName,
       findMaxNodeId(rootNode) + 1,
@@ -53,6 +55,7 @@ namespace TreeTransferPlanner {
     return {
       rootNode: nextRoot,
       copiedNodeId: copied.node.id,
+      nodeIds: copied.nodeIds,
     }
   }
 }

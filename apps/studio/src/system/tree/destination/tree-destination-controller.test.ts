@@ -92,6 +92,28 @@ beforeEach(() => {
 })
 
 describe('TreeDestinationController', () => {
+  it('adds Copy to a Tag and starts an unnamed copy transaction', () => {
+    const tag = node(5, {
+      kind: 'tag', tagName: 'div', comment: 'content', styles: [], attributes: [],
+    })
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const next = TreeDestinationController.addCopyAction(items, tag)
+    expect(next.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    const copy = next[1]
+    if (copy.type !== 'action') throw new Error('Expected Copy action.')
+    copy.callback()
+
+    expect(mocks.beginDestinationTransaction).toHaveBeenCalledWith({
+      operation: { type: 'copy', sourceKind: 'tag' },
+      sourceNodeId: tag.id,
+      sourceLabel: '<div>',
+    })
+  })
+
   it('adds Extract signature only for Inline Functions and starts the shared transaction', () => {
     const inline = codeFunction()
     const refer = codeFunction({ mode: 'refer', signatureTypeId: 'signature-id' })

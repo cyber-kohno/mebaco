@@ -10,6 +10,7 @@ vi.mock('../../store/tree-store', () => ({
 vi.mock('../transfer/tree-transfer-validator', () => ({
   default: {
     validateStructure: vi.fn(() => null),
+    validateReferenceTargets: vi.fn(() => null),
     validateExpressionScope: vi.fn(() => Promise.resolve(null)),
   },
 }))
@@ -47,6 +48,30 @@ describe('TreeDestinationOperation', () => {
     expect(copied.element).toMatchObject({ kind: 'object-type', id: 'UserCopy' })
     expect(plan.selectedNodeId).toBe(copied.id)
     expect(plan.preserveVerificationNodeIds).toEqual([])
+  })
+
+  it('copies a Tag without requesting or assigning a name', async () => {
+    const source = node(3, {
+      kind: 'tag', tagName: 'div', comment: 'content', styles: [], attributes: [],
+    })
+    const elements = node(2, { kind: 'elements' }, [source])
+    const root = node(1, { kind: 'project' }, [elements])
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'copy', sourceKind: 'tag' },
+      phase: 'confirm',
+      sourceNodeId: source.id,
+      sourceLabel: '<div>',
+      originViewRootNodeId: null,
+      destinationNodeId: elements.id,
+    }
+
+    expect(TreeDestinationOperation.getPresentation(session).requiresName).toBe(false)
+    expect(TreeDestinationOperation.createSuggestedName(session, 1)).toBe('')
+    expect(TreeDestinationOperation.validateName(root, elements, session, '')).toBeNull()
+
+    const plan = await TreeDestinationOperation.createPlan(root, session, 'ignored')
+    expect(plan.rootNode.children[0].children[1].element).toEqual(source.element)
   })
 
   it('provides operation-specific names and presentation from the shared registry', () => {

@@ -12,6 +12,7 @@ namespace TreeDestinationOperation {
     destinationActionLabel: string
     confirmLabel: string
     failureMessage: string
+    requiresName: boolean
   }
 
   export type Plan = {
@@ -29,6 +30,8 @@ namespace TreeDestinationOperation {
         destinationActionLabel: 'Paste here',
         confirmLabel: 'Copy',
         failureMessage: 'The element could not be copied.',
+        requiresName: TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
+          && TreeTransferCatalog.requiresName(session.operation.sourceKind),
       }
     : {
         modeLabel: 'Extract signature',
@@ -36,6 +39,7 @@ namespace TreeDestinationOperation {
         destinationActionLabel: 'Extract here',
         confirmLabel: 'Extract',
         failureMessage: 'The Signature could not be extracted.',
+        requiresName: true,
       }
 
   export const isDestinationCandidate = (
@@ -79,6 +83,10 @@ namespace TreeDestinationOperation {
     index: number,
   ): string => {
     if (session.operation.type === 'copy') {
+      if (
+        TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
+        && !TreeTransferCatalog.requiresName(session.operation.sourceKind)
+      ) return ''
       return session.operation.sourceKind === 'style'
         ? `${session.sourceLabel}-copy${index === 1 ? '' : `-${index}`}`
         : `${session.sourceLabel}Copy${index === 1 ? '' : index}`
@@ -103,13 +111,22 @@ namespace TreeDestinationOperation {
         previousRoot,
         session.sourceNodeId,
         session.destinationNodeId,
-        name,
+        TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
+          && TreeTransferCatalog.requiresName(session.operation.sourceKind)
+          ? name
+          : null,
       )
       const structureError = TreeTransferValidator.validateStructure(
         plan.rootNode,
         plan.copiedNodeId,
       )
       if (structureError != null) throw new Error(structureError)
+      const referenceError = TreeTransferValidator.validateReferenceTargets(
+        previousRoot,
+        plan.rootNode,
+        plan.nodeIds,
+      )
+      if (referenceError != null) throw new Error(referenceError)
       const expressionError = await TreeTransferValidator.validateExpressionScope(
         previousRoot,
         session.sourceNodeId,
