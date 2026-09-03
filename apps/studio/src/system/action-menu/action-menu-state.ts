@@ -4,6 +4,7 @@ namespace ActionMenuState {
   export type ActionItem = {
     type: 'action'
     label: string
+    actionId?: string
     role?: ItemRole
     keepOpen?: boolean
     callback: () => void | Promise<void>
@@ -38,7 +39,7 @@ namespace ActionMenuState {
     action: (
       label: string,
       callback: ActionItem['callback'],
-      option?: ItemRole | Pick<ActionItem, 'role' | 'keepOpen'>,
+      option?: ItemRole | Pick<ActionItem, 'actionId' | 'role' | 'keepOpen'>,
     ): ActionItem => {
       const item: ActionItem = {
         type: 'action',
@@ -49,6 +50,7 @@ namespace ActionMenuState {
       if (typeof option === 'string') {
         item.role = option
       } else if (option != null) {
+        item.actionId = option.actionId
         item.role = option.role
         item.keepOpen = option.keepOpen
       }

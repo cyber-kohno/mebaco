@@ -30,6 +30,18 @@ namespace DevelopInteractionController {
     TreeViewportController.requestReveal(mode.sourceNodeId)
   }
 
+  export const returnToDestinationSelection = () => {
+    const mode = get(developInteractionStore)
+    if (mode.type !== 'destination-transaction' || mode.phase !== 'confirm') return
+
+    const next = {
+      ...mode,
+      phase: 'select-destination' as const,
+    }
+    delete next.destinationNodeId
+    developInteractionStore.set(next)
+  }
+
   export const beginDestinationTransaction = (
     session: Omit<
       DevelopInteractionMode.DestinationTransaction,

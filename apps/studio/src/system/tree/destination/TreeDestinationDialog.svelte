@@ -51,7 +51,7 @@
     if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
-      DevelopInteractionController.cancel()
+      DevelopInteractionController.returnToDestinationSelection()
       return
     }
     if (event.key === 'Enter') {
@@ -87,7 +87,7 @@
     {/if}
     {#if submitError != null}<div class="error">{submitError}</div>{/if}
     <div class="actions">
-      <button type="button" onclick={() => DevelopInteractionController.cancel()} disabled={busy}>Cancel</button>
+      <button type="button" onclick={() => DevelopInteractionController.returnToDestinationSelection()} disabled={busy}>Cancel</button>
       <button type="button" class="primary" onclick={() => { void submit() }} disabled={busy || nameError != null}>
         {busy ? 'Checking…' : presentation.confirmLabel}
       </button>

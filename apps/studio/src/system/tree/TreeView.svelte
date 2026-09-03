@@ -173,6 +173,8 @@
       )}
       {@const destinationActive = $developInteractionStore.type === 'destination-transaction'}
       {@const destinationCandidate = destinationCandidateNodeIds.has(row.node.id)}
+      {@const destinationSource = $developInteractionStore.type === 'destination-transaction'
+        && $developInteractionStore.sourceNodeId === row.node.id}
       <div
         class:selected={$selectedNodeIdStore === row.node.id}
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
@@ -181,6 +183,7 @@
         class:disabled-descendant={row.disabledDescendant}
         class:destination-unavailable={destinationActive && !destinationCandidate}
         class:destination-candidate={destinationCandidate}
+        class:destination-source={destinationSource}
         class="tree-row"
         style:--tree-depth={row.depth}
         data-node-id={row.node.id}
@@ -284,7 +287,7 @@
     outline: none;
   }
 
-  .tree-row.destination-unavailable::after {
+  .tree-row.destination-unavailable:not(.destination-source)::after {
     position: absolute;
     z-index: 5;
     left: calc(var(--tree-depth, 0) * 40px + 33px);
@@ -298,6 +301,15 @@
 
   .tree-row.destination-candidate {
     box-shadow: inset 0 0 0 2px rgba(38, 152, 118, 0.62);
+  }
+
+  .tree-row.destination-source {
+    animation: destination-source-pulse 1.2s ease-in-out infinite alternate;
+  }
+
+  @keyframes destination-source-pulse {
+    from { background-color: rgba(220, 38, 38, 0.5); }
+    to { background-color: rgba(250, 204, 21, 0.5); }
   }
 
   .tree-row.disabled-descendant :global(.element-tree-label) {

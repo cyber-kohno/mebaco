@@ -16,8 +16,9 @@ namespace KeyboardController {
   export const handleKeydown = (
     event: KeyboardEvent,
     context: ShortcutCommand.Context,
+    commands: readonly ShortcutCommand.Command[] = ShortcutRegistry.commands,
   ) => {
-    const command = ShortcutRegistry.commands.find((command) => (
+    const command = commands.find((command) => (
       matchesKey(event, command.key) && command.when(context)
     ))
     if (command == null) return

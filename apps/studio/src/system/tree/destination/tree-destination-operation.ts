@@ -92,11 +92,7 @@ namespace TreeDestinationOperation {
         : `${session.sourceLabel}Copy${index === 1 ? '' : index}`
     }
 
-    const suffix = `Signature${index === 1 ? '' : index}`
-    const pascalName = session.sourceLabel.length === 0
-      ? 'Function'
-      : `${session.sourceLabel[0].toUpperCase()}${session.sourceLabel.slice(1)}`
-    return `${pascalName.slice(0, 32 - suffix.length)}${suffix}`
+    return ''
   }
 
   export const createPlan = async (

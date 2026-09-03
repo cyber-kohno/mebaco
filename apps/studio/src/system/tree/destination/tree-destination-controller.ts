@@ -7,6 +7,7 @@ import TreeStore from '../../store/tree-store'
 import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
 import TreeNode from '../tree-node'
 import TreeTransferCatalog from '../transfer/tree-transfer-catalog'
+import TreeDestinationActionId from './tree-destination-action-id'
 import TreeDestinationOperation from './tree-destination-operation'
 
 namespace TreeDestinationController {
@@ -33,13 +34,17 @@ namespace TreeDestinationController {
   ): ActionMenuState.Item[] => {
     if (!TreeTransferCatalog.isTransferableKind(node.element.kind)) return items
     const { action } = ActionMenuState.createFactory()
-    return insertBeforeDelete(items, action('Copy', () => {
-      DevelopInteractionController.beginDestinationTransaction({
-        operation: { type: 'copy', sourceKind: node.element.kind },
-        sourceNodeId: node.id,
-        sourceLabel: TreeTransferCatalog.getLabel(node.element),
-      })
-    }))
+    return insertBeforeDelete(items, action(
+      'Copy',
+      () => {
+        DevelopInteractionController.beginDestinationTransaction({
+          operation: { type: 'copy', sourceKind: node.element.kind },
+          sourceNodeId: node.id,
+          sourceLabel: TreeTransferCatalog.getLabel(node.element),
+        })
+      },
+      { actionId: TreeDestinationActionId.copy },
+    ))
   }
 
   export const beginSignatureExtraction = (
@@ -102,13 +107,19 @@ namespace TreeDestinationController {
     if (!isDestinationCandidate(rootNode, node, mode)) return []
     const { action } = ActionMenuState.createFactory()
     const presentation = TreeDestinationOperation.getPresentation(mode)
-    return [action(presentation.destinationActionLabel, () => {
-      developInteractionStore.set({
-        ...mode,
-        phase: 'confirm',
-        destinationNodeId: node.id,
-      })
-    })]
+    return [action(
+      presentation.destinationActionLabel,
+      () => {
+        developInteractionStore.set({
+          ...mode,
+          phase: 'confirm',
+          destinationNodeId: node.id,
+        })
+      },
+      mode.operation.type === 'copy'
+        ? { actionId: TreeDestinationActionId.pasteHere }
+        : undefined,
+    )]
   }
 
   export const getNameError = (
@@ -132,6 +143,7 @@ namespace TreeDestinationController {
   export const getSuggestedName = (): string => {
     const mode = get(developInteractionStore)
     if (mode.type !== 'destination-transaction') return ''
+    if (mode.operation.type === 'extract-signature') return ''
     for (let index = 1; index < 1000; index += 1) {
       const candidate = TreeDestinationOperation.createSuggestedName(mode, index)
       if (getNameError(candidate) == null) return candidate

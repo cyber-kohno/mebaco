@@ -1,4 +1,5 @@
 import type ActionMenuState from '../action-menu/action-menu-state'
+import TreeDestinationActionId from '../tree/destination/tree-destination-action-id'
 import ShortcutCommand from './shortcut-command'
 
 namespace ShortcutRegistry {
@@ -19,6 +20,41 @@ namespace ShortcutRegistry {
     }
 
     return null
+  }
+
+  const findActionById = (
+    items: ActionMenuState.Item[],
+    actionId: string,
+  ): ActionMenuState.ActionItem | null => {
+    for (const item of items) {
+      if (item.type === 'action' && item.actionId === actionId) return item
+      if (item.type === 'parent') {
+        const child = findActionById(item.children, actionId)
+        if (child != null) return child
+      }
+    }
+
+    return null
+  }
+
+  const getSelectedAction = (
+    context: ShortcutCommand.Context,
+    actionId: string,
+  ): ActionMenuState.ActionItem | null => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    if (selectedRow == null) return null
+
+    return findActionById(
+      context.getContextMenu(selectedRow.node, selectedRow.parentNode),
+      actionId,
+    )
+  }
+
+  const runSelectedAction = (
+    context: ShortcutCommand.Context,
+    actionId: string,
+  ) => {
+    void getSelectedAction(context, actionId)?.callback()
   }
 
   const canModifySelectedNode = (context: ShortcutCommand.Context): boolean => {
@@ -135,6 +171,12 @@ namespace ShortcutRegistry {
 
   export const commands: readonly ShortcutCommand.Command[] = [
     {
+      id: 'copy-selected-node',
+      key: { key: 'c', ctrl: true },
+      when: (context) => getSelectedAction(context, TreeDestinationActionId.copy) != null,
+      run: (context) => runSelectedAction(context, TreeDestinationActionId.copy),
+    },
+    {
       id: 'modify-selected-node-enter',
       key: { key: 'Enter' },
       when: canModifySelectedNode,
@@ -229,6 +271,15 @@ namespace ShortcutRegistry {
       key: { key: 'ArrowLeft' },
       when: canUseSelectedRow,
       run: leaveSelectedNode,
+    },
+  ]
+
+  export const destinationCommands: readonly ShortcutCommand.Command[] = [
+    {
+      id: 'paste-to-selected-node',
+      key: { key: 'v', ctrl: true },
+      when: (context) => getSelectedAction(context, TreeDestinationActionId.pasteHere) != null,
+      run: (context) => runSelectedAction(context, TreeDestinationActionId.pasteHere),
     },
   ]
 }

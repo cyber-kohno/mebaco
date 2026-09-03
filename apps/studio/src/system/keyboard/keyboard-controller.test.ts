@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type TreeNode from '../tree/tree-node'
+import TreeDestinationActionId from '../tree/destination/tree-destination-action-id'
 import KeyboardController from './keyboard-controller'
 import type ShortcutCommand from './shortcut-command'
+import ShortcutRegistry from './shortcut-registry'
 
 const createContext = (
   selectedNode: TreeNode.Node,
@@ -52,6 +54,69 @@ const createEvent = (overrides: Partial<KeyboardEvent> = {}) => ({
 } as unknown as KeyboardEvent)
 
 describe('KeyboardController disabled shortcut', () => {
+  it('runs the selected node Copy action with Ctrl+C', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const copy = vi.fn()
+    context.getContextMenu = () => [{
+      type: 'action',
+      label: 'Copy',
+      actionId: TreeDestinationActionId.copy,
+      callback: copy,
+    }]
+    const event = createEvent({ key: 'c', ctrlKey: true })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(copy).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it('does not consume Ctrl+C when the selected node has no Copy action', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const event = createEvent({ key: 'c', ctrlKey: true })
+
+    KeyboardController.handleKeydown(event, createContext(selectedNode))
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(event.stopPropagation).not.toHaveBeenCalled()
+  })
+
+  it('runs Paste here with Ctrl+V only through destination commands', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const paste = vi.fn()
+    context.getContextMenu = () => [{
+      type: 'action',
+      label: 'Paste here',
+      actionId: TreeDestinationActionId.pasteHere,
+      callback: paste,
+    }]
+    const event = createEvent({ key: 'v', ctrlKey: true })
+
+    KeyboardController.handleKeydown(event, context, ShortcutRegistry.destinationCommands)
+
+    expect(paste).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
   it('toggles the selected node when the element supports disabling', () => {
     const selectedNode: TreeNode.Node = {
       id: 2,

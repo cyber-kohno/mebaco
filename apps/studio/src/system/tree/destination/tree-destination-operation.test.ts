@@ -74,7 +74,7 @@ describe('TreeDestinationOperation', () => {
     expect(plan.rootNode.children[0].children[1].element).toEqual(source.element)
   })
 
-  it('provides operation-specific names and presentation from the shared registry', () => {
+  it('leaves Extract signature naming to the developer', () => {
     const extraction: DevelopInteractionMode.DestinationTransaction = {
       type: 'destination-transaction',
       operation: { type: 'extract-signature' },
@@ -84,10 +84,8 @@ describe('TreeDestinationOperation', () => {
       originViewRootNodeId: null,
     }
 
-    expect(TreeDestinationOperation.createSuggestedName(extraction, 1))
-      .toBe('SaveUserSignature')
-    expect(TreeDestinationOperation.createSuggestedName(extraction, 2))
-      .toBe('SaveUserSignature2')
+    expect(TreeDestinationOperation.createSuggestedName(extraction, 1)).toBe('')
+    expect(TreeDestinationOperation.createSuggestedName(extraction, 2)).toBe('')
     expect(TreeDestinationOperation.getPresentation(extraction)).toMatchObject({
       modeLabel: 'Extract signature',
       destinationActionLabel: 'Extract here',

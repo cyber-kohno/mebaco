@@ -65,6 +65,7 @@ import { developInteractionStore } from '../../area/develop/interaction/develop-
 import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
 import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
 import type TreeNode from '../tree-node'
+import TreeDestinationActionId from './tree-destination-action-id'
 import TreeDestinationController from './tree-destination-controller'
 
 const node = (
@@ -105,12 +106,41 @@ describe('TreeDestinationController', () => {
     expect(next.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
     const copy = next[1]
     if (copy.type !== 'action') throw new Error('Expected Copy action.')
+    expect(copy.actionId).toBe(TreeDestinationActionId.copy)
     copy.callback()
 
     expect(mocks.beginDestinationTransaction).toHaveBeenCalledWith({
       operation: { type: 'copy', sourceKind: 'tag' },
       sourceNodeId: tag.id,
       sourceLabel: '<div>',
+    })
+  })
+
+  it('marks a valid copy destination with the Paste here action id', () => {
+    const source = node(2, {
+      kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [],
+    })
+    const destination = node(3, { kind: 'elements' })
+    const root = node(1, { kind: 'project' }, [source, destination])
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'copy', sourceKind: 'tag' },
+      phase: 'select-destination',
+      sourceNodeId: source.id,
+      sourceLabel: '<div>',
+      originViewRootNodeId: null,
+    })
+
+    const items = TreeDestinationController.getDestinationMenu(root, destination)
+    expect(items).toHaveLength(1)
+    const paste = items?.[0]
+    if (paste?.type !== 'action') throw new Error('Expected Paste here action.')
+    expect(paste.actionId).toBe(TreeDestinationActionId.pasteHere)
+
+    paste.callback()
+    expect(get(developInteractionStore)).toMatchObject({
+      phase: 'confirm',
+      destinationNodeId: destination.id,
     })
   })
 
@@ -138,6 +168,21 @@ describe('TreeDestinationController', () => {
     })
 
     expect(TreeDestinationController.addSignatureExtractionAction(items, refer)).toBe(items)
+  })
+
+  it('starts Extract signature naming with an empty value', () => {
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'extract-signature' },
+      phase: 'confirm',
+      sourceNodeId: 3,
+      sourceLabel: 'calculate',
+      originViewRootNodeId: null,
+      destinationNodeId: 1,
+    })
+
+    expect(TreeDestinationController.getSuggestedName()).toBe('')
+    expect(mocks.operation.createSuggestedName).not.toHaveBeenCalled()
   })
 
   it('carries a valid Code Function Verify result across an equivalent transaction', async () => {

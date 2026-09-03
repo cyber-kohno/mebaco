@@ -17,6 +17,8 @@ import KeyboardController from './keyboard-controller'
 import DevelopInteractionController from '../area/develop/interaction/develop-interaction-controller'
 import { developInteractionStore } from '../area/develop/interaction/develop-interaction-store'
 import TreeContextMenuResolver from '../tree/tree-context-menu-resolver'
+import type ShortcutCommand from './shortcut-command'
+import ShortcutRegistry from './shortcut-registry'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -42,13 +44,61 @@ namespace AppKeyboardController {
     || get(RuntimeSessionStore.store) != null
   )
 
+  const createShortcutContext = (): ShortcutCommand.Context => {
+    const rootNode = get(TreeStore.rootNode)
+    const displayRootNode = TreeViewportController.resolveDisplayRoot(
+      rootNode,
+      get(TreeViewportController.state),
+    )
+
+    return {
+      rootNode,
+      visibleNodes: TreeNode.getVisibleNodes(displayRootNode),
+      selectedNodeId: get(TreeStore.selectedNodeId),
+      selectNode: (nodeId) => {
+        TreeStore.selectedNodeId.set(nodeId)
+      },
+      refreshTree: () => {
+        TreeStore.rootNode.set(TreeNode.clone(rootNode))
+      },
+      canDisable: (node) => ElementRegistry.get(node.element.kind).canDisable,
+      toggleDisabled: TreeStore.toggleDisabled,
+      canReorder: (nodeId, direction) => TreeStore.canMoveNode(nodeId, direction),
+      reorder: (nodeId, direction) => TreeStore.moveNode(nodeId, direction),
+      setSelectedAsCriteria: () => {
+        TreeViewportController.setSelectedAsCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      raiseCriteria: () => {
+        TreeViewportController.raiseCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      lowerCriteria: () => {
+        TreeViewportController.lowerCriteria(
+          get(TreeStore.rootNode),
+          get(TreeStore.selectedNodeId),
+        )
+      },
+      goBack: TreeNavigationController.goBack,
+      goForward: TreeNavigationController.goForward,
+      getContextMenu: (node, parentNode) => (
+        TreeContextMenuResolver.resolve(rootNode, node, parentNode)
+      ),
+    }
+  }
+
   export const handleKeydown = (event: KeyboardEvent) => {
     if (event.defaultPrevented) return
     if (
       get(appAreaStore) !== 'develop'
       || get(developScreenStore) !== 'workspace'
     ) return
-    if (get(developInteractionStore).type !== 'normal') {
+    const interaction = get(developInteractionStore)
+    if (interaction.type !== 'normal') {
       if (
         event.key === 'Escape'
         && get(actionMenuStore) == null
@@ -57,7 +107,25 @@ namespace AppKeyboardController {
       ) {
         event.preventDefault()
         event.stopPropagation()
-        DevelopInteractionController.cancel()
+        if (interaction.phase === 'confirm') {
+          DevelopInteractionController.returnToDestinationSelection()
+        } else {
+          DevelopInteractionController.cancel()
+        }
+        return
+      }
+      if (
+        interaction.operation.type === 'copy'
+        && interaction.phase === 'select-destination'
+        && !hasBlockingLayer()
+        && !isEditableTarget(event.target)
+        && !isNativeActivation(event)
+      ) {
+        KeyboardController.handleKeydown(
+          event,
+          createShortcutContext(),
+          ShortcutRegistry.destinationCommands,
+        )
       }
       return
     }
@@ -98,49 +166,7 @@ namespace AppKeyboardController {
       || isNativeActivation(event)
     ) return
 
-    const rootNode = get(TreeStore.rootNode)
-    const displayRootNode = TreeViewportController.resolveDisplayRoot(
-      rootNode,
-      get(TreeViewportController.state),
-    )
-    KeyboardController.handleKeydown(event, {
-      rootNode,
-      visibleNodes: TreeNode.getVisibleNodes(displayRootNode),
-      selectedNodeId: get(TreeStore.selectedNodeId),
-      selectNode: (nodeId) => {
-        TreeStore.selectedNodeId.set(nodeId)
-      },
-      refreshTree: () => {
-        TreeStore.rootNode.set(TreeNode.clone(rootNode))
-      },
-      canDisable: (node) => ElementRegistry.get(node.element.kind).canDisable,
-      toggleDisabled: TreeStore.toggleDisabled,
-      canReorder: (nodeId, direction) => TreeStore.canMoveNode(nodeId, direction),
-      reorder: (nodeId, direction) => TreeStore.moveNode(nodeId, direction),
-      setSelectedAsCriteria: () => {
-        TreeViewportController.setSelectedAsCriteria(
-          get(TreeStore.rootNode),
-          get(TreeStore.selectedNodeId),
-        )
-      },
-      raiseCriteria: () => {
-        TreeViewportController.raiseCriteria(
-          get(TreeStore.rootNode),
-          get(TreeStore.selectedNodeId),
-        )
-      },
-      lowerCriteria: () => {
-        TreeViewportController.lowerCriteria(
-          get(TreeStore.rootNode),
-          get(TreeStore.selectedNodeId),
-        )
-      },
-      goBack: TreeNavigationController.goBack,
-      goForward: TreeNavigationController.goForward,
-      getContextMenu: (node, parentNode) => (
-        TreeContextMenuResolver.resolve(rootNode, node, parentNode)
-      ),
-    })
+    KeyboardController.handleKeydown(event, createShortcutContext())
   }
 }
 
