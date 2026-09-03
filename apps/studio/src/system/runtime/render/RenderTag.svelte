@@ -129,10 +129,13 @@
     const transaction = RuntimeRefRegistry.beginAction(retentionResult.context.$system, node.id)
     const result = ActionEvaluator.executeScript(
       attribute.action.source,
-      FormulaContextValue.create({
-        ...retentionResult.context,
-        $event: event,
-      }),
+      FormulaContextValue.forNode(
+        FormulaContextValue.create({
+          ...retentionResult.context,
+          $event: event,
+        }),
+        node.id,
+      ),
     )
     transaction.complete(result.ok)
 

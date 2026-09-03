@@ -32,6 +32,11 @@ namespace ReferenceGraph {
     targetLabel: string
   }
 
+  export type SemanticDependency = Dependency & {
+    sourceLabel: string
+    sourceType: ReferenceSourceType
+  }
+
   export type Result = {
     canHaveReferences: boolean
     canHaveDependencies: boolean
@@ -349,20 +354,26 @@ namespace ReferenceGraph {
     sourceNodeId: number,
     sourceLabel: string,
     target: Target,
-  ) => `${sourceNodeId}:${sourceLabel}:${target.nodeId}:${target.label}`
+    sourceType: ReferenceSourceType,
+  ) => `${sourceNodeId}:${sourceLabel}:${sourceType}:${target.nodeId}:${target.label}`
 
   const addReference = (
     references: Map<string, Reference>,
-    dependencies: Map<string, Dependency>,
+    dependencies: Map<string, SemanticDependency>,
     sourceNode: TreeNode.Node,
     sourceLabel: string,
     target: Target,
     sourceType: ReferenceSourceType,
   ) => {
     const formattedSourceLabel = `${sourceNode.element.kind}#${sourceLabel}`
-    const dependencyKey = createEdgeKey(sourceNode.id, formattedSourceLabel, target)
+    const dependencyKey = createEdgeKey(
+      sourceNode.id,
+      formattedSourceLabel,
+      target,
+      sourceType,
+    )
     if (target.canBeReferenced) {
-      references.set(`${dependencyKey}:${sourceType}`, {
+      references.set(dependencyKey, {
         sourceNodeId: sourceNode.id,
         sourceLabel: formattedSourceLabel,
         targetNodeId: target.nodeId,
@@ -372,6 +383,8 @@ namespace ReferenceGraph {
     }
     dependencies.set(dependencyKey, {
       sourceNodeId: sourceNode.id,
+      sourceLabel: formattedSourceLabel,
+      sourceType,
       targetNodeId: target.nodeId,
       targetLabel: target.label,
     })
@@ -389,7 +402,7 @@ namespace ReferenceGraph {
     styleLocalTargetIds: ReadonlySet<number>,
     visibleTypeTargetIds: ReadonlySet<number>,
     references: Map<string, Reference>,
-    dependencies: Map<string, Dependency>,
+    dependencies: Map<string, SemanticDependency>,
   ) => {
     if (source.trim().length === 0) return
     const sourceFile = TypeScript.createSourceFile(
@@ -599,7 +612,7 @@ namespace ReferenceGraph {
     styleLocalTargetIds: ReadonlySet<number>,
     visibleTypeTargetIds: ReadonlySet<number>,
     references: Map<string, Reference>,
-    dependencies: Map<string, Dependency>,
+    dependencies: Map<string, SemanticDependency>,
     visited: Set<unknown>,
   ) => {
     if (value == null || typeof value === 'boolean' || typeof value === 'number') return
@@ -758,7 +771,7 @@ namespace ReferenceGraph {
   type Edges = {
     targets: readonly Target[]
     references: readonly Reference[]
-    dependencies: readonly Dependency[]
+    dependencies: readonly SemanticDependency[]
   }
 
   const collectEdges = (
@@ -769,7 +782,7 @@ namespace ReferenceGraph {
     const styleLocalScopes = createStyleLocalScopes(rootNode)
     const targets = collectTargets(rootNode, rootNode, propsScopes)
     const references = new Map<string, Reference>()
-    const dependencies = new Map<string, Dependency>()
+    const dependencies = new Map<string, SemanticDependency>()
 
     const walk = (
       node: TreeNode.Node,
@@ -819,7 +832,21 @@ namespace ReferenceGraph {
       .sort((left, right) => left.sourceNodeId - right.sourceNodeId
         || left.targetNodeId - right.targetNodeId
         || left.targetLabel.localeCompare(right.targetLabel))
+      .map(({ sourceNodeId, targetNodeId, targetLabel }) => ({
+        sourceNodeId,
+        targetNodeId,
+        targetLabel,
+      }))
   }
+
+  export const collectSemanticDependencies = (
+    rootNode: TreeNode.Node,
+  ): readonly SemanticDependency[] => [...collectEdges(rootNode).dependencies]
+    .sort((left, right) => left.sourceNodeId - right.sourceNodeId
+      || left.sourceLabel.localeCompare(right.sourceLabel)
+      || left.sourceType.localeCompare(right.sourceType)
+      || left.targetNodeId - right.targetNodeId
+      || left.targetLabel.localeCompare(right.targetLabel))
 
   const selectFromEdges = (
     rootNode: TreeNode.Node,
@@ -854,7 +881,12 @@ namespace ReferenceGraph {
           && dependency.sourceNodeId === dependency.targetNodeId
           && dependency.targetLabel.startsWith('function-parameter.')
         ))
-        .sort((left, right) => left.targetNodeId - right.targetNodeId || left.targetLabel.localeCompare(right.targetLabel)),
+        .sort((left, right) => left.targetNodeId - right.targetNodeId || left.targetLabel.localeCompare(right.targetLabel))
+        .map(({ sourceNodeId, targetNodeId, targetLabel }) => ({
+          sourceNodeId,
+          targetNodeId,
+          targetLabel,
+        })),
     }
   }
 

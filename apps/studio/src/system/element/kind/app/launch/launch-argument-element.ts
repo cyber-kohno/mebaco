@@ -46,6 +46,7 @@ namespace LaunchArgumentElement {
   export const definition = {
     kind: 'launch-argument',
     treeLabel: { type: 'component', Component: LaunchArgumentTreeLabel },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = context.parentNode?.children

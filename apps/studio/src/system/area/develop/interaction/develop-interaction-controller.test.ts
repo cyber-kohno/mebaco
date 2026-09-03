@@ -8,9 +8,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../action-menu/action-menu-controller', () => ({
   default: { close: mocks.closeActionMenu },
 }))
-vi.mock('../../../analysis/reference/reference-graph-controller', () => ({
-  default: { close: vi.fn() },
-}))
 vi.mock('../../../store/tree-store', () => ({
   default: {
     onLifecycle: vi.fn(() => vi.fn()),

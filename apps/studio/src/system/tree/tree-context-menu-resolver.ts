@@ -36,7 +36,8 @@ namespace TreeContextMenuResolver {
       withDisabled,
       node,
     )
-    return TreeDestinationController.addCopyAction(withExtraction, node)
+    const withCopy = TreeDestinationController.addCopyAction(withExtraction, node)
+    return TreeDestinationController.addMoveAction(withCopy, node)
   }
 }
 

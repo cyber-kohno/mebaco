@@ -1,5 +1,4 @@
 import ActionMenu from '../../../action-menu/action-menu-controller'
-import ReferenceGraphController from '../../../analysis/reference/reference-graph-controller'
 import TreeStore from '../../../store/tree-store'
 import TreeNode from '../../../tree/tree-node'
 import TreeViewportController from '../../../tree/tree-viewport-controller'
@@ -48,7 +47,6 @@ namespace DevelopInteractionController {
       'type' | 'phase' | 'originViewRootNodeId'
     >,
   ) => {
-    ReferenceGraphController.close()
     const rootNode = get(TreeStore.rootNode)
     const originViewRootNodeId = get(TreeViewportController.state).viewRootNodeId
     TreeViewportController.setViewRootNodeId(rootNode, null)

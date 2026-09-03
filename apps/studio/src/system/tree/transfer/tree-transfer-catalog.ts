@@ -14,7 +14,24 @@ namespace TreeTransferCatalog {
     | 'function'
     | 'tag'
 
+  export type MovableKind =
+    | 'style'
+    | 'object-type'
+    | 'union-type'
+    | 'signature-type'
+    | 'function'
+    | 'tag'
+
   const kinds = new Set<MebacoElement.Kind>([
+    'style',
+    'object-type',
+    'union-type',
+    'signature-type',
+    'function',
+    'tag',
+  ])
+
+  const movableKinds = new Set<MebacoElement.Kind>([
     'style',
     'object-type',
     'union-type',
@@ -26,6 +43,10 @@ namespace TreeTransferCatalog {
   export const isTransferableKind = (
     kind: MebacoElement.Kind,
   ): kind is TransferableKind => kinds.has(kind)
+
+  export const isMovableKind = (
+    kind: MebacoElement.Kind,
+  ): kind is MovableKind => movableKinds.has(kind)
 
   export const getLabel = (
     element: MebacoElement.Element,
@@ -129,6 +150,7 @@ namespace TreeTransferCatalog {
   ): boolean => {
     if (!isTransferableKind(sourceNode.element.kind)) return false
     if (operation === 'move') {
+      if (!isMovableKind(sourceNode.element.kind)) return false
       if (sourceNode.id === destinationNode.id) return false
       if (TreeNode.isDescendantOrSelf(rootNode, sourceNode.id, destinationNode.id)) return false
       if (TreeNode.findParent(rootNode, sourceNode.id)?.id === destinationNode.id) return false

@@ -9,6 +9,11 @@ namespace TreeTransferPlanner {
     nodeIds: ReadonlyMap<number, number>
   }
 
+  export type MovePlan = {
+    rootNode: TreeNode.Node
+    movedNodeId: number
+  }
+
   const findMaxNodeId = (node: TreeNode.Node): number => node.children.reduce(
     (maximum, child) => Math.max(maximum, findMaxNodeId(child)),
     node.id,
@@ -56,6 +61,54 @@ namespace TreeTransferPlanner {
       rootNode: nextRoot,
       copiedNodeId: copied.node.id,
       nodeIds: copied.nodeIds,
+    }
+  }
+
+  export const move = (
+    rootNode: TreeNode.Node,
+    sourceNodeId: number,
+    destinationNodeId: number,
+  ): MovePlan => {
+    const sourceNode = TreeNode.findNode(rootNode, sourceNodeId)
+    const destinationNode = TreeNode.findNode(rootNode, destinationNodeId)
+    if (sourceNode == null) throw new Error(`node-${sourceNodeId} was not found.`)
+    if (destinationNode == null) throw new Error(`node-${destinationNodeId} was not found.`)
+    const sourceElement = sourceNode.element
+    if (!TreeTransferCatalog.isMovableKind(sourceElement.kind)) {
+      throw new Error('This element cannot be moved.')
+    }
+    if (!TreeTransferCatalog.canPasteTo(rootNode, sourceNode, destinationNode, 'move')) {
+      throw new Error('The selected destination cannot contain this element.')
+    }
+
+    const nextRoot = TreeNode.clone(rootNode)
+    const nextSource = TreeNode.findNode(nextRoot, sourceNodeId)
+    const nextParent = TreeNode.findParent(nextRoot, sourceNodeId)
+    if (nextSource == null || nextParent == null) {
+      throw new Error(`node-${sourceNodeId} cannot be moved.`)
+    }
+    const sourceIndex = nextParent.children.findIndex((child) => child.id === sourceNodeId)
+    if (sourceIndex < 0) throw new Error(`node-${sourceNodeId} cannot be moved.`)
+    nextParent.children.splice(sourceIndex, 1)
+
+    const nextDestination = TreeNode.findNode(nextRoot, destinationNodeId)
+    if (nextDestination == null) throw new Error(`node-${destinationNodeId} was not found.`)
+    const nameError = TreeTransferCatalog.validateName(
+      nextRoot,
+      nextDestination,
+      sourceElement.kind,
+      TreeTransferCatalog.getLabel(sourceElement),
+    )
+    if (nameError != null) throw new Error(nameError)
+
+    const insertIndex = TreeTransferCatalog.getInsertIndex(nextDestination)
+    if (insertIndex == null) nextDestination.children.push(nextSource)
+    else nextDestination.children.splice(insertIndex, 0, nextSource)
+    nextDestination.isOpen = true
+
+    return {
+      rootNode: nextRoot,
+      movedNodeId: sourceNodeId,
     }
   }
 }

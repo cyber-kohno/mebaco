@@ -90,6 +90,39 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, functionNode, types, 'copy')).toBe(false)
   })
 
+  it('enables Move only for the kinds introduced so far', () => {
+    const style = node(3, StyleElement.create('card', [], [], 'style-id'))
+    const object = node(5, ObjectTypeElement.create('User', 'type-id'))
+    const union = node(13, {
+      kind: 'union-type',
+      id: 'Result',
+      typeId: 'union-id',
+      definition: UnionDefinition.createLiteral('string', ['ok']),
+    })
+    const signature = node(14, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'signature-id',
+      ...SignatureDefinition.create(),
+    })
+    const movableFunction = node(15, inlineFunction('calculate'))
+    const tag = node(12, TagElement.create('div', ''))
+    const styles = node(2, StylesElement.create(), [style])
+    const retention = node(6, RetentionElement.create())
+    const root = node(1, ProjectElement.create(), [styles, object, retention])
+
+    expect(TreeTransferCatalog.isMovableKind(style.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(object.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(union.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(signature.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(movableFunction.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(tag.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, style, retention, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, style, styles, 'move')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, object, retention, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, union, retention, 'move')).toBe(true)
+  })
+
   it('offers only View content destinations for a Tag', () => {
     const source = node(3, TagElement.create('span', 'source'))
     const containerTag = node(4, TagElement.create('div', 'container'))
@@ -131,6 +164,10 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, source, retentionBlock, 'copy')).toBe(false)
     expect(TreeTransferCatalog.canPasteTo(root, source, procedureBlock, 'copy')).toBe(false)
     expect(TreeTransferCatalog.canPasteTo(root, source, controlIf, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, containerTag, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retainedElements, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, voidTag, 'move')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retentionBlock, 'move')).toBe(false)
   })
 
   it('copies a Style subtree with fresh owned identities and preserved external references', () => {
@@ -164,6 +201,728 @@ describe('TreeTransfer', () => {
     if (copiedParameter?.kind !== 'style-param') throw new Error('Expected copied parameter.')
     expect(copiedParameter.parameterId).not.toBe('source-parameter')
     expect(source.element).toMatchObject({ styleId: 'source-style', id: 'card' })
+  })
+
+  it('moves a Style subtree atomically while preserving every identity', async () => {
+    const parameter = node(
+      7,
+      StyleParamElement.create('accent', 'string', undefined, 'source-parameter'),
+    )
+    const source = node(
+      5,
+      StyleElement.create('card', [], [], 'source-style'),
+      [node(6, { kind: 'style-params' }, [parameter])],
+    )
+    const styles = node(2, StylesElement.create(), [source])
+    const destination = node(8, RetentionElement.create())
+    const root = node(1, ProjectElement.create(), [styles, destination])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destination.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)
+    const movedParameter = TreeNode.findNode(plan.rootNode, parameter.id)
+
+    expect(styles.children).toEqual([source])
+    expect(TreeNode.findNode(root, source.id)).toBe(source)
+    expect(plan.rootNode.children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children.map((child) => child.id)).toEqual([source.id])
+    expect(moved?.element).toEqual(source.element)
+    expect(movedParameter?.element).toEqual(parameter.element)
+    expect(plan.movedNodeId).toBe(source.id)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects a Style Move when its Id already exists at the destination', () => {
+    const source = node(3, StyleElement.create('card', [], [], 'source-style'))
+    const existing = node(6, StyleElement.create('card', [], [], 'existing-style'))
+    const styles = node(2, StylesElement.create(), [source])
+    const destination = node(5, RetentionElement.create(), [existing])
+    const root = node(1, ProjectElement.create(), [styles, destination])
+
+    expect(() => TreeTransferPlanner.move(root, source.id, destination.id))
+      .toThrow('Already exists.')
+    expect(styles.children).toEqual([source])
+    expect(destination.children).toEqual([existing])
+  })
+
+  it('rejects a Style Move when an expression would bind to another App State', () => {
+    const state = (id: number, stateId: string) => node(id, {
+      kind: 'state',
+      id: 'value',
+      valueType: TypeExpression.createPrimitive('number'),
+      nullable: false,
+      initial: { type: 'literal', value: stateId === 'source-state' ? '1' : '2' },
+    })
+    const source = node(6, StyleElement.create('card', [{
+      type: 'declaration',
+      property: 'z-index',
+      value: { type: 'formula', source: '$state.value.toString()' },
+    }], [], 'source-style'))
+    const sourceRetention = node(5, RetentionElement.create(), [source])
+    const destinationRetention = node(11, RetentionElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'store' }, [node(4, { kind: 'states' }, [state(7, 'source-state')])]),
+        sourceRetention,
+      ]),
+      node(8, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(9, { kind: 'store' }, [node(10, { kind: 'states' }, [state(12, 'destination-state')])]),
+        destinationRetention,
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationRetention.id)
+
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
+      .toContain('would change a reference target')
+  })
+
+  it('moves an Object Type while preserving its Type and Property identities', async () => {
+    const nestedProperty = TypeExpression.createProperty(
+      'label',
+      TypeExpression.createPrimitive(),
+      'nested-property',
+    )
+    const source = node(5, ObjectTypeElement.create('Payload', 'payload-type', [
+      TypeExpression.createProperty(
+        'child',
+        TypeExpression.createReference(['payload-type']),
+        'recursive-property',
+      ),
+      TypeExpression.createProperty(
+        'details',
+        TypeExpression.createObject([nestedProperty]),
+        'object-property',
+      ),
+    ]))
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)?.element
+    if (moved?.kind !== 'object-type') throw new Error('Expected moved Object Type.')
+
+    expect(sourceTypes.children).toEqual([source])
+    expect(plan.rootNode.children[0].children[0].children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].children[0].children[0].id).toBe(source.id)
+    expect(moved.typeId).toBe('payload-type')
+    expect(moved.properties.map((property) => property.propertyId)).toEqual([
+      'recursive-property',
+      'object-property',
+    ])
+    const movedNested = TypeExpression.unwrapArray(moved.properties[1].valueType).base
+    if (movedNested.type !== 'object') throw new Error('Expected nested Object Type.')
+    expect(movedNested.properties[0].propertyId).toBe('nested-property')
+    expect(TypeExpression.unwrapArray(moved.properties[0].valueType).base).toMatchObject({
+      type: 'reference',
+      objectTypeIds: ['payload-type'],
+    })
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects an Object Type Move when its Id already exists at the destination', () => {
+    const source = node(5, ObjectTypeElement.create('Payload', 'source-type'))
+    const existing = node(9, ObjectTypeElement.create('Payload', 'existing-type'))
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create(), [existing])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    expect(() => TreeTransferPlanner.move(root, source.id, destinationTypes.id))
+      .toThrow('Already exists.')
+    expect(sourceTypes.children).toEqual([source])
+    expect(destinationTypes.children).toEqual([existing])
+  })
+
+  it('rejects an Object Type Move that would break an incoming Type reference', () => {
+    const source = node(5, ObjectTypeElement.create('Payload', 'payload-type'))
+    const consumer = node(6, ObjectTypeElement.create('Envelope', 'envelope-type', [
+      TypeExpression.createProperty(
+        'payload',
+        TypeExpression.createReference(['payload-type']),
+        'payload-property',
+      ),
+    ]))
+    const sourceTypes = node(4, TypesElement.create(), [source, consumer])
+    const destinationTypes = node(9, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${consumer.id}`)
+  })
+
+  it('rejects an Object Type Move that would change an external $type dependency', () => {
+    const source = node(5, ObjectTypeElement.create('Payload', 'payload-type'))
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const action = node(6, {
+      kind: 'action',
+      comment: '',
+      source: 'const payload = {} as $type.Payload; return payload',
+    })
+    const destinationTypes = node(9, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+        action,
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
+      .toContain(`node-${action.id}`)
+  })
+
+  it('moves a Union Type while preserving its Type identity and definition', async () => {
+    const source = node(5, {
+      kind: 'union-type',
+      id: 'Status',
+      typeId: 'status-type',
+      definition: UnionDefinition.createLiteral('string', ['ready', 'done']),
+    })
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)?.element
+    if (moved?.kind !== 'union-type') throw new Error('Expected moved Union Type.')
+
+    expect(sourceTypes.children).toEqual([source])
+    expect(plan.rootNode.children[0].children[0].children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].children[0].children[0].id).toBe(source.id)
+    expect(moved.typeId).toBe('status-type')
+    expect(moved.definition).toEqual(
+      UnionDefinition.createLiteral('string', ['ready', 'done']),
+    )
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects a Union Type Move when its Id already exists at the destination', () => {
+    const source = node(5, {
+      kind: 'union-type',
+      id: 'Status',
+      typeId: 'source-union',
+      definition: UnionDefinition.createLiteral('string', ['ready']),
+    })
+    const existing = node(9, {
+      kind: 'union-type',
+      id: 'Status',
+      typeId: 'existing-union',
+      definition: UnionDefinition.createLiteral('string', ['done']),
+    })
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create(), [existing])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    expect(() => TreeTransferPlanner.move(root, source.id, destinationTypes.id))
+      .toThrow('Already exists.')
+    expect(sourceTypes.children).toEqual([source])
+    expect(destinationTypes.children).toEqual([existing])
+  })
+
+  it('rejects a Union Type Move when a referenced Object is unavailable there', () => {
+    const object = node(5, ObjectTypeElement.create('Payload', 'payload-type'))
+    const source = node(6, {
+      kind: 'union-type',
+      id: 'Result',
+      typeId: 'result-type',
+      definition: UnionDefinition.createObject(['payload-type']),
+    })
+    const sourceTypes = node(4, TypesElement.create(), [object, source])
+    const destinationTypes = node(9, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${source.id}`)
+  })
+
+  it('rejects a Union Type Move that would break an incoming named Type reference', () => {
+    const source = node(5, {
+      kind: 'union-type',
+      id: 'Status',
+      typeId: 'status-type',
+      definition: UnionDefinition.createLiteral('string', ['ready']),
+    })
+    const consumer = node(6, ObjectTypeElement.create('Task', 'task-type', [
+      TypeExpression.createProperty(
+        'status',
+        TypeExpression.createNamed('status-type'),
+        'status-property',
+      ),
+    ]))
+    const sourceTypes = node(4, TypesElement.create(), [source, consumer])
+    const destinationTypes = node(9, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${consumer.id}`)
+  })
+
+  it('moves a Signature Type while preserving all owned identities', async () => {
+    const definition = SignatureDefinition.create(false, [
+      SignatureDefinition.createParameter(
+        'payload',
+        TypeExpression.createObject([
+          TypeExpression.createProperty(
+            'value',
+            TypeExpression.createPrimitive('string'),
+            'nested-property',
+          ),
+        ]),
+        false,
+        'payload-parameter',
+      ),
+    ], {
+      valueType: TypeExpression.createPrimitive('boolean'),
+      nullable: false,
+    })
+    const source = node(5, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'handler-signature',
+      ...definition,
+    })
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)?.element
+    if (moved?.kind !== 'signature-type') throw new Error('Expected moved Signature Type.')
+
+    expect(sourceTypes.children).toEqual([source])
+    expect(plan.rootNode.children[0].children[0].children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].children[0].children[0].id).toBe(source.id)
+    expect(moved.typeId).toBe('handler-signature')
+    expect(moved.parameters[0].parameterId).toBe('payload-parameter')
+    const parameterType = TypeExpression.unwrapArray(moved.parameters[0].valueType).base
+    if (parameterType.type !== 'object') throw new Error('Expected inline Object parameter.')
+    expect(parameterType.properties[0].propertyId).toBe('nested-property')
+    expect(moved.returnType).toEqual(definition.returnType)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects a Signature Type Move when its Id already exists at the destination', () => {
+    const source = node(5, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'source-signature',
+      ...SignatureDefinition.create(),
+    })
+    const existing = node(9, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'existing-signature',
+      ...SignatureDefinition.create(),
+    })
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const destinationTypes = node(8, TypesElement.create(), [existing])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    expect(() => TreeTransferPlanner.move(root, source.id, destinationTypes.id))
+      .toThrow('Already exists.')
+    expect(sourceTypes.children).toEqual([source])
+    expect(destinationTypes.children).toEqual([existing])
+  })
+
+  it('rejects a Signature Type Move when a Parameter Type is unavailable there', () => {
+    const payload = node(5, ObjectTypeElement.create('Payload', 'payload-type'))
+    const source = node(6, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'handler-signature',
+      ...SignatureDefinition.create(false, [
+        SignatureDefinition.createParameter(
+          'payload',
+          TypeExpression.createReference(['payload-type']),
+          false,
+          'payload-parameter',
+        ),
+      ]),
+    })
+    const sourceTypes = node(4, TypesElement.create(), [payload, source])
+    const destinationTypes = node(9, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes]),
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${source.id}`)
+  })
+
+  it('rejects a Signature Type Move that would make a referring Function invalid', () => {
+    const source = node(5, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'handler-signature',
+      ...SignatureDefinition.create(),
+    })
+    const functionNode = node(7, referFunction('handle', 'handler-signature'))
+    const sourceTypes = node(4, TypesElement.create(), [source])
+    const functions = node(6, { kind: 'functions' }, [functionNode])
+    const destinationTypes = node(11, TypesElement.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes, functions]),
+      ]),
+      node(9, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(10, { kind: 'declares' }, [destinationTypes]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationTypes.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${functionNode.id}`)
+  })
+
+  it('moves a Code Function while preserving its identity, Signature, and self call', async () => {
+    const signature = SignatureDefinition.create(false, [
+      SignatureDefinition.createParameter(
+        'value',
+        TypeExpression.createObject([
+          TypeExpression.createProperty(
+            'amount',
+            TypeExpression.createPrimitive('number'),
+            'amount-property',
+          ),
+        ]),
+        false,
+        'value-parameter',
+      ),
+    ])
+    const source = node(5, inlineFunction(
+      'calculate',
+      signature,
+      { mode: 'code', source: 'return $fn.calculate(value)' },
+    ))
+    const sourceFunctions = node(4, { kind: 'functions' }, [source])
+    const destinationFunctions = node(8, { kind: 'functions' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceFunctions]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationFunctions.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)?.element
+    if (
+      moved?.kind !== 'function'
+      || moved.signature.mode !== 'inline'
+      || moved.implementation.mode !== 'code'
+    ) throw new Error('Expected moved Code Function.')
+
+    expect(sourceFunctions.children).toEqual([source])
+    expect(plan.rootNode.children[0].children[0].children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].children[0].children[0].id).toBe(source.id)
+    expect(moved.id).toBe('calculate')
+    expect(moved.signature.definition.parameters[0].parameterId).toBe('value-parameter')
+    const parameterType = TypeExpression.unwrapArray(
+      moved.signature.definition.parameters[0].valueType,
+    ).base
+    if (parameterType.type !== 'object') throw new Error('Expected inline Object parameter.')
+    expect(parameterType.properties[0].propertyId).toBe('amount-property')
+    expect(moved.implementation.source).toBe('return $fn.calculate(value)')
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('moves a Procedure Function with its local definitions and identities intact', () => {
+    const localObject = node(7, ObjectTypeElement.create(
+      'Payload',
+      'local-object',
+      [TypeExpression.createProperty(
+        'value',
+        TypeExpression.createPrimitive('string'),
+        'local-property',
+      )],
+    ))
+    const localSignature = node(8, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'local-signature',
+      ...SignatureDefinition.create(false, [
+        SignatureDefinition.createParameter(
+          'payload',
+          TypeExpression.createReference(['local-object']),
+          false,
+          'local-parameter',
+        ),
+      ]),
+    })
+    const nestedFunction = node(9, referFunction('handle', 'local-signature'))
+    const procedure = node(6, FunctionProcedureElement.create(), [
+      localObject,
+      localSignature,
+      nestedFunction,
+    ])
+    const source = node(5, inlineFunction('process'), [procedure])
+    const sourceFunctions = node(4, { kind: 'functions' }, [source])
+    const destinationFunctions = node(13, { kind: 'functions' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceFunctions]),
+      ]),
+      node(11, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(12, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationFunctions.id)
+    const movedObject = TreeNode.findNode(plan.rootNode, localObject.id)?.element
+    const movedSignature = TreeNode.findNode(plan.rootNode, localSignature.id)?.element
+    const movedFunction = TreeNode.findNode(plan.rootNode, nestedFunction.id)?.element
+    if (
+      movedObject?.kind !== 'object-type'
+      || movedSignature?.kind !== 'signature-type'
+      || movedFunction?.kind !== 'function'
+      || movedFunction.signature.mode !== 'refer'
+    ) throw new Error('Expected moved local definitions.')
+
+    expect(movedObject.typeId).toBe('local-object')
+    expect(movedObject.properties[0].propertyId).toBe('local-property')
+    expect(movedSignature.typeId).toBe('local-signature')
+    expect(movedSignature.parameters[0].parameterId).toBe('local-parameter')
+    expect(movedFunction.signature.signatureTypeId).toBe('local-signature')
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+  })
+
+  it('rejects a Function Move when its Id already exists in the destination scope', () => {
+    const source = node(5, inlineFunction('calculate'))
+    const existing = node(9, inlineFunction('calculate'))
+    const sourceFunctions = node(4, { kind: 'functions' }, [source])
+    const destinationFunctions = node(8, { kind: 'functions' }, [existing])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceFunctions]),
+      ]),
+      node(6, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(7, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    expect(() => TreeTransferPlanner.move(root, source.id, destinationFunctions.id))
+      .toThrow('Already exists.')
+    expect(sourceFunctions.children).toEqual([source])
+    expect(destinationFunctions.children).toEqual([existing])
+  })
+
+  it('rejects a Function Move that would break an external caller', () => {
+    const source = node(5, inlineFunction('calculate'))
+    const caller = node(6, inlineFunction(
+      'caller',
+      SignatureDefinition.create(),
+      { mode: 'code', source: 'return $fn.calculate()' },
+    ))
+    const sourceFunctions = node(4, { kind: 'functions' }, [source, caller])
+    const destinationFunctions = node(10, { kind: 'functions' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceFunctions]),
+      ]),
+      node(8, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(9, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationFunctions.id)
+
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
+      .toContain(`node-${caller.id}`)
+  })
+
+  it('rejects a Function Move that would rebind its App State dependency', () => {
+    const state = (id: number, initial: string) => node(id, {
+      kind: 'state',
+      id: 'value',
+      valueType: TypeExpression.createPrimitive('number'),
+      nullable: false,
+      initial: { type: 'literal', value: initial },
+    })
+    const source = node(7, inlineFunction(
+      'readValue',
+      SignatureDefinition.create(),
+      { mode: 'code', source: 'return $state.value' },
+    ))
+    const sourceFunctions = node(6, { kind: 'functions' }, [source])
+    const destinationFunctions = node(14, { kind: 'functions' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'store' }, [node(4, { kind: 'states' }, [state(5, '1')])]),
+        node(8, { kind: 'declares' }, [sourceFunctions]),
+      ]),
+      node(9, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(10, { kind: 'store' }, [node(11, { kind: 'states' }, [state(12, '2')])]),
+        node(13, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationFunctions.id)
+
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
+      .toContain(`node-${source.id}`)
+  })
+
+  it('rejects a Function Move when its referenced Signature is unavailable there', () => {
+    const signature = node(5, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'handler-signature',
+      ...SignatureDefinition.create(),
+    })
+    const source = node(7, referFunction('handle', 'handler-signature'))
+    const sourceTypes = node(4, TypesElement.create(), [signature])
+    const sourceFunctions = node(6, { kind: 'functions' }, [source])
+    const destinationFunctions = node(11, { kind: 'functions' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [sourceTypes, sourceFunctions]),
+      ]),
+      node(9, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(10, { kind: 'declares' }, [destinationFunctions]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationFunctions.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(root, plan.rootNode, source.id))
+      .toContain(`node-${source.id}`)
   })
 
   it('copies an unnamed Tag while preserving values and refreshing Style application identities', () => {
@@ -215,6 +974,87 @@ describe('TreeTransfer', () => {
       plan.rootNode,
       plan.nodeIds,
     )).toBeNull()
+  })
+
+  it('moves a Tag with its identity and Ref key without statically resolving Ref collisions', async () => {
+    const source = node(4, TagElement.create(
+      'button',
+      'Save',
+      [],
+      [{
+        type: 'event',
+        name: 'click',
+        preventDefault: false,
+        stopPropagation: false,
+        action: { type: 'script', source: "$system.getRef('saveButton')?.focus()" },
+      }],
+      { type: 'literal', value: 'saveButton' },
+    ), [node(5, TagElement.create('span', 'Label'))])
+    const existing = node(7, TagElement.create(
+      'div',
+      'Existing',
+      [],
+      [],
+      { type: 'literal', value: 'saveButton' },
+    ))
+    const sourceElements = node(3, { kind: 'elements' }, [source])
+    const destinationElements = node(6, { kind: 'elements' }, [existing])
+    const root = node(1, ProjectElement.create(), [sourceElements, destinationElements])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationElements.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)
+
+    expect(sourceElements.children).toEqual([source])
+    expect(plan.rootNode.children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children.map((child) => child.id))
+      .toEqual([existing.id, source.id])
+    expect(moved?.element).toEqual(source.element)
+    expect(moved?.children[0].id).toBe(5)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('still validates ordinary dependencies used by a moved Tag Ref key formula', () => {
+    const prop = (id: number, propId: string) => node(id, {
+      kind: 'value-prop',
+      propId,
+      id: 'refName',
+      valueType: TypeExpression.createPrimitive('string'),
+      nullable: false,
+    })
+    const source = node(6, TagElement.create(
+      'button',
+      'Save',
+      [],
+      [],
+      { type: 'formula', source: '$props.refName' },
+    ))
+    const sourceElements = node(5, { kind: 'elements' }, [source])
+    const destinationElements = node(10, { kind: 'elements' })
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'component', componentId: 'source-component', id: 'Source' }, [
+        node(3, { kind: 'props' }, [prop(4, 'source-prop')]),
+        sourceElements,
+      ]),
+      node(7, { kind: 'component', componentId: 'destination-component', id: 'Destination' }, [
+        node(8, { kind: 'props' }, [prop(9, 'destination-prop')]),
+        destinationElements,
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationElements.id)
+
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
+      .toContain(`node-${source.id}`)
   })
 
   it('remaps local Style, Component, Prop, and Slot identities in a retained Tag subtree', () => {

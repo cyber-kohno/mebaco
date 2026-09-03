@@ -1,5 +1,6 @@
 import type ElementDefinition from '../../element-definition'
 import DebugConfigurationsElement from './debug-configurations-element'
+import DebugLogElement from './debug-log-element'
 
 namespace DebugElement {
   export type Kind = 'debug'
@@ -12,6 +13,7 @@ namespace DebugElement {
     treeLabel: { type: 'static', kindText: 'Debug', tone: 'manager' },
     createInitialChildren: () => [
       { element: DebugConfigurationsElement.create() },
+      { element: DebugLogElement.create() },
     ],
     getContextMenu: () => [],
     childSlots: [],

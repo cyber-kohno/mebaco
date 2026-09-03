@@ -49,6 +49,7 @@ namespace SqliteResourceElement {
   export const definition = {
     kind: 'sqlite-resource',
     treeLabel: { type: 'static', kindText: 'SQLite', tone: 'master', getValueText: (element: Element) => element.id },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = (context.parentNode?.children ?? [])

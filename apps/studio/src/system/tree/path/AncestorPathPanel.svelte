@@ -1,5 +1,6 @@
 <script lang="ts">
   import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
+  import ElementRegistry from '../../element/element-registry'
   import TreeStore from '../../store/tree-store'
   import TreeNavigationController from '../tree-navigation-controller'
   import TreeNode from '../tree-node'
@@ -19,6 +20,17 @@
     ancestorPath.findIndex((node) => node.id === criteriaNodeId),
   )
   const navigationDisabled = $derived($developInteractionStore.type !== 'normal')
+
+  const setCriteria = (
+    event: MouseEvent,
+    nodeId: number,
+  ) => {
+    event.preventDefault()
+    if (navigationDisabled) return
+
+    const changed = TreeViewportController.setViewRootNodeId($rootNodeStore, nodeId)
+    if (changed) TreeViewportController.requestReveal($selectedNodeIdStore)
+  }
 </script>
 
 <nav
@@ -27,6 +39,7 @@
   aria-label="Ancestor path"
 >
   {#each ancestorPath as node, index (node.id)}
+    {@const hierarchyText = ElementRegistry.getHierarchyText($rootNodeStore, node)}
     <button
       type="button"
       class="ancestor-row"
@@ -34,18 +47,20 @@
       class:criteria={node.id === criteriaNodeId}
       class:selected={node.id === $selectedNodeIdStore}
       disabled={navigationDisabled}
-      title={`${node.id} ${node.element.kind}`}
-      aria-label={`Node ${node.id}, ${node.element.kind}`}
+      title={`${node.id} ${hierarchyText}`}
+      aria-label={`Node ${node.id}, ${hierarchyText}`}
       aria-current={node.id === $selectedNodeIdStore ? 'location' : undefined}
       onclick={() => TreeNavigationController.jumpToNode(node.id)}
+      oncontextmenu={(event) => setCriteria(event, node.id)}
     >
       <span class="node-number">{node.id}</span>
       <span
         class="node-kind"
         class:project-kind={node.element.kind === 'project'}
-        class:primary-kind={node.element.kind === 'component' || node.element.kind === 'app'}
+        class:app-kind={node.element.kind === 'app'}
+        class:component-kind={node.element.kind === 'component'}
         class:nested-kind={node.element.kind !== 'project' && node.element.kind !== 'component' && node.element.kind !== 'app'}
-      >{node.element.kind}</span>
+      >{hierarchyText}</span>
     </button>
   {/each}
 </nav>
@@ -98,8 +113,6 @@
 
   .ancestor-row.selected {
     background: rgba(85, 147, 239, 0.28);
-    color: var(--mbc-color-text, #203d44);
-    font-weight: 700;
   }
 
   .ancestor-row:disabled {
@@ -123,11 +136,18 @@
   }
 
   .node-kind.project-kind {
-    color: #175fbf;
+    color: #171717;
+    font-weight: 600;
   }
 
-  .node-kind.primary-kind {
+  .node-kind.app-kind {
+    color: #175fbf;
+    font-weight: 600;
+  }
+
+  .node-kind.component-kind {
     color: #b3263e;
+    font-weight: 600;
   }
 
   .node-kind.nested-kind {

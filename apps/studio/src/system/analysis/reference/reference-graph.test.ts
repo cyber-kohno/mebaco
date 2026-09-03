@@ -522,6 +522,13 @@ describe('ReferenceGraph', () => {
       targetNodeId: functionNode.id,
       targetLabel: 'function-parameter.value',
     })
+    expect(ReferenceGraph.collectSemanticDependencies(root)).toContainEqual({
+      sourceNodeId: functionNode.id,
+      sourceLabel: 'function#implementation',
+      sourceType: 'expression',
+      targetNodeId: functionNode.id,
+      targetLabel: 'function-parameter.value',
+    })
   })
 
   it('keeps separate Dependencies for multiple Parameters owned by one Function node', () => {

@@ -116,7 +116,10 @@ namespace RetentionResolver {
           }
         }
       } else if (child.element.kind === 'action') {
-        const executed = ActionEvaluator.executeScript(child.element.source, nextContext)
+        const executed = ActionEvaluator.executeScript(
+          child.element.source,
+          FormulaContextValue.forNode(nextContext, child.id),
+        )
         if (!executed.ok) {
           return { context: nextContext, error: executed.error, errorNodeId: child.id }
         }

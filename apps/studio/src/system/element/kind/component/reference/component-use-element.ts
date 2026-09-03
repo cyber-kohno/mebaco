@@ -323,6 +323,13 @@ namespace ComponentUseElement {
       type: 'component',
       Component: ComponentUseTreeLabel,
     },
+    getHierarchyText: ({ element, node, rootNode }) => {
+      if (element.componentId == null) return '<->'
+      const componentNode = findComponentNode(rootNode, node.id, element.componentId)
+      return componentNode?.element.kind === 'component'
+        ? `<${componentNode.element.id}>`
+        : '<->'
+    },
     syncChildren: syncSlots,
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

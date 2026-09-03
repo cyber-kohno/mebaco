@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { elementDialogStore } from '../../element-dialog/element-dialog-store'
+  import { elementSearchStore } from '../../element-search/element-search-store'
+  import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
+  import RuntimeSessionStore from '../../runtime/runtime-session-store'
   import { commandSessionStore } from '../../terminal/command-session-store'
   import TreeStore from '../../store/tree-store'
   import TreeNode from '../../tree/tree-node'
@@ -11,23 +13,19 @@
   const rootNodeStore = TreeStore.rootNode
   const selectedNodeIdStore = TreeStore.selectedNodeId
   const referenceGraphVisible = ReferenceGraphController.visible
+  const runtimeSessionStore = RuntimeSessionStore.store
 
-  onMount(() => {
-    const unsubscribeElementDialog = elementDialogStore.subscribe((session) => {
-      if (session != null) ReferenceGraphController.close()
-    })
-    const unsubscribeCommandSession = commandSessionStore.subscribe((session) => {
-      if (session != null) ReferenceGraphController.close()
-    })
-
-    return () => {
-      unsubscribeElementDialog()
-      unsubscribeCommandSession()
-    }
-  })
+  const panelVisible = $derived(
+    $referenceGraphVisible
+    && $elementDialogStore == null
+    && $commandSessionStore == null
+    && $elementSearchStore == null
+    && $runtimeSessionStore == null
+    && $developInteractionStore.type === 'normal'
+  )
 
   const graphSnapshot = $derived(
-    $referenceGraphVisible
+    panelVisible
       ? ReferenceGraph.createSnapshot($rootNodeStore)
       : null,
   )
@@ -37,7 +35,7 @@
   )
 
   const selectedNode = $derived(
-    !$referenceGraphVisible
+    !panelVisible
       ? null
       : TreeNode.findNode($rootNodeStore, $selectedNodeIdStore),
   )
@@ -54,7 +52,7 @@
   }
 </script>
 
-{#if $referenceGraphVisible && selectedNode != null && graph != null}
+{#if panelVisible && selectedNode != null && graph != null}
   <aside class="reference-graph" aria-label="Reference Graph">
     <header>
       <div>

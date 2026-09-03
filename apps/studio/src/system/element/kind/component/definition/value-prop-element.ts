@@ -64,6 +64,7 @@ namespace ValuePropElement {
       type: 'component',
       Component: ValuePropTreeLabel,
     },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = (context.parentNode?.children ?? [])

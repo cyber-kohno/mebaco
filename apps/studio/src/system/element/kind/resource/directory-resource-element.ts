@@ -100,6 +100,7 @@ namespace DirectoryResourceElement {
   export const definition = {
     kind: 'directory-resource',
     treeLabel: { type: 'static', kindText: 'Directory', tone: 'master', getValueText: (element: Element) => element.id },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = (context.parentNode?.children ?? [])

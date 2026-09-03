@@ -177,6 +177,12 @@ namespace ShortcutRegistry {
       run: (context) => runSelectedAction(context, TreeDestinationActionId.copy),
     },
     {
+      id: 'move-selected-node',
+      key: { key: 'x', ctrl: true },
+      when: (context) => getSelectedAction(context, TreeDestinationActionId.move) != null,
+      run: (context) => runSelectedAction(context, TreeDestinationActionId.move),
+    },
+    {
       id: 'modify-selected-node-enter',
       key: { key: 'Enter' },
       when: canModifySelectedNode,

@@ -2,6 +2,7 @@ import { writable } from 'svelte/store'
 import type AppElement from '../element/kind/app/app-element'
 import type TreeNode from '../tree/tree-node'
 import type ResourceRuntime from './resource/resource-runtime'
+import type RuntimeLog from './log/runtime-log'
 
 namespace RuntimeSessionStore {
   export type Session = {
@@ -9,6 +10,7 @@ namespace RuntimeSessionStore {
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
     resourceSession: ResourceRuntime.Session
+    logSession: RuntimeLog.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
   }

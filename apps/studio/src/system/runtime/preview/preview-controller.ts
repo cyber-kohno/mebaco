@@ -5,6 +5,7 @@ import RuntimeTree from '../runtime-tree'
 import ToastController from '../../feedback/toast/toast-controller'
 import ResourceRuntime from '../resource/resource-runtime'
 import { get } from 'svelte/store'
+import RuntimeLog from '../log/runtime-log'
 
 namespace PreviewController {
   const findOwnerApp = (
@@ -44,18 +45,21 @@ namespace PreviewController {
     launcherId?: string,
     launchValues?: Readonly<Record<string, unknown>>,
     resourceSession?: ResourceRuntime.Session,
+    logSession?: RuntimeLog.Session,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
     const runtime = RuntimeTree.createAppRuntime(appNode, rootNode)
     if (RuntimeTree.getEntryConfigurationError(runtime) != null) return false
     const effectiveResourceSession = resourceSession ?? ResourceRuntime.create(rootNode)
+    const effectiveLogSession = logSession ?? RuntimeLog.create(rootNode)
 
     RuntimeSessionStore.open({
       app: appNode.element as AppElement.Element,
       appNode,
       projectNode: rootNode,
       resourceSession: effectiveResourceSession,
+      logSession: effectiveLogSession,
       launcherId,
       launchValues,
     })
@@ -83,9 +87,17 @@ namespace PreviewController {
       ToastController.show('Transition target App was not found.', { tone: 'danger' })
       return false
     }
-    const resourceSession = get(RuntimeSessionStore.store)?.resourceSession
-      ?? ResourceRuntime.create(rootNode)
-    return openApp(rootNode, appNode, undefined, launchValues, resourceSession)
+    const currentSession = get(RuntimeSessionStore.store)
+    const resourceSession = currentSession?.resourceSession ?? ResourceRuntime.create(rootNode)
+    const logSession = currentSession?.logSession ?? RuntimeLog.create(rootNode)
+    return openApp(
+      rootNode,
+      appNode,
+      undefined,
+      launchValues,
+      resourceSession,
+      logSession,
+    )
   }
 
   export const close = () => {

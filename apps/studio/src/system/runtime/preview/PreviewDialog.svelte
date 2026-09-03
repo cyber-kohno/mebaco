@@ -20,6 +20,7 @@
         appNode={$sessionStore.appNode}
         projectNode={$sessionStore.projectNode}
         resourceSession={$sessionStore.resourceSession}
+        logSession={$sessionStore.logSession}
         launcherId={$sessionStore.launcherId}
         launchValues={$sessionStore.launchValues}
       />

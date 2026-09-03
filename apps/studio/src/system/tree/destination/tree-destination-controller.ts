@@ -47,6 +47,25 @@ namespace TreeDestinationController {
     ))
   }
 
+  export const addMoveAction = (
+    items: ActionMenuState.Item[],
+    node: TreeNode.Node,
+  ): ActionMenuState.Item[] => {
+    if (!TreeTransferCatalog.isMovableKind(node.element.kind)) return items
+    const { action } = ActionMenuState.createFactory()
+    return insertBeforeDelete(items, action(
+      'Move',
+      () => {
+        DevelopInteractionController.beginDestinationTransaction({
+          operation: { type: 'move', sourceKind: node.element.kind },
+          sourceNodeId: node.id,
+          sourceLabel: TreeTransferCatalog.getLabel(node.element),
+        })
+      },
+      { actionId: TreeDestinationActionId.move },
+    ))
+  }
+
   export const beginSignatureExtraction = (
     functionNode: TreeNode.Node & {
       element: Extract<TreeNode.Node['element'], { kind: 'function' }>
@@ -116,7 +135,7 @@ namespace TreeDestinationController {
           destinationNodeId: node.id,
         })
       },
-      mode.operation.type === 'copy'
+      mode.operation.type === 'copy' || mode.operation.type === 'move'
         ? { actionId: TreeDestinationActionId.pasteHere }
         : undefined,
     )]
@@ -132,18 +151,17 @@ namespace TreeDestinationController {
     const rootNode = get(TreeStore.rootNode)
     const destinationNode = TreeNode.findNode(rootNode, mode.destinationNodeId)
     if (destinationNode == null) return 'The selected destination is no longer available.'
-    if (
-      mode.operation.type === 'copy'
+    if (mode.operation.type === 'move') return null
+    if (mode.operation.type === 'copy'
       && TreeTransferCatalog.isTransferableKind(mode.operation.sourceKind)
-      && !TreeTransferCatalog.requiresName(mode.operation.sourceKind)
-    ) return null
+      && !TreeTransferCatalog.requiresName(mode.operation.sourceKind)) return null
     return TreeDestinationOperation.validateName(rootNode, destinationNode, mode, name)
   }
 
   export const getSuggestedName = (): string => {
     const mode = get(developInteractionStore)
     if (mode.type !== 'destination-transaction') return ''
-    if (mode.operation.type === 'extract-signature') return ''
+    if (mode.operation.type !== 'copy') return ''
     for (let index = 1; index < 1000; index += 1) {
       const candidate = TreeDestinationOperation.createSuggestedName(mode, index)
       if (getNameError(candidate) == null) return candidate
@@ -184,6 +202,7 @@ namespace TreeDestinationController {
 
       developInteractionStore.set({ type: 'normal' })
       TreeStore.commitRootChange(plan.rootNode)
+      if (plan.invalidateVerification) ExpressionVerificationStore.clear()
       preserved.forEach(({ nodeId, result }) => {
         const node = TreeNode.findNode(plan.rootNode, nodeId)
         if (node != null) ExpressionVerificationStore.setResult(node, result)

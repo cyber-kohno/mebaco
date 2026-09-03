@@ -12,6 +12,7 @@ import ComponentUseElement from '../../element/kind/component/reference/componen
 import ComponentReference from '../../element/kind/component/shared/component-reference'
 import SlotUseElement from '../../element/kind/component/definition/slot/slot-use-element'
 import ContentHost from '../../element/content-host'
+import ExpressionVerificationScope from '../../validation/expression/expression-verification-scope'
 import TreeNode from '../tree-node'
 
 namespace TreeTransferValidator {
@@ -162,6 +163,12 @@ namespace TreeTransferValidator {
           TypeCatalog.getNamedTypeOptions(rootNode, node.id),
         )
       case 'function': {
+        if (node.element.signature.mode === 'refer') {
+          const signatureTypeId = node.element.signature.signatureTypeId
+          if (!TypeCatalog.collectVisibleSignatures(rootNode, node.id).some((entry) => (
+            entry.element.typeId === signatureTypeId
+          ))) return `Function '${node.element.id}' refers to an unavailable Signature.`
+        }
         const signature = FunctionDefinition.resolveSignature(rootNode, node.element)
         if (signature == null) return `Function '${node.element.id}' refers to an unavailable Signature.`
         return SignatureDefinition.validate(
@@ -268,6 +275,97 @@ namespace TreeTransferValidator {
     return introduced.length === 0
       ? null
       : `The copied element is not valid in this scope: ${introduced.join(' ')}`
+  }
+
+  export const validateMoveStructure = (
+    previousRoot: TreeNode.Node,
+    candidateRoot: TreeNode.Node,
+    movedNodeId: number,
+  ): string | null => {
+    if (TreeNode.findNode(candidateRoot, movedNodeId) == null) {
+      return `node-${movedNodeId} is no longer available.`
+    }
+
+    const visit = (node: TreeNode.Node): string | null => {
+      const candidateError = validateNodeStructure(candidateRoot, node)
+      if (candidateError != null) {
+        const previousNode = TreeNode.findNode(previousRoot, node.id)
+        const previousError = previousNode == null
+          ? null
+          : validateNodeStructure(previousRoot, previousNode)
+        if (candidateError !== previousError) {
+          return `Moving this element would make node-${node.id} invalid: ${candidateError}`
+        }
+      }
+      for (const child of node.children) {
+        const childError = visit(child)
+        if (childError != null) return childError
+      }
+      return null
+    }
+    return visit(candidateRoot)
+  }
+
+  const dependencyKey = (
+    dependency: ReferenceGraph.SemanticDependency,
+  ): string => JSON.stringify([
+    dependency.sourceNodeId,
+    dependency.sourceLabel,
+    dependency.sourceType,
+    dependency.targetNodeId,
+    dependency.targetLabel,
+  ])
+
+  export const validateMoveReferenceTargets = (
+    previousRoot: TreeNode.Node,
+    candidateRoot: TreeNode.Node,
+  ): string | null => {
+    const previous = ReferenceGraph.collectSemanticDependencies(previousRoot)
+    const candidate = ReferenceGraph.collectSemanticDependencies(candidateRoot)
+    const previousKeys = new Set(previous.map(dependencyKey))
+    const candidateKeys = new Set(candidate.map(dependencyKey))
+    const removed = previous.find((dependency) => !candidateKeys.has(dependencyKey(dependency)))
+    const added = candidate.find((dependency) => !previousKeys.has(dependencyKey(dependency)))
+    const changed = removed ?? added
+    return changed == null
+      ? null
+      : `Moving this element would change a reference target at node-${changed.sourceNodeId}: ${changed.sourceLabel}.`
+  }
+
+  export const validateMoveExpressionScope = async (
+    previousRoot: TreeNode.Node,
+    candidateRoot: TreeNode.Node,
+    movedNodeId: number,
+  ): Promise<string | null> => {
+    const nodeIds = [...new Set([
+      ...ExpressionVerificationScope.collectSubtreeVerificationNodeIds(
+        previousRoot,
+        movedNodeId,
+      ),
+      ...ExpressionVerificationScope.collectSubtreeVerificationNodeIds(
+        candidateRoot,
+        movedNodeId,
+      ),
+    ])]
+
+    for (const nodeId of nodeIds) {
+      const previousNode = TreeNode.findNode(previousRoot, nodeId)
+      const candidateNode = TreeNode.findNode(candidateRoot, nodeId)
+      if (previousNode == null || candidateNode == null) {
+        return `node-${nodeId} is no longer available.`
+      }
+      const [previous, candidate] = await Promise.all([
+        ExpressionVerificationRunner.verify(previousRoot, previousNode),
+        ExpressionVerificationRunner.verify(candidateRoot, candidateNode),
+      ])
+      if (candidate?.status !== 'error') continue
+      const previousMessages = new Set(previous?.status === 'error' ? previous.messages : [])
+      const introduced = candidate.messages.filter((message) => !previousMessages.has(message))
+      if (introduced.length > 0) {
+        return `The moved element is not valid in this scope at node-${nodeId}: ${introduced.join(' ')}`
+      }
+    }
+    return null
   }
 }
 

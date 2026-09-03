@@ -12,6 +12,8 @@ import TreeNavigationController from '../tree/tree-navigation-controller'
 import TreeViewportController from '../tree/tree-viewport-controller'
 import CommandController from '../terminal/command-controller'
 import { commandSessionStore } from '../terminal/command-session-store'
+import ElementSearchController from '../element-search/element-search-controller'
+import { elementSearchStore } from '../element-search/element-search-store'
 import ReferenceGraphController from '../analysis/reference/reference-graph-controller'
 import KeyboardController from './keyboard-controller'
 import DevelopInteractionController from '../area/develop/interaction/develop-interaction-controller'
@@ -40,6 +42,7 @@ namespace AppKeyboardController {
     get(elementDialogStore) != null
     || get(actionMenuStore) != null
     || get(commandSessionStore) != null
+    || get(elementSearchStore) != null
     || get(confirmDialogStore) != null
     || get(RuntimeSessionStore.store) != null
   )
@@ -98,6 +101,20 @@ namespace AppKeyboardController {
       || get(developScreenStore) !== 'workspace'
     ) return
     const interaction = get(developInteractionStore)
+    if (
+      event.key.toLowerCase() === 'p'
+      && event.ctrlKey
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+    ) {
+      event.preventDefault()
+      event.stopPropagation()
+      if (interaction.type === 'normal' && !hasBlockingLayer()) {
+        ElementSearchController.open()
+      }
+      return
+    }
     if (interaction.type !== 'normal') {
       if (
         event.key === 'Escape'
@@ -115,7 +132,10 @@ namespace AppKeyboardController {
         return
       }
       if (
-        interaction.operation.type === 'copy'
+        (
+          interaction.operation.type === 'copy'
+          || interaction.operation.type === 'move'
+        )
         && interaction.phase === 'select-destination'
         && !hasBlockingLayer()
         && !isEditableTarget(event.target)

@@ -12,10 +12,15 @@ vi.mock('../transfer/tree-transfer-validator', () => ({
     validateStructure: vi.fn(() => null),
     validateReferenceTargets: vi.fn(() => null),
     validateExpressionScope: vi.fn(() => Promise.resolve(null)),
+    validateMoveStructure: vi.fn(() => null),
+    validateMoveReferenceTargets: vi.fn(() => null),
+    validateMoveExpressionScope: vi.fn(() => Promise.resolve(null)),
   },
 }))
 
 import type DevelopInteractionMode from '../../area/develop/interaction/develop-interaction-mode'
+import RetentionElement from '../../element/kind/component/definition/retention-element'
+import StyleElement from '../../element/kind/view/style/style-element'
 import type TreeNode from '../tree-node'
 import TreeDestinationOperation from './tree-destination-operation'
 
@@ -48,6 +53,39 @@ describe('TreeDestinationOperation', () => {
     expect(copied.element).toMatchObject({ kind: 'object-type', id: 'UserCopy' })
     expect(plan.selectedNodeId).toBe(copied.id)
     expect(plan.preserveVerificationNodeIds).toEqual([])
+    expect(plan.invalidateVerification).toBe(false)
+  })
+
+  it('moves a Style through the shared destination transaction without requesting a name', async () => {
+    const source = node(3, StyleElement.create('card', [], [], 'style-id'))
+    const styles = node(2, { kind: 'styles' }, [source])
+    const destination = node(4, RetentionElement.create())
+    const root = node(1, { kind: 'project' }, [styles, destination])
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: source.id,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: destination.id,
+    }
+
+    expect(TreeDestinationOperation.getPresentation(session)).toMatchObject({
+      modeLabel: 'Move',
+      destinationActionLabel: 'Move here',
+      confirmLabel: 'Move',
+      requiresName: false,
+    })
+    expect(TreeDestinationOperation.validateName(root, destination, session, '')).toBeNull()
+    expect(TreeDestinationOperation.createSuggestedName(session, 1)).toBe('')
+
+    const plan = await TreeDestinationOperation.createPlan(root, session, 'ignored')
+    expect(plan.rootNode.children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].id).toBe(source.id)
+    expect(plan.selectedNodeId).toBe(source.id)
+    expect(plan.preserveVerificationNodeIds).toEqual([])
+    expect(plan.invalidateVerification).toBe(true)
   })
 
   it('copies a Tag without requesting or assigning a name', async () => {
@@ -72,6 +110,38 @@ describe('TreeDestinationOperation', () => {
 
     const plan = await TreeDestinationOperation.createPlan(root, session, 'ignored')
     expect(plan.rootNode.children[0].children[1].element).toEqual(source.element)
+  })
+
+  it('moves a Tag without requesting or assigning a name', async () => {
+    const source = node(3, {
+      kind: 'tag', tagName: 'button', comment: 'Save', styles: [], attributes: [],
+      refKey: { type: 'literal', value: 'saveButton' },
+    })
+    const sourceElements = node(2, { kind: 'elements' }, [source])
+    const destinationElements = node(4, { kind: 'elements' })
+    const root = node(1, { kind: 'project' }, [sourceElements, destinationElements])
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'tag' },
+      phase: 'confirm',
+      sourceNodeId: source.id,
+      sourceLabel: '<button>',
+      originViewRootNodeId: null,
+      destinationNodeId: destinationElements.id,
+    }
+
+    expect(TreeDestinationOperation.getPresentation(session).requiresName).toBe(false)
+    expect(TreeDestinationOperation.createSuggestedName(session, 1)).toBe('')
+    expect(TreeDestinationOperation.validateName(root, destinationElements, session, '')).toBeNull()
+
+    const plan = await TreeDestinationOperation.createPlan(root, session, 'ignored')
+    expect(plan.rootNode.children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0]).toMatchObject({
+      id: source.id,
+      element: source.element,
+    })
+    expect(plan.selectedNodeId).toBe(source.id)
+    expect(plan.invalidateVerification).toBe(true)
   })
 
   it('leaves Extract signature naming to the developer', () => {

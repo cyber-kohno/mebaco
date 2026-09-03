@@ -14,10 +14,12 @@ const mocks = vi.hoisted(() => ({
   confirmDialogStore: { value: null as unknown },
   runtimeSessionStore: { value: null as unknown },
   commandSessionStore: { value: null as unknown },
+  elementSearchStore: { value: null as unknown },
   appAreaStore: { value: 'develop' as unknown },
   developScreenStore: { value: 'workspace' as unknown },
   developInteractionStore: { value: { type: 'normal' } as unknown },
   handleKeydown: vi.fn(),
+  openElementSearch: vi.fn(),
   cancelInteraction: vi.fn(),
   returnToDestinationSelection: vi.fn(),
 }))
@@ -48,6 +50,12 @@ vi.mock('../element/element-registry', () => ({
 }))
 vi.mock('../element-dialog/element-dialog-store', () => ({
   elementDialogStore: mocks.elementDialogStore,
+}))
+vi.mock('../element-search/element-search-controller', () => ({
+  default: { open: mocks.openElementSearch },
+}))
+vi.mock('../element-search/element-search-store', () => ({
+  elementSearchStore: mocks.elementSearchStore,
 }))
 vi.mock('../feedback/confirm/confirm-dialog-state', () => ({
   confirmDialogStore: mocks.confirmDialogStore,
@@ -103,12 +111,14 @@ import AppKeyboardController from './app-keyboard-controller'
 describe('AppKeyboardController blocking layers', () => {
   beforeEach(() => {
     mocks.handleKeydown.mockClear()
+    mocks.openElementSearch.mockClear()
     mocks.cancelInteraction.mockClear()
     mocks.returnToDestinationSelection.mockClear()
     mocks.appAreaStore.value = 'develop'
     mocks.developScreenStore.value = 'workspace'
     mocks.developInteractionStore.value = { type: 'normal' }
     mocks.elementDialogStore.value = { mode: 'update' }
+    mocks.elementSearchStore.value = null
     mocks.rootNodeStore.value = mocks.treeRoot
   })
 
@@ -119,6 +129,27 @@ describe('AppKeyboardController blocking layers', () => {
     } as KeyboardEvent)
 
     expect(mocks.handleKeydown).not.toHaveBeenCalled()
+  })
+
+  it('opens element search with Ctrl+P even from an editable target', () => {
+    mocks.elementDialogStore.value = null
+    const event = {
+      defaultPrevented: false,
+      key: 'p',
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      target: { matches: () => true },
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent
+
+    AppKeyboardController.handleKeydown(event)
+
+    expect(mocks.openElementSearch).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
   })
 
   it('does not dispatch develop shortcuts in the client area', () => {
@@ -145,35 +176,38 @@ describe('AppKeyboardController blocking layers', () => {
     expect(mocks.handleKeydown).not.toHaveBeenCalled()
   })
 
-  it('dispatches only destination shortcuts while selecting a copy destination', () => {
-    vi.stubGlobal('HTMLElement', class HTMLElement {})
-    mocks.elementDialogStore.value = null
-    mocks.developInteractionStore.value = {
-      type: 'destination-transaction',
-      operation: { type: 'copy', sourceKind: 'tag' },
-      phase: 'select-destination',
-      sourceNodeId: 2,
-      sourceLabel: '<div>',
-      originViewRootNodeId: null,
-    }
-    const event = {
-      defaultPrevented: false,
-      key: 'v',
-      ctrlKey: true,
-      altKey: false,
-      metaKey: false,
-      shiftKey: false,
-      target: null,
-    } as unknown as KeyboardEvent
+  it.each(['copy', 'move'] as const)(
+    'dispatches only destination shortcuts while selecting a %s destination',
+    (operationType) => {
+      vi.stubGlobal('HTMLElement', class HTMLElement {})
+      mocks.elementDialogStore.value = null
+      mocks.developInteractionStore.value = {
+        type: 'destination-transaction',
+        operation: { type: operationType, sourceKind: 'tag' },
+        phase: 'select-destination',
+        sourceNodeId: 2,
+        sourceLabel: '<div>',
+        originViewRootNodeId: null,
+      }
+      const event = {
+        defaultPrevented: false,
+        key: 'v',
+        ctrlKey: true,
+        altKey: false,
+        metaKey: false,
+        shiftKey: false,
+        target: null,
+      } as unknown as KeyboardEvent
 
-    AppKeyboardController.handleKeydown(event)
+      AppKeyboardController.handleKeydown(event)
 
-    expect(mocks.handleKeydown).toHaveBeenCalledOnce()
-    const commands = mocks.handleKeydown.mock.calls[0]?.[2]
-    expect(commands).toEqual([
-      expect.objectContaining({ id: 'paste-to-selected-node' }),
-    ])
-  })
+      expect(mocks.handleKeydown).toHaveBeenCalledOnce()
+      const commands = mocks.handleKeydown.mock.calls[0]?.[2]
+      expect(commands).toEqual([
+        expect.objectContaining({ id: 'paste-to-selected-node' }),
+      ])
+    },
+  )
 
   it('returns from destination confirmation without ending the interaction on Escape', () => {
     mocks.elementDialogStore.value = null

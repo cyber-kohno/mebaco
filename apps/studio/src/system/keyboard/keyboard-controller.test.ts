@@ -93,6 +93,30 @@ describe('KeyboardController disabled shortcut', () => {
     expect(event.stopPropagation).not.toHaveBeenCalled()
   })
 
+  it('runs the selected node Move action with Ctrl+X', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const move = vi.fn()
+    context.getContextMenu = () => [{
+      type: 'action',
+      label: 'Move',
+      actionId: TreeDestinationActionId.move,
+      callback: move,
+    }]
+    const event = createEvent({ key: 'x', ctrlKey: true })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(move).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
   it('runs Paste here with Ctrl+V only through destination commands', () => {
     const selectedNode: TreeNode.Node = {
       id: 2,

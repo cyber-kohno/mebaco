@@ -825,6 +825,9 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(actionSource).toContain('read(encoding?: $MebacoTextEncoding): Promise<string>;')
     expect(actionSource).toContain('write(text: string, encoding?: $MebacoTextEncoding): Promise<void>;')
     expect(actionSource).toContain('open(): Promise<{}>;')
+    expect(actionSource).toContain('declare var $log: {')
+    expect(codeSource).toContain('info(...values: unknown[]): void;')
+    expect(expressionSource).not.toContain('$log')
   })
 
   it('exposes only the APIs allowed by each Directory Resource', () => {

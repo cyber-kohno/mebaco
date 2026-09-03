@@ -82,6 +82,7 @@ namespace UnionTypeElement {
       type: 'component',
       Component: UnionTypeTreeLabel,
     },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = TypeCatalog.collectVisibleNamedTypes(

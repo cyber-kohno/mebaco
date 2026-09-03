@@ -18,16 +18,18 @@
   import RuntimeError from './runtime-error'
   import TransitionNamespace from '../transition/transition-namespace'
   import type ResourceRuntime from '../resource/resource-runtime'
+  import type RuntimeLog from '../log/runtime-log'
 
   type Props = {
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
     resourceSession: ResourceRuntime.Session
+    logSession: RuntimeLog.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
   }
 
-  let { appNode, projectNode, resourceSession, launcherId, launchValues }: Props = $props()
+  let { appNode, projectNode, resourceSession, logSession, launcherId, launchValues }: Props = $props()
 
   let renderRevision = $state(0)
   let actionError = $state<{
@@ -70,6 +72,7 @@
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
     $resource: resourceSession.namespace,
+    logSession,
     $system: runtimeSystem,
     $transition: runtimeTransition,
     requestTransition,

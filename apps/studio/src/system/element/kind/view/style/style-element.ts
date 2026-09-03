@@ -417,6 +417,7 @@ namespace StyleElement {
       type: 'component',
       Component: StyleTreeLabel,
     },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = (context.parentNode?.children ?? [])

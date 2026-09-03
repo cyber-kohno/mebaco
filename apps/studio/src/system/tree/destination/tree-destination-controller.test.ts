@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => {
         destinationActionLabel: 'Extract here',
         confirmLabel: 'Extract',
         failureMessage: 'Failed.',
+        requiresName: true,
       })),
       isDestinationCandidate: vi.fn(() => true),
       validateName: vi.fn(() => null),
@@ -63,6 +64,8 @@ vi.mock('./tree-destination-operation', () => ({
 
 import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
 import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
+import ObjectTypeElement from '../../element/kind/type/object/object-type-element'
+import StyleElement from '../../element/kind/view/style/style-element'
 import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
 import type TreeNode from '../tree-node'
 import TreeDestinationActionId from './tree-destination-action-id'
@@ -144,6 +147,96 @@ describe('TreeDestinationController', () => {
     })
   })
 
+  it('adds Move to supported kinds and starts an identity-preserving transaction', () => {
+    const style = node(5, StyleElement.create('card', [], [], 'style-id'))
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const next = TreeDestinationController.addMoveAction(items, style)
+    expect(next.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+    const move = next[1]
+    if (move.type !== 'action') throw new Error('Expected Move action.')
+    expect(move.actionId).toBe(TreeDestinationActionId.move)
+    move.callback()
+
+    expect(mocks.beginDestinationTransaction).toHaveBeenCalledWith({
+      operation: { type: 'move', sourceKind: 'style' },
+      sourceNodeId: style.id,
+      sourceLabel: 'card',
+    })
+
+    const tag = node(6, {
+      kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [],
+    })
+    const tagActions = TreeDestinationController.addMoveAction(items, tag)
+    expect(tagActions.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+    const tagMove = tagActions[1]
+    if (tagMove.type !== 'action') throw new Error('Expected Move action.')
+    tagMove.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'move', sourceKind: 'tag' },
+      sourceNodeId: tag.id,
+      sourceLabel: '<div>',
+    })
+
+    const object = node(7, ObjectTypeElement.create('Payload', 'payload-type'))
+    expect(TreeDestinationController.addMoveAction(items, object)
+      .map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const union = node(8, {
+      kind: 'union-type',
+      id: 'Status',
+      typeId: 'status-type',
+      definition: { type: 'literal', valueType: 'string', values: ['ready'] },
+    })
+    expect(TreeDestinationController.addMoveAction(items, union)
+      .map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const signature = node(9, {
+      kind: 'signature-type',
+      id: 'Handler',
+      typeId: 'handler-signature',
+      ...SignatureDefinition.create(),
+    })
+    expect(TreeDestinationController.addMoveAction(items, signature)
+      .map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    expect(TreeDestinationController.addMoveAction(items, codeFunction())
+      .map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+  })
+
+  it('marks a valid Move destination as a Ctrl+V destination command', () => {
+    const source = node(2, StyleElement.create('card', [], [], 'style-id'))
+    const destination = node(3, { kind: 'retention' })
+    const root = node(1, { kind: 'project' }, [source, destination])
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'select-destination',
+      sourceNodeId: source.id,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+    })
+    mocks.operation.getPresentation.mockReturnValueOnce({
+      modeLabel: 'Move',
+      dialogTitle: 'Move style',
+      destinationActionLabel: 'Move here',
+      confirmLabel: 'Move',
+      failureMessage: 'Failed.',
+      requiresName: false,
+    })
+
+    const items = TreeDestinationController.getDestinationMenu(root, destination)
+    expect(items).toHaveLength(1)
+    expect(items?.[0]).toMatchObject({
+      type: 'action',
+      label: 'Move here',
+      actionId: TreeDestinationActionId.pasteHere,
+    })
+  })
+
   it('adds Extract signature only for Inline Functions and starts the shared transaction', () => {
     const inline = codeFunction()
     const refer = codeFunction({ mode: 'refer', signatureTypeId: 'signature-id' })
@@ -219,5 +312,34 @@ describe('TreeDestinationController', () => {
     expect(ExpressionVerificationStore.getStatus(nextRoot, nextFunction)).toBe('verified')
     expect(get(mocks.selectedNodeId)).toBe(signature.id)
     expect(get(developInteractionStore)).toEqual({ type: 'normal' })
+  })
+
+  it('invalidates cached expression verification after a Move', async () => {
+    const functionNode = codeFunction()
+    const previousRoot = node(1, { kind: 'project' }, [functionNode])
+    const nextRoot = node(1, { kind: 'project' }, [functionNode])
+    mocks.rootNode.set(previousRoot)
+    ExpressionVerificationStore.setResult(functionNode, {
+      status: 'verified',
+      messages: [],
+    })
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: 5,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: 6,
+    })
+    mocks.operation.createPlan.mockResolvedValue({
+      rootNode: nextRoot,
+      selectedNodeId: 5,
+      preserveVerificationNodeIds: [],
+      invalidateVerification: true,
+    })
+
+    expect(await TreeDestinationController.commit('')).toEqual({ ok: true })
+    expect(get(ExpressionVerificationStore.entries)).toEqual({})
   })
 })

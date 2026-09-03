@@ -4,6 +4,7 @@ import TreeNode from '../../../tree/tree-node'
 import DebugConfigurationElement from './debug-configuration-element'
 import DebugConfigurationsElement from './debug-configurations-element'
 import DebugResourceBindingsElement from './debug-resource-bindings-element'
+import DebugLogElement from './debug-log-element'
 import ElementMutationCoordinator from '../../mutation/element-mutation-coordinator'
 import DirectoryResourceElement from '../resource/directory-resource-element'
 import TextResourceElement from '../resource/text-resource-element'
@@ -21,6 +22,7 @@ describe('Debug element structure', () => {
     const configurations = debug?.children[0]
     const defaultConfiguration = configurations?.children[0]
     const resourceBindings = defaultConfiguration?.children[0]
+    const log = debug?.children[1]
 
     expect(configurations?.element).toEqual({ kind: 'debug-configurations' })
     expect(defaultConfiguration?.element).toMatchObject({
@@ -31,6 +33,61 @@ describe('Debug element structure', () => {
     expect(resourceBindings?.element).toEqual({
       kind: 'debug-resource-bindings',
       bindings: [],
+    })
+    expect(log?.element).toEqual({
+      kind: 'debug-log',
+      level: 'info',
+      showLevel: true,
+      showDate: true,
+      showTime: true,
+      showNodeId: true,
+    })
+  })
+
+  it('keeps Log fixed and exposes only its settings editor', () => {
+    const logNode = {
+      id: 2,
+      element: DebugLogElement.create(),
+      isOpen: true,
+      children: [],
+    } satisfies TreeNodeType.Node
+    const root = {
+      id: 1,
+      element: { kind: 'project' },
+      isOpen: true,
+      children: [logNode],
+    } satisfies TreeNodeType.Node
+
+    expect(DebugLogElement.definition.getContextMenu({
+      element: logNode.element,
+      node: logNode,
+      parentNode: root,
+      rootNode: root,
+    }).map((item) => item.label)).toEqual(['Modify'])
+    expect(DebugLogElement.definition.canDisable).toBe(false)
+    expect(DebugLogElement.definition.childSlots).toEqual([])
+
+    const schema = DebugLogElement.createSchema()
+    expect(schema.getInitialValues(logNode.element)).toEqual({
+      level: 'info',
+      showLevel: 'true',
+      showDate: 'true',
+      showTime: 'true',
+      showNodeId: 'true',
+    })
+    expect(schema.update(logNode.element, {
+      level: 'warn',
+      showLevel: 'false',
+      showDate: 'true',
+      showTime: 'false',
+      showNodeId: 'true',
+    })).toEqual({
+      kind: 'debug-log',
+      level: 'warn',
+      showLevel: false,
+      showDate: true,
+      showTime: false,
+      showNodeId: true,
     })
   })
 

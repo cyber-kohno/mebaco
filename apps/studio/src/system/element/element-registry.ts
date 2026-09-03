@@ -1,5 +1,6 @@
 import type MebacoElement from './element'
 import type ElementDefinition from './element-definition'
+import type TreeNode from '../tree/tree-node'
 import AppElement from './kind/app/app-element'
 import EntryElement from './kind/app/entry-element'
 import LaunchOptionsElement from './kind/app/launch/launch-options-element'
@@ -68,6 +69,7 @@ import DebugElement from './kind/debug/debug-element'
 import DebugConfigurationsElement from './kind/debug/debug-configurations-element'
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
+import DebugLogElement from './kind/debug/debug-log-element'
 
 namespace ElementRegistry {
   type DefinitionMap = {
@@ -145,12 +147,30 @@ namespace ElementRegistry {
     'debug-configurations': DebugConfigurationsElement.definition,
     'debug-configuration': DebugConfigurationElement.definition,
     'debug-resource-bindings': DebugResourceBindingsElement.definition,
+    'debug-log': DebugLogElement.definition,
   } satisfies DefinitionMap
 
   export const get = <TElement extends MebacoElement.Element>(
     kind: TElement['kind'],
   ): ElementDefinition.Definition<TElement> =>
     definitions[kind] as ElementDefinition.Definition<TElement>
+
+  export const getHierarchyText = (
+    rootNode: TreeNode.Node,
+    node: TreeNode.Node,
+  ): string => (
+    get(node.element.kind).getHierarchyText?.({
+      element: node.element,
+      node,
+      rootNode,
+    }) ?? node.element.kind
+  )
+
+  export const getSearchIdText = (
+    element: MebacoElement.Element,
+  ): string | null => (
+    get(element.kind).search?.getIdText(element) ?? null
+  )
 }
 
 export default ElementRegistry

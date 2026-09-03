@@ -254,10 +254,14 @@ namespace FunctionRunner {
           return failure(child.id, error)
         }
       } else if (child.element.kind === 'action') {
-        const executed = ActionEvaluator.executeScript(child.element.source, context, {
-          allowAwait: false,
-          forbidReturn: true,
-        })
+        const executed = ActionEvaluator.executeScript(
+          child.element.source,
+          FormulaContextValue.forNode(context, child.id),
+          {
+            allowAwait: false,
+            forbidReturn: true,
+          },
+        )
         if (!executed.ok) return failure(child.id, executed.error)
       }
     }
@@ -340,7 +344,7 @@ namespace FunctionRunner {
       } else if (child.element.kind === 'action') {
         const executed = await ActionEvaluator.executeScriptAsync(
           child.element.source,
-          context,
+          FormulaContextValue.forNode(context, child.id),
         )
         if (!executed.ok) return failure(child.id, executed.error)
       }
@@ -559,7 +563,7 @@ namespace FunctionRunner {
       const evaluated = FunctionCodeEvaluator.evaluate(
         source,
         parameters.map((parameter) => parameter.id),
-        context,
+        FormulaContextValue.forNode(context, functionNode.id),
       )
       if (!evaluated.ok) return failure(functionNode.id, evaluated.error)
       return validateReturnValue(functionNode, functionNode.id, evaluated.value, projectNode)
@@ -627,7 +631,7 @@ namespace FunctionRunner {
       const evaluated = await FunctionCodeEvaluator.evaluateAsync(
         source,
         parameters.map((parameter) => parameter.id),
-        context,
+        FormulaContextValue.forNode(context, functionNode.id),
       )
       if (!evaluated.ok) return failure(functionNode.id, evaluated.error)
       return validateReturnValue(functionNode, functionNode.id, evaluated.value, projectNode)

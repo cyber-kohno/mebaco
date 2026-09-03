@@ -49,6 +49,7 @@ namespace SlotElement {
   export const definition = {
     kind: 'slot',
     treeLabel: { type: 'component', Component: SlotTreeLabel },
+    search: { getIdText: (element) => element.id },
     createInitialChildren: () => [{ element: PropsElement.create() }],
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

@@ -54,9 +54,21 @@ namespace ElementDefinition {
     rootNode: TreeNode.Node
   }
 
+  export type HierarchyTextContext<TElement extends MebacoElement.Element> = {
+    element: TElement
+    node: TreeNode.Node & { element: TElement }
+    rootNode: TreeNode.Node
+  }
+
+  export type SearchDefinition<TElement extends MebacoElement.Element> = {
+    getIdText: (element: TElement) => string | null
+  }
+
   export type Definition<TElement extends MebacoElement.Element> = {
     kind: TElement['kind']
     treeLabel: TreeLabel<TElement>
+    getHierarchyText?: (context: HierarchyTextContext<TElement>) => string
+    search?: SearchDefinition<TElement>
     createInitialChildren?: (element: TElement) => TreeNode.Seed[]
     syncChildren?: (
       node: TreeNode.Node & { element: TElement },

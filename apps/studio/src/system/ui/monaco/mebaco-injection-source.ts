@@ -283,6 +283,15 @@ namespace MebacoInjectionSource {
     ].join('\n')
   }
 
+  const createLogDeclaration = (): string => [
+    'declare var $log: {',
+    '  debug(...values: unknown[]): void;',
+    '  info(...values: unknown[]): void;',
+    '  warn(...values: unknown[]): void;',
+    '  error(...values: unknown[]): void;',
+    '};',
+  ].join('\n')
+
   const collectValueProps = (
     componentNode: TreeNode.Node | null,
   ): ValuePropElement.Element[] => (
@@ -597,6 +606,9 @@ namespace MebacoInjectionSource {
       createFunctionsDeclaration(rootNode, targetNodeId),
       mode === 'action' || mode === 'code'
         ? createResourceDeclaration(rootNode)
+        : null,
+      mode === 'action' || mode === 'code'
+        ? createLogDeclaration()
         : null,
       mode === 'action' ? transitionDeclaration : null,
       mode === 'action'

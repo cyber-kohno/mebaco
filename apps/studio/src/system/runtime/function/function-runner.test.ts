@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type MebacoElement from '../../element/element'
 import type TreeNode from '../../tree/tree-node'
 import FormulaContext from '../formula/formula-context'
@@ -6,6 +6,7 @@ import FunctionRunner from './function-runner'
 import VariableFrame from '../variable/variable-frame'
 import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
 import type TypeExpression from '../../element/kind/type/type-expression'
+import RuntimeLog from '../log/runtime-log'
 
 let nextNodeId = 1
 type FunctionElementValue = Extract<MebacoElement.Element, { kind: 'function' }>
@@ -112,6 +113,26 @@ describe('FunctionRunner', () => {
 
     await expect(FunctionRunner.runAsync(load, [4], context, root))
       .resolves.toEqual({ ok: true, value: 8 })
+  })
+
+  it('binds Function Code logs to the Function node', () => {
+    nextNodeId = 1
+    const writeLog = node(inlineFunction(
+      'writeLog',
+      SignatureDefinition.create(false, [], null),
+      { mode: 'code', source: '$log.info("from code")' },
+    ))
+    const root = project([writeLog])
+    const info = vi.fn()
+    const context = FormulaContext.create({
+      logSession: RuntimeLog.create(root, {
+        sink: { debug: vi.fn(), info, warn: vi.fn(), error: vi.fn() },
+      }),
+    })
+
+    expect(FunctionRunner.run(writeLog, [], context, root))
+      .toEqual({ ok: true, value: undefined })
+    expect(String(info.mock.calls[0][0][0])).toContain(`[node-${writeLog.id}]`)
   })
 
   it('executes a Refer Function with its Signature arguments and return type', () => {

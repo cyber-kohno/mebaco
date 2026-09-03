@@ -93,6 +93,7 @@ namespace ObjectTypeElement {
       type: 'component',
       Component: ObjectTypeTreeLabel,
     },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = TypeCatalog.collectVisibleNamedTypes(

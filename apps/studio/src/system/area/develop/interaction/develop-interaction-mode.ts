@@ -11,6 +11,10 @@ namespace DevelopInteractionMode {
         sourceKind: MebacoElement.Kind
       }
     | {
+        type: 'move'
+        sourceKind: MebacoElement.Kind
+      }
+    | {
         type: 'extract-signature'
       }
 

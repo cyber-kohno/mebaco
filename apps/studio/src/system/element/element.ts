@@ -66,6 +66,7 @@ import DebugElement from './kind/debug/debug-element'
 import DebugConfigurationsElement from './kind/debug/debug-configurations-element'
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
+import DebugLogElement from './kind/debug/debug-log-element'
 
 const MebacoElement = {}
 
@@ -139,6 +140,7 @@ namespace MebacoElement {
     | DebugConfigurationsElement.Kind
     | DebugConfigurationElement.Kind
     | DebugResourceBindingsElement.Kind
+    | DebugLogElement.Kind
 
   export type Element =
     | AppElement.Element
@@ -209,6 +211,7 @@ namespace MebacoElement {
     | DebugConfigurationsElement.Element
     | DebugConfigurationElement.Element
     | DebugResourceBindingsElement.Element
+    | DebugLogElement.Element
 }
 
 export default MebacoElement

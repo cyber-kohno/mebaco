@@ -39,6 +39,7 @@ namespace TextResourceElement {
   export const definition = {
     kind: 'text-resource',
     treeLabel: { type: 'static', kindText: 'Text file', tone: 'master', getValueText: (element: Element) => element.id },
+    search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const reservedNames = (context.parentNode?.children ?? [])

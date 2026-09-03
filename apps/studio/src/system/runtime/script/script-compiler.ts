@@ -37,6 +37,7 @@ namespace ScriptCompiler {
     '$props',
     '$var',
     '$fn',
+    '$log',
     '$resource',
     '$system',
     '$event',
@@ -75,7 +76,9 @@ namespace ScriptCompiler {
       }
     }
     const contextNames = [
-      ...commonContextNames.filter((name) => !expression || name !== '$resource'),
+      ...commonContextNames.filter((name) => (
+        !expression || (name !== '$resource' && name !== '$log')
+      )),
       ...(expression ? [] : ['$transition']),
     ].join(', ')
     const lines = expression

@@ -74,6 +74,8 @@ namespace AppElement {
       type: 'component',
       Component: AppTreeLabel,
     },
+    getHierarchyText: ({ element }) => element.id,
+    search: { getIdText: (element) => element.id },
     createInitialChildren: () => [
       { element: LaunchOptionsElement.create() },
       { element: ImportsElement.create() },

@@ -75,6 +75,9 @@ namespace DebugConfigurationElement {
       type: 'component',
       Component: DebugConfigurationTreeLabel,
     },
+    search: {
+      getIdText: (element) => element.role === 'default' ? 'default' : element.name,
+    },
     createInitialChildren: () => [
       { element: DebugResourceBindingsElement.create() },
     ],

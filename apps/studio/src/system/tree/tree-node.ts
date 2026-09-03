@@ -13,6 +13,7 @@ import DebugElement from '../element/kind/debug/debug-element'
 import DebugConfigurationsElement from '../element/kind/debug/debug-configurations-element'
 import DebugConfigurationElement from '../element/kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from '../element/kind/debug/debug-resource-bindings-element'
+import DebugLogElement from '../element/kind/debug/debug-log-element'
 
 namespace TreeNode {
   export type Node = {
@@ -125,6 +126,12 @@ namespace TreeNode {
                 ],
               },
             ],
+          },
+          {
+            id: 15,
+            element: DebugLogElement.create(),
+            isOpen: true,
+            children: [],
           },
         ],
       },

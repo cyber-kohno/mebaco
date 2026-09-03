@@ -83,6 +83,8 @@ namespace ComponentElement {
       type: 'component',
       Component: ComponentTreeLabel,
     },
+    getHierarchyText: ({ element }) => element.id,
+    search: { getIdText: (element) => element.id },
     createInitialChildren: () => [
       {
         element: PropsElement.create(),

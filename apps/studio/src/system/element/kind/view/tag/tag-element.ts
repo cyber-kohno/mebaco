@@ -426,6 +426,7 @@ namespace TagElement {
       type: 'component',
       Component: TagTreeLabel,
     },
+    getHierarchyText: ({ element }) => `<${element.tagName}>`,
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       const items: ActionMenuState.Item[] = [

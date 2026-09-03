@@ -19,28 +19,38 @@ namespace TreeDestinationOperation {
     rootNode: TreeNode.Node
     selectedNodeId: number
     preserveVerificationNodeIds: readonly number[]
+    invalidateVerification: boolean
   }
 
   export const getPresentation = (
     session: DevelopInteractionMode.DestinationTransaction,
-  ): Presentation => session.operation.type === 'copy'
-    ? {
-        modeLabel: 'Copy',
-        dialogTitle: `Copy ${session.operation.sourceKind}`,
-        destinationActionLabel: 'Paste here',
-        confirmLabel: 'Copy',
-        failureMessage: 'The element could not be copied.',
-        requiresName: TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
-          && TreeTransferCatalog.requiresName(session.operation.sourceKind),
-      }
-    : {
-        modeLabel: 'Extract signature',
-        dialogTitle: 'Extract signature',
-        destinationActionLabel: 'Extract here',
-        confirmLabel: 'Extract',
-        failureMessage: 'The Signature could not be extracted.',
-        requiresName: true,
-      }
+  ): Presentation => {
+    if (session.operation.type === 'copy') return {
+      modeLabel: 'Copy',
+      dialogTitle: `Copy ${session.operation.sourceKind}`,
+      destinationActionLabel: 'Paste here',
+      confirmLabel: 'Copy',
+      failureMessage: 'The element could not be copied.',
+      requiresName: TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
+        && TreeTransferCatalog.requiresName(session.operation.sourceKind),
+    }
+    if (session.operation.type === 'move') return {
+      modeLabel: 'Move',
+      dialogTitle: `Move ${session.operation.sourceKind}`,
+      destinationActionLabel: 'Move here',
+      confirmLabel: 'Move',
+      failureMessage: 'The element could not be moved.',
+      requiresName: false,
+    }
+    return {
+      modeLabel: 'Extract signature',
+      dialogTitle: 'Extract signature',
+      destinationActionLabel: 'Extract here',
+      confirmLabel: 'Extract',
+      failureMessage: 'The Signature could not be extracted.',
+      requiresName: true,
+    }
+  }
 
   export const isDestinationCandidate = (
     rootNode: TreeNode.Node,
@@ -51,6 +61,11 @@ namespace TreeDestinationOperation {
       const sourceNode = TreeNode.findNode(rootNode, session.sourceNodeId)
       return sourceNode != null
         && TreeTransferCatalog.canPasteTo(rootNode, sourceNode, destinationNode, 'copy')
+    }
+    if (session.operation.type === 'move') {
+      const sourceNode = TreeNode.findNode(rootNode, session.sourceNodeId)
+      return sourceNode != null
+        && TreeTransferCatalog.canPasteTo(rootNode, sourceNode, destinationNode, 'move')
     }
     return FunctionSignatureExtraction.canPlaceAt(
       rootNode,
@@ -75,6 +90,7 @@ namespace TreeDestinationOperation {
           )
         : 'The copy source is no longer available.'
     }
+    if (session.operation.type === 'move') return null
     return FunctionSignatureExtraction.validateName(rootNode, destinationNode, name)
   }
 
@@ -91,7 +107,6 @@ namespace TreeDestinationOperation {
         ? `${session.sourceLabel}-copy${index === 1 ? '' : `-${index}`}`
         : `${session.sourceLabel}Copy${index === 1 ? '' : index}`
     }
-
     return ''
   }
 
@@ -134,6 +149,38 @@ namespace TreeDestinationOperation {
         rootNode: plan.rootNode,
         selectedNodeId: plan.copiedNodeId,
         preserveVerificationNodeIds: [],
+        invalidateVerification: false,
+      }
+    }
+
+    if (session.operation.type === 'move') {
+      const plan = TreeTransferPlanner.move(
+        previousRoot,
+        session.sourceNodeId,
+        session.destinationNodeId,
+      )
+      const structureError = TreeTransferValidator.validateMoveStructure(
+        previousRoot,
+        plan.rootNode,
+        plan.movedNodeId,
+      )
+      if (structureError != null) throw new Error(structureError)
+      const referenceError = TreeTransferValidator.validateMoveReferenceTargets(
+        previousRoot,
+        plan.rootNode,
+      )
+      if (referenceError != null) throw new Error(referenceError)
+      const expressionError = await TreeTransferValidator.validateMoveExpressionScope(
+        previousRoot,
+        plan.rootNode,
+        plan.movedNodeId,
+      )
+      if (expressionError != null) throw new Error(expressionError)
+      return {
+        rootNode: plan.rootNode,
+        selectedNodeId: plan.movedNodeId,
+        preserveVerificationNodeIds: [],
+        invalidateVerification: true,
       }
     }
 
@@ -147,6 +194,7 @@ namespace TreeDestinationOperation {
       rootNode: plan.rootNode,
       selectedNodeId: plan.signatureNodeId,
       preserveVerificationNodeIds: [plan.functionNodeId],
+      invalidateVerification: false,
     }
   }
 }
