@@ -44,6 +44,7 @@ describe('ElementEditSchema value source', () => {
 
   it('requires Formula source text', () => {
     expect(validate({ type: 'formula', source: '' }, 'reference')).toBe('Enter a formula.')
+    expect(validate({ type: 'formula', source: ' \n\t' }, 'reference')).toBe('Enter a formula.')
     expect(validate({ type: 'formula', source: '$state.user' }, 'reference')).toBeNull()
   })
 })
@@ -60,6 +61,25 @@ describe('ElementEditSchema number field', () => {
 
     expect(ElementEditSchema.validateNumber(numberField, '01')).toBe('Already exists.')
     expect(ElementEditSchema.validateNumber(numberField, '2')).toBeNull()
+  })
+})
+
+describe('ElementEditSchema Bundle definition', () => {
+  const bundleField: ElementEditSchema.BundleDefinitionField = {
+    type: 'bundleDefinition',
+    key: 'launcherIds',
+    label: 'Launchers',
+    options: [{ value: 'launcher-a', label: 'A' }],
+  }
+
+  it('accepts an ordered unique Launcher list and rejects missing references', () => {
+    expect(ElementEditSchema.validateBundleDefinition(bundleField, '[]')).toBeNull()
+    expect(ElementEditSchema.validateBundleDefinition(
+      bundleField,
+      '["launcher-a","launcher-a"]',
+    )).toBe('Launcher is duplicated.')
+    expect(ElementEditSchema.validateBundleDefinition(bundleField, '["missing"]'))
+      .toBe('Remove missing Launchers.')
   })
 })
 
@@ -82,6 +102,19 @@ describe('ElementEditSchema Style Parameter literal', () => {
 
 describe('ElementEditSchema formula field', () => {
   const injectionSource = 'declare var $state: { count: number; title: string; users: { name: string }[]; };'
+
+  it('requires non-whitespace source without validating its meaning', () => {
+    const formulaField: ElementEditSchema.FormulaField = {
+      type: 'formula',
+      key: 'source',
+      label: 'Formula',
+      required: true,
+    }
+
+    expect(ElementEditSchema.validateFormula(formulaField, '')).toBe('Required.')
+    expect(ElementEditSchema.validateFormula(formulaField, ' \n\t')).toBe('Required.')
+    expect(ElementEditSchema.validateFormula(formulaField, 'a')).toBeNull()
+  })
 
   it('does not block saving based on expression result types', () => {
     const formulaField: ElementEditSchema.FormulaField = {
@@ -141,6 +174,10 @@ describe('ElementEditSchema Tag Ref key', () => {
       JSON.stringify({ type: 'literal', value: '' }),
       injectionSource,
     )).toBe('Enter a Ref key.')
+    expect(ElementEditSchema.validateTagRefKey(
+      JSON.stringify({ type: 'formula', source: ' \n\t' }),
+      injectionSource,
+    )).toBe('Enter a Ref key formula.')
     expect(ElementEditSchema.validateTagRefKey(
       JSON.stringify({ type: 'formula', source: '$var.index' }),
       injectionSource,

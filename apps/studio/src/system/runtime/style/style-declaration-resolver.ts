@@ -60,6 +60,7 @@ namespace StyleDeclarationResolver {
 
   export type ResolveOptions = {
     includeUnresolvedDeclarations?: boolean
+    deferFormulaArguments?: boolean
   }
 
   export type Catalog = {
@@ -78,7 +79,7 @@ namespace StyleDeclarationResolver {
 
   type ResolvedValue = {
     ok: true
-    value: string | number | boolean
+    value: string | number | boolean | UnresolvedFormula
   } | {
     ok: false
     error: Error
@@ -95,6 +96,48 @@ namespace StyleDeclarationResolver {
       }
     })
     return parameters
+  }
+
+  type UnresolvedFormula = {
+    readonly unresolvedFormula: true
+    readonly source: string
+  }
+
+  const unresolvedFormulaErrorPrefix = '__mebaco_unresolved_formula__:'
+
+  const createUnresolvedFormula = (source: string): UnresolvedFormula => new Proxy({
+    unresolvedFormula: true as const,
+    source,
+  }, {
+    get: (target, property, receiver) => {
+      if (property === Symbol.toPrimitive) {
+        return () => {
+          throw new Error(`${unresolvedFormulaErrorPrefix}${encodeURIComponent(source)}`)
+        }
+      }
+      return Reflect.get(target, property, receiver)
+    },
+  })
+
+  const isUnresolvedFormula = (value: unknown): value is UnresolvedFormula => (
+    typeof value === 'object'
+    && value != null
+    && (value as Partial<UnresolvedFormula>).unresolvedFormula === true
+  )
+
+  const unresolvedFormulaFromError = (
+    error: ScriptError.Value,
+  ): UnresolvedFormula | null => {
+    if (error.stage !== 'runtime' || !error.message.startsWith(unresolvedFormulaErrorPrefix)) {
+      return null
+    }
+    try {
+      return createUnresolvedFormula(decodeURIComponent(
+        error.message.slice(unresolvedFormulaErrorPrefix.length),
+      ))
+    } catch {
+      return null
+    }
   }
 
   const collectLocals = (
@@ -232,6 +275,7 @@ namespace StyleDeclarationResolver {
     styleName: string,
     referenceId: string,
     path: readonly string[],
+    deferFormula: boolean,
   ): ResolvedValue => {
     const binding = argument?.binding
     let resolved: unknown
@@ -257,8 +301,13 @@ namespace StyleDeclarationResolver {
     } else if (binding.value.type === 'literal') {
       resolved = binding.value.value
     } else {
+      if (deferFormula) {
+        return { ok: true, value: createUnresolvedFormula(binding.value.source) }
+      }
       const result = FormulaEvaluator.evaluateExpression(binding.value.source, context)
       if (!result.ok) {
+        const unresolved = unresolvedFormulaFromError(result.error)
+        if (unresolved != null) return { ok: true, value: unresolved }
         return {
           ok: false,
           error: {
@@ -275,7 +324,7 @@ namespace StyleDeclarationResolver {
       resolved = result.value
     }
 
-    if (!matchesType(resolved, parameter.valueType)) {
+    if (!isUnresolvedFormula(resolved) && !matchesType(resolved, parameter.valueType)) {
       return {
         ok: false,
         error: {
@@ -418,6 +467,7 @@ namespace StyleDeclarationResolver {
             records.get(base.styleId)?.element.id ?? base.styleId,
             base.referenceId,
             nextPathNames,
+            false,
           )
           if (!result.ok) {
             errors.push(result.error)
@@ -481,6 +531,15 @@ namespace StyleDeclarationResolver {
 
           const result = FormulaEvaluator.evaluateExpression(declaration.value.source, context)
           if (!result.ok) {
+            const unresolved = unresolvedFormulaFromError(result.error)
+            if (unresolved != null && options.includeUnresolvedDeclarations === true) {
+              appendDeclaration(unresolved.source, {
+                type: 'formula',
+                source: unresolved.source,
+                message: 'Value depends on a runtime formula argument.',
+              })
+              return
+            }
             const error = {
               type: 'formula',
               message: `Failed to evaluate '${declaration.property}' in style '${record.element.id}'.`,
@@ -495,6 +554,16 @@ namespace StyleDeclarationResolver {
                 type: 'formula',
                 source: declaration.value.source,
                 message: error.message,
+              })
+            }
+            return
+          }
+          if (isUnresolvedFormula(result.value)) {
+            if (options.includeUnresolvedDeclarations === true) {
+              appendDeclaration(result.value.source, {
+                type: 'formula',
+                source: result.value.source,
+                message: 'Value depends on a runtime formula argument.',
               })
             }
             return
@@ -598,6 +667,7 @@ namespace StyleDeclarationResolver {
             records.get(application.styleId)?.element.id ?? application.styleId,
             application.referenceId,
             [],
+            options.deferFormulaArguments === true,
           )
           if (!result.ok) {
             errors.push(result.error)

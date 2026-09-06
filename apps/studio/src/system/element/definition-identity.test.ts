@@ -8,6 +8,7 @@ import SlotElement from './kind/component/definition/slot/slot-element'
 import StyleElement from './kind/view/style/style-element'
 import StyleParamElement from './kind/view/style/style-param-element'
 import StyleParameterCatalog from './kind/view/style/style-parameter-catalog'
+import ElementEditSchema from '../element-dialog/element-edit-schema'
 
 vi.mock('../store/tree-store', () => ({
   default: {
@@ -30,6 +31,32 @@ describe('stable definition identities', () => {
 
     expect(first.launcherId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     expect(second.launcherId).not.toBe(first.launcherId)
+  })
+
+  it('stores Launcher names only when they contain visible text', () => {
+    const schema = LauncherElement.createSchema(node(1, { kind: 'project' }))
+    const unnamed = schema.create({
+      id: 'preview', name: '   ', appId: '', argumentBindings: '[]',
+    })
+    const named = schema.update(unnamed, {
+      id: 'preview', name: 'Preview', appId: '', argumentBindings: '[]',
+    })
+    const cleared = schema.update(named, {
+      id: 'preview', name: '', appId: '', argumentBindings: '[]',
+    })
+
+    expect(unnamed).not.toHaveProperty('name')
+    expect(named).toHaveProperty('name', 'Preview')
+    expect(cleared).not.toHaveProperty('name')
+  })
+
+  it('requires a Launcher App even when no Apps are available', () => {
+    const appField = LauncherElement.createSchema(node(1, { kind: 'project' })).fields
+      .find((field) => field.key === 'appId')
+
+    expect(appField).toMatchObject({ type: 'select', required: true, options: [] })
+    expect(appField?.type === 'select' && ElementEditSchema.validateSelect(appField, ''))
+      .toBe('Required.')
   })
 
   it('preserves definition UUIDs when editable names change', () => {
@@ -96,5 +123,35 @@ describe('stable definition identities', () => {
         sourceStyleId: 'style-uuid',
         sourceStyleName: 'renamedStyle',
       }))
+  })
+
+  it('excludes direct and indirect recursive Component references', () => {
+    const useFromA = node(8, ComponentUseElement.create())
+    const useFromB = node(12, {
+      ...ComponentUseElement.create(), componentId: 'component-a',
+    })
+    const componentA = node(5, ComponentElement.create('A', 'component-a'), [
+      node(7, { kind: 'elements' }, [useFromA]),
+    ])
+    const componentB = node(9, ComponentElement.create('B', 'component-b'), [
+      node(11, { kind: 'elements' }, [useFromB]),
+    ])
+    const app = node(2, AppElement.create('App', 'app-uuid'), [
+      node(3, { kind: 'declares' }, [
+        node(4, { kind: 'components' }, [componentA, componentB]),
+      ]),
+    ])
+    const root = node(1, { kind: 'project' }, [node(13, { kind: 'apps' }, [app])])
+
+    expect(ComponentUseElement.getComponents(root, useFromA.id)).toEqual([])
+  })
+
+  it('requires a Component reference even when no candidates are available', () => {
+    const componentField = ComponentUseElement.createSchema().fields
+      .find((field) => field.key === 'componentId')
+
+    expect(componentField).toMatchObject({ type: 'select', required: true, options: [] })
+    expect(componentField?.type === 'select' && ElementEditSchema.validateSelect(componentField, ''))
+      .toBe('Required.')
   })
 })

@@ -10,10 +10,10 @@ import LauncherTreeLabel from './LauncherTreeLabel.svelte'
 
 namespace LauncherElement {
   export type Kind = 'launcher'
-  export type Element = { kind: Kind; launcherId: string; id: string; name: string; appId: string | null; argumentBindings: ComponentReference.Binding[] }
+  export type Element = { kind: Kind; launcherId: string; id: string; name?: string; appId: string | null; argumentBindings: ComponentReference.Binding[] }
   export const create = (
     launcherId: string = crypto.randomUUID(),
-  ): Element => ({ kind: 'launcher', launcherId, id: '...', name: '...', appId: null, argumentBindings: [] })
+  ): Element => ({ kind: 'launcher', launcherId, id: '...', appId: null, argumentBindings: [] })
   const apps = (node: TreeNode.Node): TreeNode.Node[] => [
     ...(node.element.kind === 'app' ? [node] : []), ...node.children.flatMap(apps),
   ]
@@ -31,18 +31,22 @@ namespace LauncherElement {
   export const createSchema = (rootNode: TreeNode.Node, reservedNames: readonly string[] = []): ElementEditSchema.Schema<Element> => {
     const options = getAppOptions(rootNode)
     const parse = (values: Readonly<Record<string, string>>): ComponentReference.Binding[] => ComponentReference.normalizeBindings(ComponentReference.parseBindings(values.argumentBindings) ?? [], options.find((option) => option.componentId === values.appId))
+    const withOptionalName = (element: Element, name: string): Element => {
+      const { name: _currentName, ...withoutName } = element
+      return name.trim().length === 0 ? withoutName : { ...withoutName, name }
+    }
     return {
       createTitle: 'Create Launcher', updateTitle: 'Update Launcher',
       fields: [
         { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'identifier', minLength: 1, maxLength: 32, reservedNames },
-        { type: 'text', key: 'name', label: 'Name', width: 'id', required: true, minLength: 1, maxLength: 64 },
-        { type: 'select', key: 'appId', label: 'App', width: 'id', options: options.map((option) => ({ value: option.componentId, label: option.label })) , clearWhenChanged: ['argumentBindings'] },
+        { type: 'text', key: 'name', label: 'Name', width: 'id', maxLength: 64 },
+        { type: 'select', key: 'appId', label: 'App', width: 'id', required: true, options: options.map((option) => ({ value: option.componentId, label: option.label })) , clearWhenChanged: ['argumentBindings'] },
         { type: 'componentBindings', key: 'argumentBindings', label: 'Arguments', defaultValue: '[]', required: true, componentIdKey: 'appId', components: options },
       ],
       createPreview: create,
-      getInitialValues: (e) => ({ id: e.id, name: e.name, appId: e.appId ?? '', argumentBindings: ComponentReference.stringifyBindings(e.argumentBindings) }),
-      create: (values) => ({ ...create(), id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
-      update: (e, values) => ({ ...e, id: values.id, name: values.name, appId: values.appId || null, argumentBindings: parse(values) }),
+      getInitialValues: (e) => ({ id: e.id, name: e.name ?? '', appId: e.appId ?? '', argumentBindings: ComponentReference.stringifyBindings(e.argumentBindings) }),
+      create: (values) => withOptionalName({ ...create(), id: values.id, appId: values.appId || null, argumentBindings: parse(values) }, values.name),
+      update: (e, values) => withOptionalName({ ...e, id: values.id, appId: values.appId || null, argumentBindings: parse(values) }, values.name),
     }
   }
  export const definition = { kind: 'launcher', treeLabel: { type: 'component', Component: LauncherTreeLabel }, search: { getIdText: (element: Element) => element.id }, getContextMenu: (context) => { const { action } = ActionMenuState.createFactory(); const reservedNames = context.parentNode?.children.filter((n) => n.id !== context.node.id).map((n) => n.element).filter((e): e is Element => e.kind === 'launcher').map((e) => e.id) ?? []; return [action('Modify', () => ElementDialog.openUpdate(context.node.id, context.element, createSchema(context.rootNode, reservedNames))), action('Delete', () => import('../../../store/tree-store').then(({ default: store }) => store.removeNode(context.node.id)), 'danger')] }, childSlots: [], canDisable: false, reorderGroup: 'siblings' } satisfies ElementDefinition.Definition<Element>

@@ -11,7 +11,7 @@
 
 <span class="node-label">
   <span class="node-kind">Launcher</span>
-  <span class="node-value"><span class="id">{element.id}</span><span class="name">&nbsp;[{element.name}]</span><span class="separator">:&nbsp;</span><span class="app">{appName}</span></span>
+  <span class="node-value"><span class="id">{element.id}</span>{#if element.name != null && element.name.trim().length > 0}<span class="name">&nbsp;[{element.name}]</span>{/if}<span class="separator">:&nbsp;</span><span class="app">{appName}</span></span>
 </span>
 
 <style>

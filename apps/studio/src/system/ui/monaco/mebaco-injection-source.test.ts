@@ -881,4 +881,34 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(writableDeclaration).toContain('text(relativePath: string): $MebacoWritableTextResource;')
     expect(writableDeclaration).toContain('sqlite(relativePath: string): $MebacoSqliteResource;')
   })
+
+  it('injects only Resources imported by the owning App', () => {
+    const action = node(20, { kind: 'action', comment: '', source: '' })
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(3, { kind: 'resources' }, [
+          node(4, {
+            kind: 'text-resource', resourceId: 'selected-id', id: 'selected', access: 'read',
+          }),
+          node(5, {
+            kind: 'text-resource', resourceId: 'hidden-id', id: 'hidden', access: 'read',
+          }),
+        ]),
+      ]),
+      node(6, { kind: 'apps' }, [
+        node(7, { kind: 'app', appId: 'app-id', id: 'app' }, [
+          node(8, { kind: 'imports' }, [
+            node(9, { kind: 'transitions', appIds: [] }),
+            node(10, { kind: 'resource-imports', resourceIds: ['selected-id'] }),
+          ]),
+          action,
+        ]),
+      ]),
+    ])
+
+    const source = MebacoInjectionSource.createForNode(rootNode, action.id, 'action')
+
+    expect(source).toContain('selected: $MebacoReadonlyTextResource;')
+    expect(source).not.toContain('hidden: $MebacoReadonlyTextResource;')
+  })
 })

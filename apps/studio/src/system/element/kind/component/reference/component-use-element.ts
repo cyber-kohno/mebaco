@@ -203,7 +203,7 @@ namespace ComponentUseElement {
     })
   }
 
-  export const getComponents = (
+  const getVisibleComponents = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
   ): ComponentReference.Option[] => (
@@ -213,12 +213,37 @@ namespace ComponentUseElement {
     ])
   )
 
-  export const findComponentNode = (
+  const findOwnerComponent = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): TreeNode.Node | null => (
+    (findPath(rootNode, targetNodeId) ?? [])
+      .findLast((node) => node.element.kind === 'component') ?? null
+  )
+
+  const collectOwnedComponentUses = (
+    componentNode: TreeNode.Node,
+  ): (TreeNode.Node & { element: Element })[] => {
+    const uses: (TreeNode.Node & { element: Element })[] = []
+    const visit = (node: TreeNode.Node) => {
+      node.children.forEach((child) => {
+        if (child.element.kind === 'component') return
+        if (child.element.kind === 'component-use') {
+          uses.push(child as TreeNode.Node & { element: Element })
+        }
+        visit(child)
+      })
+    }
+    visit(componentNode)
+    return uses
+  }
+
+  const findVisibleComponentNode = (
     rootNode: TreeNode.Node,
     targetNodeId: number,
     componentId: string,
   ): TreeNode.Node | null => {
-    const visibleIds = new Set(getComponents(rootNode, targetNodeId)
+    const visibleIds = new Set(getVisibleComponents(rootNode, targetNodeId)
       .map((option) => option.componentId))
     if (!visibleIds.has(componentId)) return null
 
@@ -258,6 +283,59 @@ namespace ComponentUseElement {
       [0] ?? null
   }
 
+  const wouldCreateCycle = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    ownerNode: TreeNode.Node,
+    candidateId: string,
+  ): boolean => {
+    const candidateNode = findVisibleComponentNode(rootNode, targetNodeId, candidateId)
+    if (candidateNode == null) return false
+
+    const reachesOwner = (componentNode: TreeNode.Node, visited: Set<number>): boolean => {
+      if (componentNode.id === ownerNode.id) return true
+      if (visited.has(componentNode.id)) return false
+      visited.add(componentNode.id)
+
+      return collectOwnedComponentUses(componentNode).some((useNode) => {
+        if (useNode.element.componentId == null) return false
+        const referencedNode = findVisibleComponentNode(
+          rootNode,
+          useNode.id,
+          useNode.element.componentId,
+        )
+        return referencedNode != null && reachesOwner(referencedNode, visited)
+      })
+    }
+
+    return reachesOwner(candidateNode, new Set())
+  }
+
+  export const getComponents = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): ComponentReference.Option[] => {
+    const ownerNode = findOwnerComponent(rootNode, targetNodeId)
+    const visible = getVisibleComponents(rootNode, targetNodeId)
+    if (ownerNode == null) return visible
+    return visible.filter((option) => !wouldCreateCycle(
+      rootNode,
+      targetNodeId,
+      ownerNode,
+      option.componentId,
+    ))
+  }
+
+  export const findComponentNode = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    componentId: string,
+  ): TreeNode.Node | null => findVisibleComponentNode(
+    rootNode,
+    targetNodeId,
+    componentId,
+  )
+
   const parseBindings = (
     values: Readonly<Record<string, string>>,
     components: readonly ComponentReference.Option[] = [],
@@ -283,6 +361,7 @@ namespace ComponentUseElement {
         label: 'Component',
         width: 'id',
         defaultValue: '',
+        required: true,
         clearWhenChanged: ['propBindings'],
         options: (options.components ?? []).map((component) => ({
           value: component.componentId,

@@ -32,11 +32,25 @@
     functionParameters = [],
     onDiagnosticsChange,
   }: Props = $props()
+
+  const handleDialogKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+
+    onBack()
+    event.preventDefault()
+    event.stopPropagation()
+  }
 </script>
 
 <div use:bodyPortal>
   <div class="script-scrim" role="presentation"></div>
-  <section class="script-dialog" aria-label={dialogLabel}>
+  <div
+    class="script-dialog"
+    role="dialog"
+    tabindex="-1"
+    aria-label={dialogLabel}
+    onkeydown={handleDialogKeyDown}
+  >
     <header class="script-dialog-header">
       <div>{title}</div>
       <button type="button" onclick={onBack}>Back</button>
@@ -55,7 +69,7 @@
         onValueChange={onValueChange}
       />
     </div>
-  </section>
+  </div>
 </div>
 
 <style>

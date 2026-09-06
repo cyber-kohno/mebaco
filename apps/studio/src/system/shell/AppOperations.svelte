@@ -1,11 +1,14 @@
 <script lang="ts">
   import { restartApp } from '../app/restart-app'
   import DevelopOperations from '../area/develop/DevelopOperations.svelte'
+  import ClientOperations from '../area/client/ClientOperations.svelte'
   import { appAreaStore } from '../navigation/app-area-store'
 </script>
 
 <nav class="operations" aria-label="Application operations">
-  {#if $appAreaStore === 'develop'}
+  {#if $appAreaStore === 'client'}
+    <ClientOperations />
+  {:else if $appAreaStore === 'develop'}
     <DevelopOperations />
   {/if}
   <button type="button" onclick={restartApp}>Restart</button>

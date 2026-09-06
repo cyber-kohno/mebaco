@@ -5,6 +5,7 @@ import LaunchArgumentsElement from './kind/app/launch/launch-arguments-element'
 import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
 import ImportsElement from './kind/app/import/imports-element'
 import TransitionsElement from './kind/app/import/transitions-element'
+import ResourceImportsElement from './kind/app/import/resource-imports-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -67,6 +68,9 @@ import DebugConfigurationsElement from './kind/debug/debug-configurations-elemen
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 import DebugLogElement from './kind/debug/debug-log-element'
+import ReleaseElement from './kind/release/release-element'
+import BundlesElement from './kind/release/bundles-element'
+import BundleElement from './kind/release/bundle-element'
 
 const MebacoElement = {}
 
@@ -79,6 +83,7 @@ namespace MebacoElement {
     | LaunchArgumentElement.Kind
     | ImportsElement.Kind
     | TransitionsElement.Kind
+    | ResourceImportsElement.Kind
     | LauncherElement.Kind
     | ComponentElement.Kind
     | ComponentUseElement.Kind
@@ -141,6 +146,9 @@ namespace MebacoElement {
     | DebugConfigurationElement.Kind
     | DebugResourceBindingsElement.Kind
     | DebugLogElement.Kind
+    | ReleaseElement.Kind
+    | BundlesElement.Kind
+    | BundleElement.Kind
 
   export type Element =
     | AppElement.Element
@@ -150,6 +158,7 @@ namespace MebacoElement {
     | LaunchArgumentElement.Element
     | ImportsElement.Element
     | TransitionsElement.Element
+    | ResourceImportsElement.Element
     | LauncherElement.Element
     | ComponentElement.Element
     | ComponentUseElement.Element
@@ -212,6 +221,9 @@ namespace MebacoElement {
     | DebugConfigurationElement.Element
     | DebugResourceBindingsElement.Element
     | DebugLogElement.Element
+    | ReleaseElement.Element
+    | BundlesElement.Element
+    | BundleElement.Element
 }
 
 export default MebacoElement

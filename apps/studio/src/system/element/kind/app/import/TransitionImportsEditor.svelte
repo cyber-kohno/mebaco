@@ -9,9 +9,21 @@
     value: string
     options: readonly ElementEditSchema.SelectOption[]
     onValueChange: (value: string) => void
+    ariaLabel?: string
+    description?: string
+    emptyLabel?: string
+    itemLabel?: string
   }
 
-  let { value, options, onValueChange }: Props = $props()
+  let {
+    value,
+    options,
+    onValueChange,
+    ariaLabel = 'Imported transition Apps',
+    description = 'Only selected Apps are available from $transition.',
+    emptyLabel = 'No transition Apps',
+    itemLabel = 'App',
+  }: Props = $props()
   let appIds = $state<string[]>([])
   let lastValue = $state('')
 
@@ -64,14 +76,14 @@
   }
 </script>
 
-<section class="transition-imports" aria-label="Imported transition Apps">
+<section class="transition-imports" aria-label={ariaLabel}>
   <div class="header">
-    <span>Only selected Apps are available from $transition.</span>
+    <span>{description}</span>
     <button type="button" disabled={appIds.length >= options.length} onclick={add}>Add</button>
   </div>
 
   {#if appIds.length === 0}
-    <div class="empty">No transition Apps</div>
+    <div class="empty">{emptyLabel}</div>
   {:else}
     <div class="list">
       {#each appIds as appId, index (`${appId}-${index}`)}
@@ -87,13 +99,13 @@
             {/each}
           </select>
           <div class="actions">
-            <IconButton label="Move App up" disabled={index === 0} onclick={() => move(index, -1)}>
+            <IconButton label={`Move ${itemLabel} up`} disabled={index === 0} onclick={() => move(index, -1)}>
               {#snippet icon()}<ArrowUp size={15} strokeWidth={2} />{/snippet}
             </IconButton>
-            <IconButton label="Move App down" disabled={index === appIds.length - 1} onclick={() => move(index, 1)}>
+            <IconButton label={`Move ${itemLabel} down`} disabled={index === appIds.length - 1} onclick={() => move(index, 1)}>
               {#snippet icon()}<ArrowDown size={15} strokeWidth={2} />{/snippet}
             </IconButton>
-            <IconButton label="Delete App" onclick={() => remove(index)}>
+            <IconButton label={`Delete ${itemLabel}`} onclick={() => remove(index)}>
               {#snippet icon()}<Trash2 size={15} strokeWidth={2} />{/snippet}
             </IconButton>
           </div>

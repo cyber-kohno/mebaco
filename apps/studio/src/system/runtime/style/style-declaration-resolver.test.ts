@@ -256,6 +256,39 @@ describe('runtime StyleDeclarationResolver', () => {
     }])
   })
 
+  it('defers Tag formula arguments in monitor previews', () => {
+    const rect = StyleFixture.style('rect', {
+      parameters: [StyleFixture.parameter('height', 'number')],
+      rules: [StyleFixture.formula('height', '`${$param.height}px`')],
+    })
+    const catalog = StyleDeclarationResolver.createCatalog(StyleFixture.project([rect]))
+    const application = StyleFixture.application('rect', {
+      height: {
+        type: 'value',
+        value: { type: 'formula', source: '55 + $var.index * 50' },
+      },
+    })
+
+    const result = catalog.resolve(
+      [application],
+      FormulaContext.createEmpty(),
+      {
+        includeUnresolvedDeclarations: true,
+        deferFormulaArguments: true,
+      },
+    )
+
+    expect(result.errors).toEqual([])
+    expect(result.declarations).toMatchObject([{
+      property: 'height',
+      value: '55 + $var.index * 50',
+      unresolved: {
+        type: 'formula',
+        source: '55 + $var.index * 50',
+      },
+    }])
+  })
+
   it('reports malformed applications and inheritance cycles', () => {
     const required = StyleFixture.style('required', {
       parameters: [StyleFixture.parameter('value', 'string')],

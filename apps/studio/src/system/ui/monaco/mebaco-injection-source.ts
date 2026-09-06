@@ -16,6 +16,7 @@ import FunctionDefinition from '../../element/kind/function/function-definition'
 import AppId from '../../element/kind/app/app-id'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
 import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
+import ResourceImportCatalog from '../../element/kind/app/import/resource-import-catalog'
 import SequentialVariableScope from '../../element/kind/variable/sequential-variable-scope'
 import type DirectoryResourceElement from '../../element/kind/resource/directory-resource-element'
 import type TextResourceElement from '../../element/kind/resource/text-resource-element'
@@ -189,20 +190,13 @@ namespace MebacoInjectionSource {
 
   const collectResources = (
     rootNode: TreeNode.Node,
+    targetNodeId: number,
   ): ResourceElement[] => {
-    const resources: ResourceElement[] = []
-    const collect = (node: TreeNode.Node) => {
-      if (
-        node.element.kind === 'directory-resource'
-        || node.element.kind === 'text-resource'
-        || node.element.kind === 'sqlite-resource'
-      ) {
-        resources.push(node.element)
-      }
-      node.children.forEach(collect)
-    }
-    collect(rootNode)
-    return resources
+    const ownerApp = ResourceImportCatalog.findOwnerApp(rootNode, targetNodeId)
+    const resources = ownerApp == null
+      ? ResourceImportCatalog.collectResources(rootNode)
+      : ResourceImportCatalog.getImportedResources(rootNode, ownerApp)
+    return resources.map((resource) => resource.element)
   }
 
   const getTextResourceType = (
@@ -246,8 +240,9 @@ namespace MebacoInjectionSource {
 
   const createResourceDeclaration = (
     rootNode: TreeNode.Node,
+    targetNodeId: number,
   ): string | null => {
-    const resources = collectResources(rootNode)
+    const resources = collectResources(rootNode, targetNodeId)
     if (resources.length === 0) return null
 
     const fields = resources.map((resource) => {
@@ -605,7 +600,7 @@ namespace MebacoInjectionSource {
       mode === 'code' ? null : createArgumentsDeclaration(rootNode, targetNodeId),
       createFunctionsDeclaration(rootNode, targetNodeId),
       mode === 'action' || mode === 'code'
-        ? createResourceDeclaration(rootNode)
+        ? createResourceDeclaration(rootNode, targetNodeId)
         : null,
       mode === 'action' || mode === 'code'
         ? createLogDeclaration()

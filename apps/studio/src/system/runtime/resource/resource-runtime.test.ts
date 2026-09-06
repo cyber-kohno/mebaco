@@ -120,6 +120,16 @@ describe('ResourceRuntime', () => {
     expect(settings).toHaveProperty('write')
   })
 
+  it('creates an App-scoped namespace from imported Resource ids', () => {
+    const session = ResourceRuntime.create(createProject(), { invoke: vi.fn() })
+
+    const scoped = session.getNamespace(['settings-id', 'missing-id'])
+
+    expect(Object.keys(scoped)).toEqual(['settings'])
+    expect(scoped).not.toHaveProperty('workspace')
+    expect(Object.isFrozen(scoped)).toBe(true)
+  })
+
   it('validates glob patterns before invoking the backend', async () => {
     const invoke = vi.fn().mockResolvedValue([])
     const session = ResourceRuntime.create(createProject(), { invoke })

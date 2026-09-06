@@ -22,7 +22,7 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptErrorType.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
+    setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 

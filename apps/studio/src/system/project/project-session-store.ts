@@ -55,6 +55,10 @@ namespace ProjectSession {
     })
   }
 
+  export const markDirty = () => {
+    store.update((current) => current.isDirty ? current : { ...current, isDirty: true })
+  }
+
   export const clear = () => {
     store.set(createInitial())
   }

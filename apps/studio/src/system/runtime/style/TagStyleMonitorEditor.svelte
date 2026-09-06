@@ -31,6 +31,7 @@
       .createCatalog(rootNode)
       .resolve(applications, FormulaContext.createEmpty(), {
         includeUnresolvedDeclarations: true,
+        deferFormulaArguments: true,
       })
   })
 </script>

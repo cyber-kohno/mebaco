@@ -18,6 +18,7 @@ namespace ResourceRuntime {
   export type Session = {
     id: string
     namespace: Readonly<Record<string, unknown>>
+    getNamespace: (resourceIds: readonly string[]) => Readonly<Record<string, unknown>>
     attachRequestRender: (requestRender: () => void) => () => void
     dispose: () => void
   }
@@ -338,24 +339,40 @@ namespace ResourceRuntime {
     })
 
     const namespace: Record<string, unknown> = Object.create(null)
+    const namespaceEntriesByResourceId = new Map<string, [string, unknown]>()
     resources.forEach((resource) => {
+      let value: unknown
       switch (resource.kind) {
         case 'directory-resource':
-          namespace[resource.id] = createDirectory(resource)
+          value = createDirectory(resource)
           break
         case 'text-resource':
-          namespace[resource.id] = createText(resource.resourceId, resource.access)
+          value = createText(resource.resourceId, resource.access)
           break
         case 'sqlite-resource':
-          namespace[resource.id] = createSqlite(resource.resourceId)
+          value = createSqlite(resource.resourceId)
           break
       }
+      namespace[resource.id] = value
+      namespaceEntriesByResourceId.set(resource.resourceId, [resource.id, value])
     })
     Object.freeze(namespace)
+
+    const getNamespace = (
+      resourceIds: readonly string[],
+    ): Readonly<Record<string, unknown>> => {
+      const scoped: Record<string, unknown> = Object.create(null)
+      resourceIds.forEach((resourceId) => {
+        const entry = namespaceEntriesByResourceId.get(resourceId)
+        if (entry != null) scoped[entry[0]] = entry[1]
+      })
+      return Object.freeze(scoped)
+    }
 
     return {
       id,
       namespace,
+      getNamespace,
       attachRequestRender: (requestRender) => {
         requestRenders.add(requestRender)
         return () => requestRenders.delete(requestRender)

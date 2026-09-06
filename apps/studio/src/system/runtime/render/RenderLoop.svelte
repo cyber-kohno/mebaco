@@ -3,7 +3,7 @@
   import type ScriptError from '../script/script-error'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
-  import RenderContent from './RenderContent.svelte'
+  import RenderLoopIteration from './RenderLoopIteration.svelte'
   import LoopResolver from '../loop/loop-resolver'
 
   type Props = {
@@ -14,7 +14,7 @@
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
+    setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 
@@ -43,7 +43,8 @@
 </script>
 
 {#each result.iterations as iteration (iteration.index)}
-  <RenderContent hostNode={node} {projectNode} {styleCatalog}
+  <RenderLoopIteration loopNodeId={node.id} iterationIndex={iteration.index}
+    {node} {projectNode} {styleCatalog}
     formulaContext={iteration.context} {renderRevision} {invalidateRuntime}
     {setActionError} {setStyleResult} {componentStack} />
 {/each}

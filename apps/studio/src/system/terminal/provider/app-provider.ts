@@ -76,7 +76,7 @@ const findLaunchers = (
     && (node.element as LauncherElement.Element).appId === appId
   ) {
     const launcher = node.element as LauncherElement.Element
-    result.push({ launcherId: launcher.launcherId, id: launcher.id, name: launcher.name })
+    result.push({ launcherId: launcher.launcherId, id: launcher.id, name: launcher.name?.trim() || launcher.id })
   }
 
   node.children.forEach((child) => findLaunchers(child, appId, result))

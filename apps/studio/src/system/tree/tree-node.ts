@@ -14,6 +14,8 @@ import DebugConfigurationsElement from '../element/kind/debug/debug-configuratio
 import DebugConfigurationElement from '../element/kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from '../element/kind/debug/debug-resource-bindings-element'
 import DebugLogElement from '../element/kind/debug/debug-log-element'
+import ReleaseElement from '../element/kind/release/release-element'
+import BundlesElement from '../element/kind/release/bundles-element'
 
 namespace TreeNode {
   export type Node = {
@@ -57,6 +59,19 @@ namespace TreeNode {
         element: LaunchersElement.create(),
         isOpen: true,
         children: [],
+      },
+      {
+        id: 16,
+        element: ReleaseElement.create(),
+        isOpen: true,
+        children: [
+          {
+            id: 17,
+            element: BundlesElement.create(),
+            isOpen: true,
+            children: [],
+          },
+        ],
       },
       {
         id: 4,

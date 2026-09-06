@@ -19,6 +19,7 @@
     allowAwait?: boolean
     functionParameters?: readonly MonacoInjection.FunctionParameter[]
     onDiagnosticsChange?: (messages: string[]) => void
+    autoFocus?: boolean
   }
 
   let {
@@ -32,6 +33,7 @@
     allowAwait = false,
     functionParameters = [],
     onDiagnosticsChange,
+    autoFocus = false,
   }: Props = $props()
 
   let container: HTMLDivElement | null = null
@@ -122,6 +124,9 @@
   const runDiagnostics = async () => {
     if (monaco == null || userModel == null || analysisModel == null) return
 
+    const userSource = userModel.getValue()
+    const expressionIsBlank = mode === 'expression' && userSource.trim().length === 0
+
     const service = await MonacoFactory.getTypeScriptService(monaco, analysisModel.uri) as {
       getSyntacticDiagnostics(uri: string): Promise<unknown[]>
       getSemanticDiagnostics(uri: string): Promise<unknown[]>
@@ -142,7 +147,7 @@
       MonacoInjection.getAnalysisOffsetLine(mode, getAnalysisOptions()),
       userModel.getLineCount(),
     )
-    if (mode === 'expression' && expectedType === 'array') {
+    if (mode === 'expression' && !expressionIsBlank && expectedType === 'array') {
       const inferred = ExpressionTypeInference.inferArrayItem(
         getInjectionSource(),
         userModel.getValue(),
@@ -166,10 +171,22 @@
       ))
     })
 
+    if (expressionIsBlank) {
+      markers.push(MonacoDiagnostics.createWholeModelErrorMarker(
+        monaco,
+        userModel,
+        'Enter a TypeScript expression that returns a value.',
+      ))
+    }
+
     const expectedTypeForValidation = expectedTypeText ?? (
       expectedType === 'array' ? 'unknown[]' : expectedType
     )
-    if (mode === 'expression' && expectedTypeForValidation != null) {
+    if (
+      mode === 'expression'
+      && !expressionIsBlank
+      && expectedTypeForValidation != null
+    ) {
       const typeError = ExpressionTypeInference.validateExpectedType(
         getInjectionSource(),
         userModel.getValue(),
@@ -389,6 +406,8 @@
       fixedOverflowWidgets: true,
       overflowWidgetsDomNode: overflowLayer.element,
     })
+
+    if (autoFocus) editor.focus()
 
     resizeObserver = new ResizeObserver(() => {
       scheduleLayout()

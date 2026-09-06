@@ -8,6 +8,9 @@ import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
 import ToastController from '../feedback/toast/toast-controller'
 import ProjectSession from './project-session-store'
 import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
+import ResourceImportsElement from '../element/kind/app/import/resource-imports-element'
+import ReleaseElement from '../element/kind/release/release-element'
+import BundlesElement from '../element/kind/release/bundles-element'
 
 namespace ProjectFile {
   export type SaveResult =
@@ -24,6 +27,7 @@ namespace ProjectFile {
 
   type ProjectJson = {
     rootNode: TreeNode.Node
+    migrationApplied?: boolean
   }
 
   const createManifest = (): Manifest => ({
@@ -76,9 +80,70 @@ namespace ProjectFile {
       throw new Error('Invalid project data.')
     }
 
-    return {
-      rootNode: projectJson.rootNode,
+    const rootNode = projectJson.rootNode
+    const resourceIds: string[] = []
+    let nextNodeId = 1
+    const inspect = (node: TreeNode.Node) => {
+      nextNodeId = Math.max(nextNodeId, node.id + 1)
+      if (
+        node.element.kind === 'directory-resource'
+        || node.element.kind === 'text-resource'
+        || node.element.kind === 'sqlite-resource'
+      ) resourceIds.push(node.element.resourceId)
+      node.children.forEach(inspect)
     }
+    inspect(rootNode)
+
+    let migrationApplied = false
+    const migrate = (node: TreeNode.Node) => {
+      if (node.element.kind === 'app') {
+        const imports = node.children.find((child) => child.element.kind === 'imports')
+        if (
+          imports != null
+          && !imports.children.some((child) => child.element.kind === 'resource-imports')
+        ) {
+          imports.children.push({
+            id: nextNodeId,
+            element: {
+              ...ResourceImportsElement.create(),
+              resourceIds: [...resourceIds],
+            },
+            isOpen: true,
+            children: [],
+          })
+          nextNodeId += 1
+          migrationApplied = true
+        }
+      }
+      node.children.forEach(migrate)
+    }
+    migrate(rootNode)
+
+    let releaseNode = rootNode.children.find((child) => child.element.kind === 'release')
+    if (releaseNode == null) {
+      releaseNode = {
+        id: nextNodeId,
+        element: ReleaseElement.create(),
+        isOpen: true,
+        children: [],
+      }
+      nextNodeId += 1
+      const launchersIndex = rootNode.children.findIndex((child) => child.element.kind === 'launchers')
+      rootNode.children.splice(launchersIndex < 0 ? rootNode.children.length : launchersIndex + 1, 0, releaseNode)
+      migrationApplied = true
+    }
+    if (!releaseNode.children.some((child) => child.element.kind === 'bundles')) {
+      releaseNode.children.push({
+        id: nextNodeId,
+        element: BundlesElement.create(),
+        isOpen: true,
+        children: [],
+      })
+      nextNodeId += 1
+      migrationApplied = true
+    }
+
+    return { rootNode, migrationApplied }
   }
 
   const writeProject = async (selectedPath: string) => {
@@ -152,6 +217,7 @@ namespace ProjectFile {
     ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(projectJson.rootNode)
     ProjectSession.markSaved(get(TreeStore.rootNode), selectedPath)
+    if (projectJson.migrationApplied === true) ProjectSession.markDirty()
     return true
   }
 

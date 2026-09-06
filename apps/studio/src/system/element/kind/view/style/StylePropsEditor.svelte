@@ -209,7 +209,7 @@
     prop: DeclarationRule,
   ): { message: string; severity: 'warning' | 'error' } | null => {
     const source = prop.value.type === 'literal' ? prop.value.value : prop.value.source
-    if (source.length === 0) {
+    if (source.trim().length === 0) {
       return {
         message: prop.value.type === 'literal' ? 'Value is required.' : 'Formula is required.',
         severity: 'warning',

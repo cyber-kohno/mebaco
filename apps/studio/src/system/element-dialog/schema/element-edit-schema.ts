@@ -293,6 +293,22 @@ namespace ElementEditSchema {
     options: readonly SelectOption[]
   } & FieldBase
 
+  export type ResourceImportsField = {
+    type: 'resourceImports'
+    key: string
+    label: string
+    defaultValue?: string
+    options: readonly SelectOption[]
+  } & FieldBase
+
+  export type BundleDefinitionField = {
+    type: 'bundleDefinition'
+    key: string
+    label: string
+    defaultValue?: string
+    options: readonly SelectOption[]
+  } & FieldBase
+
   export type ResourceBindingResource = {
     resourceId: string
     label: string
@@ -337,6 +353,8 @@ namespace ElementEditSchema {
     | StyleApplicationsField
     | StyleBasesField
     | TransitionImportsField
+    | ResourceImportsField
+    | BundleDefinitionField
     | ResourceBindingsField
     | StyleMonitorField
     | TagStyleMonitorField
@@ -464,7 +482,7 @@ namespace ElementEditSchema {
     value: string,
     _injectionSource?: string,
   ): string | null => {
-    if (field.required === true && value.length === 0) return 'Required.'
+    if (field.required === true && value.trim().length === 0) return 'Required.'
     if (field.maxLength != null && value.length > field.maxLength) {
       return `Must be ${field.maxLength} characters or fewer.`
     }
@@ -492,7 +510,7 @@ namespace ElementEditSchema {
       if (parsed.type !== 'formula' || typeof parsed.source !== 'string') {
         return 'Select a valid Ref key.'
       }
-      if (parsed.source.length === 0) return 'Enter a Ref key formula.'
+      if (parsed.source.trim().length === 0) return 'Enter a Ref key formula.'
       return null
     } catch {
       return 'Select a valid Ref key.'
@@ -569,7 +587,7 @@ namespace ElementEditSchema {
     }
     if (
       source.type === 'formula'
-      && source.source.length === 0
+      && source.source.trim().length === 0
     ) return 'Enter a formula.'
     if (
       source.type === 'formula'
@@ -666,7 +684,7 @@ namespace ElementEditSchema {
             && (
               condition.type !== 'formula'
               || typeof condition.source !== 'string'
-              || condition.source.length === 0
+              || condition.source.trim().length === 0
             )
           )
         ) return true
@@ -736,7 +754,7 @@ namespace ElementEditSchema {
             && (
               condition.type !== 'formula'
               || typeof condition.source !== 'string'
-              || condition.source.length === 0
+              || condition.source.trim().length === 0
             )
           )
         ) return true
@@ -846,7 +864,8 @@ namespace ElementEditSchema {
       source?: unknown
     }
     if (parameterValue.type === 'formula') {
-      return typeof parameterValue.source !== 'string' || parameterValue.source.length === 0
+      return typeof parameterValue.source !== 'string'
+        || parameterValue.source.trim().length === 0
     }
     if (parameterValue.type === 'literal') {
       const expectedType = parameter.valueType === 'color' ? 'string' : parameter.valueType
@@ -932,6 +951,25 @@ namespace ElementEditSchema {
     return `Existing Case ${invalidValues.length === 1 ? 'value is' : 'values are'} not allowed by the selected Switch value type: ${values}.`
   }
 
+  export const validateBundleDefinition = (
+    field: BundleDefinitionField,
+    value: string,
+  ): string | null => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (!Array.isArray(parsed) || parsed.some((id) => typeof id !== 'string')) {
+        return 'Select valid Launchers.'
+      }
+      if (new Set(parsed).size !== parsed.length) return 'Launcher is duplicated.'
+      if (parsed.some((id) => field.options.every((option) => option.value !== id))) {
+        return 'Remove missing Launchers.'
+      }
+      return null
+    } catch {
+      return 'Select valid Launchers.'
+    }
+  }
+
   const isStyleRule = (item: unknown): boolean => {
     if (item == null || typeof item !== 'object') return false
 
@@ -980,7 +1018,7 @@ namespace ElementEditSchema {
       return typeof candidate.value === 'string' && candidate.value.length > 0
     }
     if (candidate.type === 'formula') {
-      return typeof candidate.source === 'string' && candidate.source.length > 0
+      return typeof candidate.source === 'string' && candidate.source.trim().length > 0
     }
 
     return false
@@ -1001,7 +1039,7 @@ namespace ElementEditSchema {
       case 'literal':
         return typeof attrValue.value === 'string'
       case 'formula':
-        return typeof attrValue.source === 'string' && attrValue.source.length > 0
+        return typeof attrValue.source === 'string' && attrValue.source.trim().length > 0
       case 'boolean':
         return typeof attrValue.value === 'boolean'
       default:

@@ -8,6 +8,7 @@ import LaunchArgumentsElement from './kind/app/launch/launch-arguments-element'
 import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
 import ImportsElement from './kind/app/import/imports-element'
 import TransitionsElement from './kind/app/import/transitions-element'
+import ResourceImportsElement from './kind/app/import/resource-imports-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -70,6 +71,9 @@ import DebugConfigurationsElement from './kind/debug/debug-configurations-elemen
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 import DebugLogElement from './kind/debug/debug-log-element'
+import ReleaseElement from './kind/release/release-element'
+import BundlesElement from './kind/release/bundles-element'
+import BundleElement from './kind/release/bundle-element'
 
 namespace ElementRegistry {
   type DefinitionMap = {
@@ -86,6 +90,7 @@ namespace ElementRegistry {
     'launch-argument': LaunchArgumentElement.definition,
     imports: ImportsElement.definition,
     transitions: TransitionsElement.definition,
+    'resource-imports': ResourceImportsElement.definition,
     launcher: LauncherElement.definition,
     component: ComponentElement.definition,
     'component-use': ComponentUseElement.definition,
@@ -148,6 +153,9 @@ namespace ElementRegistry {
     'debug-configuration': DebugConfigurationElement.definition,
     'debug-resource-bindings': DebugResourceBindingsElement.definition,
     'debug-log': DebugLogElement.definition,
+    release: ReleaseElement.definition,
+    bundles: BundlesElement.definition,
+    bundle: BundleElement.definition,
   } satisfies DefinitionMap
 
   export const get = <TElement extends MebacoElement.Element>(

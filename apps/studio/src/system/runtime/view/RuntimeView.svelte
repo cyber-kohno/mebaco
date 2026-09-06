@@ -19,6 +19,7 @@
   import TransitionNamespace from '../transition/transition-namespace'
   import type ResourceRuntime from '../resource/resource-runtime'
   import type RuntimeLog from '../log/runtime-log'
+  import ResourceImportCatalog from '../../element/kind/app/import/resource-import-catalog'
 
   type Props = {
     appNode: TreeNode.Node
@@ -41,7 +42,10 @@
   // the failure here would remount them and create an update loop.
   let runtimeFailure = $state<RuntimeError.Failure | null>(null)
   let transitionRequested = $state(false)
-  let styleResults = $state<Record<number, StyleDeclarationResolver.Result>>({})
+  let styleResults = $state<Record<string, {
+    nodeId: number
+    result: StyleDeclarationResolver.Result
+  }>>({})
   let dismissedStyleErrorNodeIds = $state<number[]>([])
   let runtimeStyleElement = $state<HTMLStyleElement | null>(null)
   const requestTransition: FormulaContext.TransitionRequest = (appDefinitionId, values) => {
@@ -62,6 +66,9 @@
     appNode,
     requestTransition,
   ))
+  const runtimeResources = $derived(resourceSession.getNamespace(
+    ResourceImportCatalog.getResourceIds(appNode),
+  ))
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(
@@ -71,7 +78,7 @@
   const entryComponentNode = $derived(RuntimeTree.getEntryComponentNode(runtime))
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
-    $resource: resourceSession.namespace,
+    $resource: runtimeResources,
     logSession,
     $system: runtimeSystem,
     $transition: runtimeTransition,
@@ -87,6 +94,34 @@
     baseContext: baseFormulaContext,
   }))
   const effectiveRuntimeState = $derived(RuntimeState.createState(runtime, launchResult.values))
+  let entryStateFrame: {
+    componentNode: TreeNode.Node
+    parentState: Record<string, unknown>
+    launchValues: Readonly<Record<string, unknown>>
+    state: Record<string, unknown>
+  } | null = null
+  const entryComponentState = $derived.by(() => {
+    if (entryComponentNode == null) return effectiveRuntimeState
+    if (
+      entryStateFrame?.componentNode === entryComponentNode
+      && entryStateFrame.parentState === effectiveRuntimeState
+      && entryStateFrame.launchValues === launchResult.values
+    ) return entryStateFrame.state
+
+    const state = RuntimeState.createComponentState(
+      projectNode,
+      effectiveRuntimeState,
+      RuntimeTree.getComponentStateNodes(entryComponentNode),
+      launchResult.values,
+    )
+    entryStateFrame = {
+      componentNode: entryComponentNode,
+      parentState: effectiveRuntimeState,
+      launchValues: launchResult.values,
+      state,
+    }
+    return state
+  })
   const appFormulaContext = $derived.by(() => {
     const context = FormulaContext.create({
       ...baseFormulaContext,
@@ -114,6 +149,7 @@
     const context = FormulaContext.create({
       ...appFormulaContext,
       $props: entryProps.values,
+      $state: entryComponentState,
     })
     context.$fn = FunctionRunner.createNamespace(
       projectNode,
@@ -128,11 +164,10 @@
     transitionRequested = false
   })
   const styleCatalog = $derived(StyleDeclarationResolver.createCatalog(projectNode))
-  const firstStyleError = $derived(Object.entries(styleResults)
-    .flatMap(([nodeId, result]) => {
-      const numericNodeId = Number(nodeId)
-      if (dismissedStyleErrorNodeIds.includes(numericNodeId)) return []
-      return result.errors.map((error) => ({ nodeId: numericNodeId, error }))
+  const firstStyleError = $derived(Object.values(styleResults)
+    .flatMap(({ nodeId, result }) => {
+      if (dismissedStyleErrorNodeIds.includes(nodeId)) return []
+      return result.errors.map((error) => ({ nodeId, error }))
     })[0] ?? null)
   const derivedRuntimeFailure = $derived.by(() => {
     if (launchResult.errors.length > 0) {
@@ -157,7 +192,8 @@
   const displayedRuntimeFailure = $derived(runtimeFailure ?? derivedRuntimeFailure)
   const runtimeStyleSheet = $derived.by(() => {
     const rules: string[] = []
-    Object.entries(styleResults).forEach(([nodeId, result]) => {
+    Object.entries(styleResults).forEach(([instanceKey, entry]) => {
+      const { result } = entry
       const states = [null, ...StyleElement.states] as const
       states.forEach((state) => {
         const style = document.createElement('div').style
@@ -169,7 +205,7 @@
         if (style.length === 0) return
 
         const suffix = state == null ? '' : `:${state}`
-        rules.push(`.mbc-runtime-node-${nodeId}${suffix} { ${style.cssText} }`)
+        rules.push(`.mbc-runtime-instance-${instanceKey}${suffix} { ${style.cssText} }`)
       })
     })
     return rules.join('\n')
@@ -274,22 +310,23 @@
   }
 
   const setStyleResult = (
+    instanceKey: string,
     nodeId: number,
     result: StyleDeclarationResolver.Result | null,
   ) => {
     const currentResults = untrack(() => styleResults)
     if (result == null || isEmptyStyleResult(result)) {
-      if (currentResults[nodeId] == null) return
+      if (currentResults[instanceKey] == null) return
       const nextResults = { ...currentResults }
-      delete nextResults[nodeId]
+      delete nextResults[instanceKey]
       styleResults = nextResults
       return
     }
     if (
-      currentResults[nodeId] != null
-      && styleResultsEqual(currentResults[nodeId], result)
+      currentResults[instanceKey] != null
+      && styleResultsEqual(currentResults[instanceKey].result, result)
     ) return
-    styleResults = { ...currentResults, [nodeId]: result }
+    styleResults = { ...currentResults, [instanceKey]: { nodeId, result } }
     if (result.errors.length > 0 && runtimeFailure == null) {
       const createFailure = result.errors[0].assertion === true
         ? RuntimeError.assertion

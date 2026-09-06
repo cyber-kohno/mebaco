@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type FormulaContext from '../formula/formula-context'
   import type TagElement from '../../element/kind/view/tag/tag-element'
   import ActionEvaluator from '../action/action-evaluator'
@@ -14,6 +15,7 @@
   import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeRefKey from '../ref/runtime-ref-key'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import { getRenderInstanceKey } from './render-instance-scope'
 
   type Props = {
     node: TreeNode.Node
@@ -23,7 +25,7 @@
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptErrorValue.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
+    setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 
@@ -42,6 +44,7 @@
   const tag = $derived(RuntimeTree.isTagNode(node) ? node.element : null)
   let tagDomElement = $state<HTMLElement | null>(null)
   let refRegistrationError = $state<ScriptErrorValue.Value | null>(null)
+  const renderInstanceKey = getRenderInstanceKey(untrack(() => node.id))
 
   const retentionResult = $derived.by(() => {
     renderRevision
@@ -86,12 +89,11 @@
   })
 
   $effect(() => {
-    setStyleResult(node.id, styleResult)
+    setStyleResult(renderInstanceKey, node.id, styleResult)
   })
 
   $effect(() => {
-    const nodeId = node.id
-    return () => setStyleResult(nodeId, null)
+    return () => setStyleResult(renderInstanceKey, node.id, null)
   })
 
   const getAttributeValue = (
@@ -173,7 +175,7 @@
       }
     })
 
-    const internalClass = `mbc-runtime-node-${node.id}`
+    const internalClass = `mbc-runtime-instance-${renderInstanceKey}`
     attrs.class = typeof attrs.class === 'string' && attrs.class.length > 0
       ? `${attrs.class} ${internalClass}`
       : internalClass

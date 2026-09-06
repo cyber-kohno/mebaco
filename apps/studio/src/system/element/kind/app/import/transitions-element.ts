@@ -51,7 +51,7 @@ namespace TransitionsElement {
 
   export const definition = {
     kind: 'transitions',
-    treeLabel: { type: 'static', kindText: 'Transitions', tone: 'folder' },
+    treeLabel: { type: 'static', kindText: 'Transitions', tone: 'manager' },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       return [action('Modify', () => ElementDialog.openUpdate(

@@ -35,6 +35,7 @@
   import ElementUpdateTransaction from '../element-update-transaction'
   import ElementUpdatePreflight from '../element-update-preflight'
   import ConfirmDialogController from '../../feedback/confirm/confirm-dialog-controller'
+  import BundleDefinitionEditor from '../../element/kind/release/BundleDefinitionEditor.svelte'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -146,8 +147,11 @@
       case 'styleMonitor':
       case 'tagStyleMonitor':
       case 'transitionImports':
+      case 'resourceImports':
       case 'resourceBindings':
         return null
+      case 'bundleDefinition':
+        return ElementEditSchema.validateBundleDefinition(field, value)
       case 'tagAttributes':
         return ElementEditSchema.validateTagAttributes(value)
       case 'tagRefKey':
@@ -332,7 +336,9 @@
     class:wide-dialog={$elementDialogStore.schema.fields.some((field) => (
       field.type === 'objectShape' || field.type === 'signatureDefinition'
       || field.type === 'transitionImports'
+      || field.type === 'resourceImports'
       || field.type === 'resourceBindings'
+      || field.type === 'bundleDefinition'
     ))}
     aria-label={title}
   >
@@ -354,7 +360,9 @@
         || field.type === 'objectShape'
         || field.type === 'signatureDefinition'
         || field.type === 'transitionImports'
+        || field.type === 'resourceImports'
         || field.type === 'resourceBindings'
+        || field.type === 'bundleDefinition'
       ))}
     >
       <h2>{title}</h2>
@@ -478,6 +486,23 @@
             <TagRefKeyEditor
               value={values[field.key] ?? ''}
               injectionSource={getInjectionSource('expression')}
+              errorMessage={touched[field.key] === true ? error : null}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'bundleDefinition'}
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <BundleDefinitionEditor
+              rootNode={$rootNodeStore}
+              value={values[field.key] ?? '[]'}
+              options={field.options}
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -622,6 +647,22 @@
             <TransitionImportsEditor
               value={values[field.key] ?? '[]'}
               options={field.options}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'resourceImports'}
+          <div class="field contained-editor-field">
+            <span class="field-label">{field.label}</span>
+            <TransitionImportsEditor
+              value={values[field.key] ?? field.defaultValue ?? '[]'}
+              options={field.options}
+              ariaLabel="Imported Resources"
+              description="Only selected Resources are available from $resource."
+              emptyLabel="No imported Resources"
+              itemLabel="Resource"
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

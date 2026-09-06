@@ -14,7 +14,7 @@
     renderRevision: number
     invalidateRuntime: () => void
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
-    setStyleResult: (nodeId: number, result: StyleDeclarationResolver.Result | null) => void
+    setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
   }
 
