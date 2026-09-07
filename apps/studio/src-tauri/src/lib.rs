@@ -16,6 +16,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             resource::resource_create_session,
             resource::resource_dispose_session,
+            resource::resource_validate_path,
             resource::resource_exists,
             resource::resource_list,
             resource::resource_glob,

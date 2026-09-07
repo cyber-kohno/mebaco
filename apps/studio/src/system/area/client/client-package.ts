@@ -152,7 +152,14 @@ namespace ClientPackage {
   export const analyzeLauncher = (
     installedPackage: Installed,
     launcherId: string,
-  ): ReleaseBundle.Analysis => {
+  ): ReleaseBundle.Analysis => ReleaseBundle.analyze(
+    createRuntimeProject(installedPackage),
+    [launcherId],
+  )
+
+  export const createRuntimeProject = (
+    installedPackage: Installed,
+  ): TreeNode.Node => {
     let nextId = -2
     const launcherNodes = installedPackage.module.launchers.map((element) => (
       syntheticNode(nextId--, element as LauncherElement.Element)
@@ -166,7 +173,7 @@ namespace ClientPackage {
       ...(installedPackage.module.common == null ? [] : [installedPackage.module.common]),
       ...resourceNodes,
     ])
-    return ReleaseBundle.analyze(root, [launcherId])
+    return root
   }
 
   export const launcherLabel = (launcher: LauncherElement.Element): string => (

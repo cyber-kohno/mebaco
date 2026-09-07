@@ -1,5 +1,3 @@
-import { open, save as saveDialog } from '@tauri-apps/plugin-dialog'
-import { readFile, writeFile } from '@tauri-apps/plugin-fs'
 import { get } from 'svelte/store'
 import JSZip from 'jszip'
 import TreeStore from '../store/tree-store'
@@ -11,6 +9,8 @@ import ExpressionVerificationStore from '../validation/expression/expression-ver
 import ResourceImportsElement from '../element/kind/app/import/resource-imports-element'
 import ReleaseElement from '../element/kind/release/release-element'
 import BundlesElement from '../element/kind/release/bundles-element'
+import NativeDialogController from '../ui/native-dialog-controller'
+import TauriFileSystem from '../infra/tauri/filesystem'
 
 namespace ProjectFile {
   export type SaveResult =
@@ -157,13 +157,13 @@ namespace ProjectFile {
       type: 'uint8array',
       compression: 'DEFLATE',
     })
-    await writeFile(targetPath, bytes)
+    await TauriFileSystem.writeBinaryFile(targetPath, bytes)
     ProjectSession.markSaved(get(TreeStore.rootNode), targetPath)
     return get(ProjectSession.store)
   }
 
   export const saveAs = async (): Promise<SaveResult> => {
-    const selectedPath = await saveDialog({
+    const selectedPath = await NativeDialogController.save({
       title: 'Save Mebaco project',
       filters: [
         {
@@ -191,7 +191,7 @@ namespace ProjectFile {
   }
 
   export const openFile = async (): Promise<boolean> => {
-    const selectedPath = await open({
+    const selectedPath = await NativeDialogController.open({
       title: 'Open Mebaco project',
       multiple: false,
       filters: [
@@ -203,7 +203,7 @@ namespace ProjectFile {
     })
     if (typeof selectedPath !== 'string') return false
 
-    const bytes = await readFile(selectedPath)
+    const bytes = await TauriFileSystem.readBinaryFile(selectedPath)
     const zip = await JSZip.loadAsync(bytes)
     const manifestFile = zip.file('manifest.json')
     const projectFile = zip.file('project.json')

@@ -1,5 +1,3 @@
-import { save as saveDialog } from '@tauri-apps/plugin-dialog'
-import { writeFile } from '@tauri-apps/plugin-fs'
 import JSZip from 'jszip'
 import type TreeNode from '../tree/tree-node'
 import type BundleElement from '../element/kind/release/bundle-element'
@@ -7,6 +5,8 @@ import ReleaseBundle from './release-bundle'
 import ExpressionSourceCatalog from '../validation/expression/expression-source-catalog'
 import ExpressionVerificationRunner from '../validation/expression/expression-verification-runner'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
+import NativeDialogController from '../ui/native-dialog-controller'
+import TauriFileSystem from '../infra/tauri/filesystem'
 
 namespace ReleasePackage {
   export type SaveResult =
@@ -146,7 +146,7 @@ namespace ReleasePackage {
     const archive = await createArchive(rootNode, bundle)
     if ('errors' in archive) return { status: 'invalid', errors: archive.errors }
 
-    const selectedPath = await saveDialog({
+    const selectedPath = await NativeDialogController.save({
       title: `Save Mebaco Application Package — ${bundle.id}`,
       defaultPath: `${bundle.id}.mbcapp`,
       filters: [{ name: 'Mebaco Application Package', extensions: ['mbcapp'] }],
@@ -154,7 +154,7 @@ namespace ReleasePackage {
     if (selectedPath == null) return { status: 'cancelled' }
 
     const targetPath = ensureExtension(selectedPath)
-    await writeFile(targetPath, archive.bytes)
+    await TauriFileSystem.writeBinaryFile(targetPath, archive.bytes)
     return { status: 'saved', fileName: fileNameFromPath(targetPath) }
   }
 }

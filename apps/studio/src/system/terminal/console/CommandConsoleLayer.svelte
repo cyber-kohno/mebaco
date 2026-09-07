@@ -1,14 +1,12 @@
 <script lang="ts">
-  import { tick } from 'svelte'
   import CommandController from '../command-controller'
   import CommandRegistry from '../command-registry'
   import CommandRunner from '../command-runner'
   import { commandSessionStore } from '../command-session-store'
   import type { CommandSession } from '../command-types'
   import bodyPortal from '../../ui/body-portal'
+  import PseudoTerminalInput from './PseudoTerminalInput.svelte'
 
-  let inputElement = $state<HTMLInputElement | undefined>(undefined)
-  let promptInputElement = $state<HTMLInputElement | undefined>(undefined)
   let inputLineElement = $state<HTMLDivElement | undefined>(undefined)
   let outputElement = $state<HTMLDivElement | undefined>(undefined)
   let session = $state<CommandSession | null>(null)
@@ -39,26 +37,6 @@
     updateSuggestionPosition()
   }
 
-  const focusTerminalInput = () => {
-    if (session?.prompt?.inputSpec != null) promptInputElement?.focus()
-    else if (session?.prompt == null) inputElement?.focus()
-  }
-
-  const handleTerminalMousedown = (event: MouseEvent) => {
-    const target = event.target
-    if (
-      target instanceof HTMLElement
-      && target.closest('input, button') != null
-    ) return
-    setTimeout(focusTerminalInput, 0)
-  }
-
-  const handleTerminalFocusout = (event: FocusEvent) => {
-    const terminal = event.currentTarget as HTMLElement
-    if (event.relatedTarget instanceof Node && terminal.contains(event.relatedTarget)) return
-    setTimeout(focusTerminalInput, 0)
-  }
-
   $effect(() => {
     suggestions.length
     session?.input
@@ -75,17 +53,6 @@
   let suggestions = $derived(session == null || session.prompt != null || session.completionDismissed || session.input.trim() === ''
     ? []
     : CommandRegistry.getSuggestions(CommandRunner.createContext(), session.input))
-
-  $effect(() => {
-    if (session == null) return
-    let cancelled = false
-    void tick().then(() => {
-      if (!cancelled) focusTerminalInput()
-    })
-    return () => {
-      cancelled = true
-    }
-  })
 
   $effect(() => {
     const outputCount = session?.outputs.length ?? 0
@@ -112,7 +79,7 @@
 {#if session != null}
   <div class="layer" use:bodyPortal>
     <div class="scrim" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) CommandController.close() }}></div>
-    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1" onfocusout={handleTerminalFocusout} onmousedown={handleTerminalMousedown}>
+    <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1">
       <header class="header">
         <span class="title">Mebaco terminal</span>
         <span class="hint">↑↓ select · Enter accept/run · Tab complete · Esc close</span>
@@ -130,15 +97,13 @@
           <div class="choice-prompt" role="listbox" aria-label={session.prompt.message}>
             <div class="prompt-message">{session.prompt.message}</div>
             {#if session.prompt.inputSpec != null}
-              <input
-                class="prompt-input"
-                bind:this={promptInputElement}
+              <PseudoTerminalInput
+                variant="field"
                 value={session.prompt.inputValue ?? ''}
+                caret={session.prompt.inputCaret ?? 0}
                 placeholder={session.prompt.inputSpec.placeholder ?? ''}
-                aria-label={session.prompt.message}
-                autocomplete="off"
-                spellcheck="false"
-                oninput={(event) => CommandController.setPromptInput(event.currentTarget.value)}
+                ariaLabel={session.prompt.message}
+                onCaretChange={CommandController.setPromptInputCaret}
               />
             {/if}
             {#each session.prompt.choices as choice, index}
@@ -160,13 +125,11 @@
         {#if session.prompt == null}
           <div class="input-line" bind:this={inputLineElement}>
             <span class="node-prompt">node-{session.nodeId}&gt;</span>
-            <input
-              bind:this={inputElement}
+            <PseudoTerminalInput
               value={session.input}
-              aria-label="Terminal input"
-              autocomplete="off"
-              spellcheck="false"
-              oninput={(event) => CommandController.setInput(event.currentTarget.value)}
+              caret={session.inputCaret}
+              ariaLabel="Terminal input"
+              onCaretChange={CommandController.setInputCaret}
             />
           </div>
           <div class="terminal-tail-space" aria-hidden="true"></div>
@@ -289,18 +252,6 @@
 
   .node-prompt { color: #9fe3e8; font-weight: 800; }
 
-  input {
-    flex: 1 1 auto;
-    min-width: 0;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: #f2ffff;
-    font: inherit;
-    outline: none;
-  }
-
   .choice-prompt {
     display: flex;
     flex: 0 0 auto;
@@ -366,16 +317,4 @@
   .prompt-message { padding: 5px 8px 7px; color: #b9dfe2; font-weight: 700; }
   .choice-cursor { color: #f6e96b; font-weight: 800; }
 
-  .prompt-input {
-    width: calc(100% - 16px);
-    height: 28px;
-    margin: 0 8px 6px;
-    padding: 0 8px;
-    border: 1px solid #5ebdca;
-    border-radius: 3px;
-    background: #102b31;
-    color: #f2ffff;
-    font: inherit;
-    outline: none;
-  }
 </style>

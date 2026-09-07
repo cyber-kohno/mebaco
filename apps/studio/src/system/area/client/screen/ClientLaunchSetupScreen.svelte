@@ -1,27 +1,39 @@
 <script lang="ts">
-  import { open } from '@tauri-apps/plugin-dialog'
+  import { onDestroy } from 'svelte'
   import Rocket from '@lucide/svelte/icons/rocket'
   import Boxes from '@lucide/svelte/icons/boxes'
   import Database from '@lucide/svelte/icons/database'
   import FolderOpen from '@lucide/svelte/icons/folder-open'
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
   import CircleCheck from '@lucide/svelte/icons/circle-check'
+  import LoaderCircle from '@lucide/svelte/icons/loader-circle'
   import ClientPackage from '../client-package'
   import ClientPackageStore from '../client-package-store'
+  import NativeDialogController from '../../../ui/native-dialog-controller'
   import ClientNavigation from '../client-navigation-store'
   import ToastController from '../../../feedback/toast/toast-controller'
+  import ClientResourcePathValidator from '../client-resource-path-validator'
+  import PreviewController from '../../../runtime/preview/preview-controller'
 
   let { installationId }: { installationId: string } = $props()
   const packageStore = ClientPackageStore.value
   const installedPackage = $derived(
     $packageStore.packages.find((item) => item.installationId === installationId) ?? null,
   )
-  let selectedLauncherId = $state('')
+  let selectedLauncherId = $state<string | null>(null)
+  let validationStates = $state<Record<string, ClientResourcePathValidator.State>>({})
+  let validatedLauncherKey = ''
+  let launchChecking = $state(false)
+  const pathValidator = ClientResourcePathValidator.create((resourceId, state) => {
+    validationStates = { ...validationStates, [resourceId]: state }
+  })
 
   $effect(() => {
-    if (installedPackage == null) return
-    if (!installedPackage.module.launchers.some((item) => item.launcherId === selectedLauncherId)) {
-      selectedLauncherId = installedPackage.module.launchers[0]?.launcherId ?? ''
+    if (
+      selectedLauncherId != null
+      && !installedPackage?.module.launchers.some((item) => item.launcherId === selectedLauncherId)
+    ) {
+      selectedLauncherId = null
     }
   })
 
@@ -29,24 +41,63 @@
     installedPackage?.module.launchers.find((item) => item.launcherId === selectedLauncherId) ?? null,
   )
   const analysis = $derived.by(() => (
-    installedPackage == null || selectedLauncherId.length === 0
+    installedPackage == null || selectedLauncherId == null
       ? null
       : ClientPackage.analyzeLauncher(installedPackage, selectedLauncherId)
   ))
-  const missingResources = $derived(
-    analysis?.resources.filter((resource) => (
-      (installedPackage?.resourcePaths[resource.element.resourceId] ?? '').trim().length === 0
-    )) ?? [],
+  const resourcesReady = $derived(
+    analysis?.resources.every((resource) => {
+      const path = installedPackage?.resourcePaths[resource.element.resourceId] ?? ''
+      const state = validationStates[resource.element.resourceId]
+      return state?.path === path && ClientResourcePathValidator.isAccepted(state)
+    }) ?? false,
   )
-  const ready = $derived(analysis != null && analysis.errors.length === 0 && missingResources.length === 0)
+  const checkingResources = $derived(
+    analysis?.resources.some((resource) => (
+      validationStates[resource.element.resourceId]?.status === 'checking'
+    )) ?? false,
+  )
+  const ready = $derived(
+    analysis != null && analysis.errors.length === 0 && resourcesReady && !launchChecking,
+  )
 
-  const setPath = (resourceId: string, path: string) => {
-    ClientPackageStore.setResourcePath(installationId, resourceId, path)
+  $effect(() => {
+    const launcherKey = `${installationId}:${selectedLauncherId ?? ''}`
+    if (launcherKey === validatedLauncherKey) return
+    validatedLauncherKey = launcherKey
+    pathValidator.cancelAll()
+    validationStates = {}
+    if (installedPackage == null || analysis == null) return
+    analysis.resources.forEach((resource) => {
+      const path = installedPackage.resourcePaths[resource.element.resourceId] ?? ''
+      void pathValidator.checkNow(resource.element, path)
+    })
+  })
+
+  onDestroy(() => pathValidator.dispose())
+
+  const setPath = (
+    resource: NonNullable<typeof analysis>['resources'][number],
+    path: string,
+    immediate = false,
+  ) => {
+    ClientPackageStore.setResourcePath(installationId, resource.element.resourceId, path)
+    if (immediate) void pathValidator.checkNow(resource.element, path)
+    else pathValidator.schedule(resource.element, path)
+  }
+
+  const getValidation = (
+    resource: NonNullable<typeof analysis>['resources'][number],
+    path: string,
+  ): ClientResourcePathValidator.State => {
+    const state = validationStates[resource.element.resourceId]
+    if (state?.path === path) return state
+    return { path, status: path.trim().length === 0 ? 'not-specified' : 'checking' }
   }
 
   const browse = async (resource: NonNullable<typeof analysis>['resources'][number]) => {
     try {
-      const selected = await open({
+      const selected = await NativeDialogController.open({
         title: `Select path for ${resource.element.id}`,
         multiple: false,
         directory: resource.element.kind === 'directory-resource',
@@ -54,13 +105,40 @@
           ? [{ name: 'SQLite database', extensions: ['db', 'sqlite', 'sqlite3'] }]
           : undefined,
       })
-      if (typeof selected === 'string') setPath(resource.element.resourceId, selected)
+      if (typeof selected === 'string') setPath(resource, selected, true)
     } catch {
       ToastController.show('Path selection is available in the desktop application.', { tone: 'warning' })
     }
   }
 
-  const launch = () => ToastController.show('Application launch will be implemented in the next step.', { tone: 'normal' })
+  const launch = async () => {
+    if (
+      installedPackage == null
+      || selectedLauncher == null
+      || selectedLauncher.appId == null
+      || analysis == null
+      || analysis.errors.length > 0
+    ) return
+    launchChecking = true
+    try {
+      const results = await Promise.all(analysis.resources.map((resource) => {
+        const path = installedPackage.resourcePaths[resource.element.resourceId] ?? ''
+        return pathValidator.checkNow(resource.element, path)
+      }))
+      if (!results.every((state) => state != null && ClientResourcePathValidator.isAccepted(state))) return
+      const opened = PreviewController.open({
+        projectNode: ClientPackage.createRuntimeProject(installedPackage),
+        appDefinitionId: selectedLauncher.appId,
+        launcherId: selectedLauncher.launcherId,
+        resourcePaths: installedPackage.resourcePaths,
+      })
+      if (!opened) {
+        ToastController.show('The selected Launcher could not be opened.', { tone: 'danger' })
+      }
+    } finally {
+      launchChecking = false
+    }
+  }
 </script>
 
 {#if installedPackage == null}
@@ -78,8 +156,14 @@
         <h1>Launch Setup</h1>
         <p>Select a Launcher and configure the resource paths it requires.</p>
       </div>
-      <div class:ready class="readiness">
-        {#if ready}<CircleCheck size={16} />Ready{:else}<TriangleAlert size={16} />Configuration required{/if}
+      <div class:ready class:checking={launchChecking || checkingResources} class="readiness">
+        {#if launchChecking || checkingResources}
+          <LoaderCircle class="spinner" size={16} />Checking resources
+        {:else if ready}
+          <CircleCheck size={16} />Ready
+        {:else}
+          <TriangleAlert size={16} />Configuration required
+        {/if}
       </div>
     </header>
 
@@ -95,7 +179,8 @@
               type="button"
               class="launcher-row"
               class:selected={selectedLauncherId === launcher.launcherId}
-              onclick={() => selectedLauncherId = launcher.launcherId}
+              aria-pressed={selectedLauncherId === launcher.launcherId}
+              onclick={() => selectedLauncherId = selectedLauncherId === launcher.launcherId ? null : launcher.launcherId}
             >
               <span class="launcher-icon"><Rocket size={18} strokeWidth={1.9} /></span>
               <span class="launcher-copy">
@@ -117,8 +202,9 @@
               <h2>{ClientPackage.launcherLabel(selectedLauncher)}</h2>
               <code>{selectedLauncher.id}</code>
             </div>
-            <button class="launch-button" type="button" disabled={!ready} onclick={launch}>
-              <Rocket size={16} fill="currentColor" />Launch
+            <button class="launch-button" type="button" disabled={!ready} onclick={() => { void launch() }}>
+              {#if launchChecking}<LoaderCircle class="spinner" size={16} />{:else}<Rocket size={16} fill="currentColor" />{/if}
+              Launch
             </button>
           </header>
 
@@ -157,10 +243,25 @@
                 <div class="resource-list">
                   {#each analysis.resources as resource (resource.element.resourceId)}
                     {@const path = installedPackage.resourcePaths[resource.element.resourceId] ?? ''}
-                    <div class="resource-row" class:missing={path.trim().length === 0}>
+                    {@const validation = getValidation(resource, path)}
+                    <div class="resource-row" data-validation={validation.status}>
                       <div class="resource-title">
                         <div><strong>{resource.element.id}</strong><span>{ClientPackage.resourceKindLabel(resource.element)}</span></div>
-                        {#if path.trim().length === 0}<span class="missing-label">Not specified</span>{:else}<span class="configured-label"><CircleCheck size={13} />Configured</span>{/if}
+                        <span
+                          class="validation-label"
+                          data-status={validation.status}
+                          title={validation.detail ?? undefined}
+                          aria-live="polite"
+                        >
+                          {#if validation.status === 'checking'}
+                            <LoaderCircle class="spinner" size={13} />
+                          {:else if ClientResourcePathValidator.isAccepted(validation)}
+                            <CircleCheck size={13} />
+                          {:else}
+                            <TriangleAlert size={13} />
+                          {/if}
+                          {ClientResourcePathValidator.getMessage(validation, resource.element)}
+                        </span>
                       </div>
                       <label for={`resource-${resource.element.resourceId}`}>Path</label>
                       <div class="path-row">
@@ -168,7 +269,7 @@
                           id={`resource-${resource.element.resourceId}`}
                           value={path}
                           placeholder={resource.element.kind === 'directory-resource' ? 'Select a directory' : 'Select a file'}
-                          oninput={(event) => setPath(resource.element.resourceId, event.currentTarget.value)}
+                          oninput={(event) => setPath(resource, event.currentTarget.value)}
                         />
                         <button type="button" onclick={() => browse(resource)}><FolderOpen size={15} />Browse</button>
                       </div>
@@ -192,6 +293,7 @@
   h1 { margin-top:2px; color:#263f46; font-size:21px; }
   .screen-header p { margin-top:4px; color:#6e858b; font-size:12px; }
   .readiness { display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid #e4aab2; border-radius:16px; background:#fff2f3; color:#ae4552; font-size:11px; font-weight:800; }
+  .readiness.checking { border-color:#b9d4d9; background:#f2f8f9; color:#58767d; }
   .readiness.ready { border-color:#a9d9bd; background:#effaf3; color:#347c55; }
   .split-pane { display:grid; grid-template-columns:minmax(280px,32%) minmax(520px,1fr); min-height:0; }
   .launcher-pane { display:grid; grid-template-rows:48px minmax(0,1fr); min-width:0; min-height:0; border-right:1px solid var(--mbc-color-border-strong); background:#edf7f9; }
@@ -203,7 +305,9 @@
   button:focus-visible, input:focus-visible { outline:3px solid var(--mbc-color-focus-ring); outline-offset:2px; }
   button:disabled { opacity:.45; }
   .launcher-row { display:grid; grid-template-columns:37px minmax(0,1fr); width:100%; height:auto; min-height:61px; margin-bottom:7px; padding:9px 10px; border-color:transparent; background:transparent; text-align:left; }
-  .launcher-row.selected { border-color:#87c9d2; background:white; box-shadow:0 3px 11px rgba(40,120,132,.09); }
+  .launcher-row:hover:not(.selected) { border-color:transparent; background:rgba(255,255,255,.38); color:inherit; }
+  .launcher-row.selected, .launcher-row.selected:hover { border-color:#5daebb; background:#dff3f6; box-shadow:inset 4px 0 #278f9e,0 3px 11px rgba(40,120,132,.14); }
+  .launcher-row.selected .launcher-icon { background:#bfe6eb; color:#176f7c; }
   .launcher-icon { display:grid; place-items:center; width:30px; height:30px; border-radius:7px; background:#dff2f5; color:#2b8794; }
   .launcher-copy { display:grid; gap:4px; min-width:0; }
   .launcher-copy strong { overflow:hidden; color:#2f4b52; text-overflow:ellipsis; white-space:nowrap; }
@@ -231,17 +335,25 @@
   .app-row code { overflow:hidden; color:#85999e; font-family:Consolas,monospace; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
   .resource-list { display:grid; gap:9px; }
   .resource-row { padding:12px; border:1px solid #cde2e6; border-radius:7px; background:white; }
-  .resource-row.missing { border-color:#e3abb3; background:#fffafb; }
+  .resource-row[data-validation='valid'] { border-color:#a9d9bd; background:#fbfffc; }
+  .resource-row[data-validation='creatable'] { border-color:#dfc98d; background:#fffdf7; }
+  .resource-row:not([data-validation='valid']):not([data-validation='creatable']):not([data-validation='checking']) { border-color:#e3abb3; background:#fffafb; }
   .resource-title { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
   .resource-title > div { display:flex; align-items:baseline; gap:8px; }
   .resource-title strong { color:#36545b; }
   .resource-title div span { color:#789197; font-size:10px; }
-  .missing-label { color:#b23e4d; font-size:10px; font-weight:800; }
-  .configured-label { display:flex; align-items:center; gap:4px; color:#347c55; font-size:10px; font-weight:800; }
+  .validation-label { display:flex; align-items:center; justify-content:flex-end; gap:4px; max-width:60%; color:#b23e4d; font-size:10px; font-weight:800; text-align:right; }
+  .validation-label[data-status='checking'] { color:#647f86; }
+  .validation-label[data-status='valid'] { color:#347c55; }
+  .validation-label[data-status='creatable'] { color:#8b6a19; }
   .resource-row label { display:block; margin-bottom:4px; color:#718a90; font-size:10px; font-weight:700; }
   .path-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; }
   .path-row input { min-width:0; height:34px; padding:0 10px; border:1px solid #aacdd3; border-radius:6px; background:white; color:#29464d; font:inherit; }
-  .resource-row.missing .path-row input { border-color:#d99ba5; }
+  .resource-row[data-validation='valid'] .path-row input { border-color:#8bc7a2; }
+  .resource-row[data-validation='creatable'] .path-row input { border-color:#d1b968; }
+  .resource-row:not([data-validation='valid']):not([data-validation='creatable']):not([data-validation='checking']) .path-row input { border-color:#d99ba5; }
+  :global(.spinner) { animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
   .no-resources { display:flex; align-items:center; gap:8px; padding:11px; border-radius:6px; background:#effaf3; color:#47775a; font-size:11px; font-weight:700; }
   .section-empty, .empty { padding:20px; color:#7e959a; text-align:center; }
   .missing-package { display:grid; place-content:center; justify-items:center; gap:10px; width:100%; height:100%; background:#f7fbfc; color:#6c858b; font-size:13px; text-align:center; }

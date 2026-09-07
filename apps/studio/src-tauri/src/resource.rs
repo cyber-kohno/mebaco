@@ -130,6 +130,44 @@ pub struct DirectoryEntry {
     kind: &'static str,
 }
 
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResourcePathKind {
+    File,
+    Directory,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateResourcePathRequest {
+    path: String,
+    expected_kind: ResourcePathKind,
+    #[serde(default)]
+    allow_missing_file: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ResourcePathValidationStatus {
+    Valid,
+    Creatable,
+    NotAbsolute,
+    NotFound,
+    ExpectedFile,
+    ExpectedDirectory,
+    ParentNotDirectory,
+    UnsupportedKind,
+    Unavailable,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourcePathValidationResult {
+    status: ResourcePathValidationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+}
+
 #[derive(Clone)]
 struct FileTarget {
     path: PathBuf,
@@ -468,6 +506,77 @@ pub fn resource_dispose_session(
 ) -> Result<(), String> {
     lock_sessions(&sessions)?.remove(&request.session_id);
     Ok(())
+}
+
+fn path_validation_result(status: ResourcePathValidationStatus) -> ResourcePathValidationResult {
+    ResourcePathValidationResult {
+        status,
+        detail: None,
+    }
+}
+
+fn unavailable_path_validation(error: std::io::Error) -> ResourcePathValidationResult {
+    ResourcePathValidationResult {
+        status: ResourcePathValidationStatus::Unavailable,
+        detail: Some(error.to_string()),
+    }
+}
+
+fn validate_missing_file_parent(path: &Path) -> ResourcePathValidationResult {
+    let Some(parent) = path.parent() else {
+        return path_validation_result(ResourcePathValidationStatus::NotFound);
+    };
+    match fs::metadata(parent) {
+        Ok(metadata) if metadata.is_dir() => {
+            path_validation_result(ResourcePathValidationStatus::Creatable)
+        }
+        Ok(_) => path_validation_result(ResourcePathValidationStatus::ParentNotDirectory),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            path_validation_result(ResourcePathValidationStatus::NotFound)
+        }
+        Err(error) => unavailable_path_validation(error),
+    }
+}
+
+fn validate_resource_path(request: ValidateResourcePathRequest) -> ResourcePathValidationResult {
+    let path = PathBuf::from(&request.path);
+    if !path.is_absolute() {
+        return path_validation_result(ResourcePathValidationStatus::NotAbsolute);
+    }
+
+    match fs::metadata(&path) {
+        Ok(metadata) => match request.expected_kind {
+            ResourcePathKind::File if metadata.is_file() => {
+                path_validation_result(ResourcePathValidationStatus::Valid)
+            }
+            ResourcePathKind::File if metadata.is_dir() => {
+                path_validation_result(ResourcePathValidationStatus::ExpectedFile)
+            }
+            ResourcePathKind::Directory if metadata.is_dir() => {
+                path_validation_result(ResourcePathValidationStatus::Valid)
+            }
+            ResourcePathKind::Directory if metadata.is_file() => {
+                path_validation_result(ResourcePathValidationStatus::ExpectedDirectory)
+            }
+            _ => path_validation_result(ResourcePathValidationStatus::UnsupportedKind),
+        },
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if matches!(request.expected_kind, ResourcePathKind::File) && request.allow_missing_file
+            {
+                validate_missing_file_parent(&path)
+            } else {
+                path_validation_result(ResourcePathValidationStatus::NotFound)
+            }
+        }
+        Err(error) => unavailable_path_validation(error),
+    }
+}
+
+#[tauri::command]
+pub fn resource_validate_path(
+    request: ValidateResourcePathRequest,
+) -> ResourcePathValidationResult {
+    validate_resource_path(request)
 }
 
 #[tauri::command]
@@ -862,6 +971,73 @@ mod tests {
         };
         assert!(open_sqlite_target(&missing).is_err());
 
+        fs::remove_dir_all(directory).expect("temporary directory must be removed");
+    }
+
+    #[test]
+    fn validates_existing_resource_path_kinds() {
+        let directory = temporary_directory();
+        let file = directory.join("resource.txt");
+        fs::write(&file, "resource").expect("temporary file must be created");
+
+        let valid_file = validate_resource_path(ValidateResourcePathRequest {
+            path: file.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::File,
+            allow_missing_file: false,
+        });
+        let wrong_file_kind = validate_resource_path(ValidateResourcePathRequest {
+            path: directory.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::File,
+            allow_missing_file: false,
+        });
+        let valid_directory = validate_resource_path(ValidateResourcePathRequest {
+            path: directory.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::Directory,
+            allow_missing_file: false,
+        });
+        let wrong_directory_kind = validate_resource_path(ValidateResourcePathRequest {
+            path: file.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::Directory,
+            allow_missing_file: false,
+        });
+
+        assert_eq!(valid_file.status, ResourcePathValidationStatus::Valid);
+        assert_eq!(
+            wrong_file_kind.status,
+            ResourcePathValidationStatus::ExpectedFile
+        );
+        assert_eq!(valid_directory.status, ResourcePathValidationStatus::Valid);
+        assert_eq!(
+            wrong_directory_kind.status,
+            ResourcePathValidationStatus::ExpectedDirectory
+        );
+        fs::remove_dir_all(directory).expect("temporary directory must be removed");
+    }
+
+    #[test]
+    fn validates_missing_and_creatable_resource_paths() {
+        let directory = temporary_directory();
+        let missing = directory.join("new.db");
+
+        let rejected = validate_resource_path(ValidateResourcePathRequest {
+            path: missing.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::File,
+            allow_missing_file: false,
+        });
+        let creatable = validate_resource_path(ValidateResourcePathRequest {
+            path: missing.to_string_lossy().into_owned(),
+            expected_kind: ResourcePathKind::File,
+            allow_missing_file: true,
+        });
+        let relative = validate_resource_path(ValidateResourcePathRequest {
+            path: "relative/resource.db".to_string(),
+            expected_kind: ResourcePathKind::File,
+            allow_missing_file: true,
+        });
+
+        assert_eq!(rejected.status, ResourcePathValidationStatus::NotFound);
+        assert_eq!(creatable.status, ResourcePathValidationStatus::Creatable);
+        assert_eq!(relative.status, ResourcePathValidationStatus::NotAbsolute);
         fs::remove_dir_all(directory).expect("temporary directory must be removed");
     }
 }

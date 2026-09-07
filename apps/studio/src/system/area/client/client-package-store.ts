@@ -50,10 +50,10 @@ namespace ClientPackageStore {
     return { status: 'installed', installedPackage }
   }
 
-  export const select = (installationId: string) => store.update((state) => ({
+  export const toggleSelection = (installationId: string) => store.update((state) => ({
     ...state,
     selectedId: state.packages.some((item) => item.installationId === installationId)
-      ? installationId
+      ? (state.selectedId === installationId ? null : installationId)
       : state.selectedId,
   }))
 
@@ -70,11 +70,12 @@ namespace ClientPackageStore {
   }
 
   export const remove = (installationId: string) => store.update((state) => {
-    const index = state.packages.findIndex((item) => item.installationId === installationId)
-    if (index < 0) return state
+    if (!state.packages.some((item) => item.installationId === installationId)) return state
     const packages = state.packages.filter((item) => item.installationId !== installationId)
-    const replacement = packages[Math.min(index, packages.length - 1)] ?? null
-    return { packages, selectedId: replacement?.installationId ?? null }
+    return {
+      packages,
+      selectedId: state.selectedId === installationId ? null : state.selectedId,
+    }
   })
 
   export const setResourcePath = (

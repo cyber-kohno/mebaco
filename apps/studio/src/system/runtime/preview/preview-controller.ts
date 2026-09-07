@@ -8,6 +8,14 @@ import { get } from 'svelte/store'
 import RuntimeLog from '../log/runtime-log'
 
 namespace PreviewController {
+  export type OpenOptions = {
+    projectNode: TreeNode.Node
+    appDefinitionId: string
+    launcherId?: string
+    launchValues?: Readonly<Record<string, unknown>>
+    resourcePaths?: Readonly<Record<string, string>>
+  }
+
   const findOwnerApp = (
     node: TreeNode.Node,
     targetNodeId: number,
@@ -64,6 +72,25 @@ namespace PreviewController {
       launchValues,
     })
     return true
+  }
+
+  export const open = (
+    options: OpenOptions,
+  ): boolean => {
+    const appNode = findApp(options.projectNode, options.appDefinitionId)
+    if (appNode?.element.kind !== 'app') return false
+    const resourceSession = options.resourcePaths == null
+      ? ResourceRuntime.create(options.projectNode)
+      : ResourceRuntime.createWithPaths(options.projectNode, options.resourcePaths)
+    const opened = openApp(
+      options.projectNode,
+      appNode,
+      options.launcherId,
+      options.launchValues,
+      resourceSession,
+    )
+    if (!opened) resourceSession.dispose()
+    return opened
   }
 
   export const openForSelectedNode = (

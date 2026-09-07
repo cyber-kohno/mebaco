@@ -1,5 +1,5 @@
-import { relaunch } from '@tauri-apps/plugin-process'
 import ProjectGuard from '../project/project-guard'
+import TauriProcess from '../infra/tauri/process'
 
 export const restartApp = async () => {
   if (!await ProjectGuard.confirmDiscard()) return
@@ -11,5 +11,5 @@ export const restartApp = async () => {
     return
   }
 
-  await relaunch()
+  await TauriProcess.relaunchApp()
 }

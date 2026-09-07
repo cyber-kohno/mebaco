@@ -44,6 +44,11 @@
     renamingId = null
   }
 
+  const togglePackageSelection = (installationId: string) => {
+    renamingId = null
+    ClientPackageStore.toggleSelection(installationId)
+  }
+
   const formatBytes = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -88,7 +93,8 @@
               type="button"
               class="package-row"
               class:selected={$packageStore.selectedId === item.installationId}
-              onclick={() => ClientPackageStore.select(item.installationId)}
+              aria-pressed={$packageStore.selectedId === item.installationId}
+              onclick={() => togglePackageSelection(item.installationId)}
             >
               <span class="package-icon"><PackageOpen size={18} strokeWidth={1.9} /></span>
               <span class="package-copy">
@@ -210,8 +216,9 @@
   .count { display:grid; place-items:center; min-width:24px; height:21px; padding:0 7px; border-radius:11px; background:#d6edf1; color:#407078; font-size:11px; }
   .package-list { min-height:0; padding:9px; overflow:auto; }
   .package-row { display:grid; grid-template-columns:36px minmax(0,1fr) 10px; width:100%; height:auto; min-height:61px; margin-bottom:7px; padding:8px 10px; border-color:transparent; background:transparent; text-align:left; }
-  .package-row:hover { background:rgba(255,255,255,.7); }
-  .package-row.selected { border-color:#87c9d2; background:white; box-shadow:0 3px 11px rgba(40,120,132,.09); }
+  .package-row:hover:not(.selected) { border-color:transparent; background:rgba(255,255,255,.38); color:inherit; }
+  .package-row.selected, .package-row.selected:hover { border-color:#5daebb; background:#dff3f6; box-shadow:inset 4px 0 #278f9e,0 3px 11px rgba(40,120,132,.14); }
+  .package-row.selected .package-icon { background:#bfe6eb; color:#176f7c; }
   .package-icon { display:grid; place-items:center; width:30px; height:30px; border-radius:7px; background:#dff2f5; color:#2b8794; }
   .package-copy { display:grid; gap:4px; min-width:0; }
   .package-copy strong { overflow:hidden; color:#2f4b52; font-size:13px; text-overflow:ellipsis; white-space:nowrap; }

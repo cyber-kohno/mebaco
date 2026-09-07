@@ -1,19 +1,54 @@
 <script lang="ts">
+  import Maximize2 from '@lucide/svelte/icons/maximize-2'
+  import Minimize2 from '@lucide/svelte/icons/minimize-2'
+  import X from '@lucide/svelte/icons/x'
   import RuntimeSessionStore from '../runtime-session-store'
   import PreviewController from './preview-controller'
   import RuntimeView from '../view/RuntimeView.svelte'
 
   const sessionStore = RuntimeSessionStore.store
+  let maximized = $state(false)
+
+  $effect(() => {
+    if ($sessionStore == null) maximized = false
+  })
+
+  const close = () => {
+    maximized = false
+    PreviewController.close()
+  }
 </script>
 
 {#if $sessionStore != null}
   <div class="runtime-scrim" role="presentation"></div>
-  <section class="runtime-dialog" aria-label="Preview">
+  <section class="runtime-dialog" class:maximized aria-label="Preview">
     <header class="runtime-header">
       <div class="runtime-title">Preview</div>
-      <button type="button" aria-label="Close preview" onclick={PreviewController.close}>
-        Close
-      </button>
+      <div class="runtime-actions">
+        <button
+          class="icon-button"
+          type="button"
+          aria-label={maximized ? 'Restore preview size' : 'Maximize preview'}
+          aria-pressed={maximized}
+          title={maximized ? 'Restore' : 'Maximize'}
+          onclick={() => maximized = !maximized}
+        >
+          {#if maximized}
+            <Minimize2 size={17} strokeWidth={2} />
+          {:else}
+            <Maximize2 size={17} strokeWidth={2} />
+          {/if}
+        </button>
+        <button
+          class="icon-button"
+          type="button"
+          aria-label="Close preview"
+          title="Close"
+          onclick={close}
+        >
+          <X size={18} strokeWidth={2} />
+        </button>
+      </div>
     </header>
     <div class="runtime-body">
       <RuntimeView
@@ -54,6 +89,17 @@
     overflow: hidden;
   }
 
+  .runtime-dialog.maximized {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .runtime-header {
     flex: 0 0 42px;
     display: flex;
@@ -72,21 +118,28 @@
     font-weight: 800;
   }
 
-  button {
-    min-width: 72px;
+  .runtime-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .icon-button {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    min-width: 30px;
     height: 28px;
-    padding: 0 12px;
+    padding: 0;
     border: 1px solid var(--mbc-color-border-strong);
     border-radius: 8px;
     background: var(--mbc-color-surface-soft);
     color: #236f7a;
     font: inherit;
-    font-size: 13px;
-    font-weight: 700;
     cursor: default;
   }
 
-  button:hover {
+  .icon-button:hover {
     border-color: var(--mbc-color-primary);
     background: var(--mbc-color-primary-soft);
     color: #1f6270;

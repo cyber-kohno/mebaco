@@ -4,6 +4,8 @@ import { get } from 'svelte/store'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../version'
 import ClientPackage from './client-package'
 import ClientPackageStore from './client-package-store'
+import PreviewController from '../../runtime/preview/preview-controller'
+import RuntimeSessionStore from '../../runtime/runtime-session-store'
 
 const createPackage = async (options: { schemaGen?: number; createdAt?: string } = {}) => {
   const app = {
@@ -47,7 +49,10 @@ const createPackage = async (options: { schemaGen?: number; createdAt?: string }
   return zip.generateAsync({ type: 'uint8array' })
 }
 
-afterEach(() => ClientPackageStore.reset())
+afterEach(() => {
+  PreviewController.close()
+  ClientPackageStore.reset()
+})
 
 describe('ClientPackage', () => {
   it('loads a compatible mbcapp and resolves Launcher dependencies', async () => {
@@ -60,6 +65,40 @@ describe('ClientPackage', () => {
     expect(analysis.errors).toEqual([])
     expect(analysis.apps.map((app) => app.element.id)).toEqual(['sample-app'])
     expect(analysis.resources.map((resource) => resource.element.id)).toEqual(['workspace'])
+  })
+
+  it('creates a runtime project containing packaged launch dependencies', async () => {
+    const parsed = await ClientPackage.parse('sample.mbcapp', await createPackage())
+    const installed = ClientPackageStore.install(parsed).installedPackage
+    const project = ClientPackage.createRuntimeProject(installed)
+
+    expect(project.element.kind).toBe('project')
+    expect(project.children.map((child) => child.element.kind)).toEqual([
+      'app',
+      'launcher',
+      'directory-resource',
+    ])
+    expect(project.children.find((child) => child.element.kind === 'app')).toBe(installed.module.apps[0])
+  })
+
+  it('opens a packaged Launcher in the shared runtime session', async () => {
+    const parsed = await ClientPackage.parse('sample.mbcapp', await createPackage())
+    const installed = ClientPackageStore.install(parsed).installedPackage
+    const launcher = installed.module.launchers[0]
+    if (launcher?.appId == null) throw new Error('Test Launcher is incomplete.')
+    const project = ClientPackage.createRuntimeProject(installed)
+
+    expect(PreviewController.open({
+      projectNode: project,
+      appDefinitionId: launcher.appId,
+      launcherId: launcher.launcherId,
+      resourcePaths: { 'resource-id': 'C:\\client-workspace' },
+    })).toBe(true)
+    expect(get(RuntimeSessionStore.store)).toMatchObject({
+      projectNode: project,
+      launcherId: 'launcher-id',
+      app: { kind: 'app', appId: 'app-id' },
+    })
   })
 
   it('rejects incompatible schema generations before installation', async () => {
@@ -92,5 +131,32 @@ describe('ClientPackage', () => {
       sourceFileName: 'sample.mbcapp',
       resourcePaths: { 'resource-id': 'C:\\data' },
     })
+  })
+
+  it('toggles package selection off and back on', async () => {
+    const installed = ClientPackageStore.install(
+      await ClientPackage.parse('sample.mbcapp', await createPackage()),
+    ).installedPackage
+
+    expect(get(ClientPackageStore.value).selectedId).toBe(installed.installationId)
+    ClientPackageStore.toggleSelection(installed.installationId)
+    expect(get(ClientPackageStore.value).selectedId).toBeNull()
+    ClientPackageStore.toggleSelection(installed.installationId)
+    expect(get(ClientPackageStore.value).selectedId).toBe(installed.installationId)
+  })
+
+  it('returns to no selection when the selected package is removed', async () => {
+    const first = ClientPackageStore.install(
+      await ClientPackage.parse('first.mbcapp', await createPackage({ createdAt: '2026-09-07T00:00:00.000Z' })),
+    ).installedPackage
+    ClientPackageStore.install(
+      await ClientPackage.parse('second.mbcapp', await createPackage({ createdAt: '2026-09-08T00:00:00.000Z' })),
+    )
+    ClientPackageStore.toggleSelection(first.installationId)
+
+    ClientPackageStore.remove(first.installationId)
+
+    expect(get(ClientPackageStore.value)).toMatchObject({ selectedId: null })
+    expect(get(ClientPackageStore.value).packages).toHaveLength(1)
   })
 })

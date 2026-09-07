@@ -1,8 +1,8 @@
-import { invoke } from '@tauri-apps/api/core'
 import type TreeNode from '../../tree/tree-node'
 import type DirectoryResourceElement from '../../element/kind/resource/directory-resource-element'
 import type TextResourceElement from '../../element/kind/resource/text-resource-element'
 import type SqliteResourceElement from '../../element/kind/resource/sqlite-resource-element'
+import TauriResourceCommands from '../../infra/tauri/resource-commands'
 
 namespace ResourceRuntime {
   export type Backend = {
@@ -46,7 +46,7 @@ namespace ResourceRuntime {
   }
 
   const tauriBackend: Backend = {
-    invoke: (command, args) => invoke(command, args),
+    invoke: (command, args) => TauriResourceCommands.invokeCommand(command, args),
   }
 
   const collect = <T>(
@@ -93,8 +93,8 @@ namespace ResourceRuntime {
   const createRegistrations = (
     rootNode: TreeNode.Node,
     resources: readonly ResourceElement[],
+    pathByResourceId: ReadonlyMap<string, string>,
   ): Registration[] => {
-    const pathByResourceId = getFirstBindings(rootNode)
     return resources.map((resource): Registration => {
       const base = {
         resourceId: resource.resourceId,
@@ -199,13 +199,14 @@ namespace ResourceRuntime {
     return value
   }
 
-  export const create = (
+  const createSession = (
     rootNode: TreeNode.Node,
-    backend: Backend = tauriBackend,
+    pathByResourceId: ReadonlyMap<string, string>,
+    backend: Backend,
   ): Session => {
     const id = crypto.randomUUID()
     const resources = collectResources(rootNode)
-    const registrations = createRegistrations(rootNode, resources)
+    const registrations = createRegistrations(rootNode, resources, pathByResourceId)
     let registration: Promise<void> | null = null
     let registered = false
     let disposed = false
@@ -393,6 +394,21 @@ namespace ResourceRuntime {
       },
     }
   }
+
+  export const create = (
+    rootNode: TreeNode.Node,
+    backend: Backend = tauriBackend,
+  ): Session => createSession(rootNode, getFirstBindings(rootNode), backend)
+
+  export const createWithPaths = (
+    rootNode: TreeNode.Node,
+    pathByResourceId: Readonly<Record<string, string>>,
+    backend: Backend = tauriBackend,
+  ): Session => createSession(
+    rootNode,
+    new Map(Object.entries(pathByResourceId)),
+    backend,
+  )
 }
 
 export default ResourceRuntime

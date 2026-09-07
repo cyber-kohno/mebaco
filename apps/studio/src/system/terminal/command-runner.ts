@@ -67,6 +67,7 @@ namespace CommandRunner {
           focus: 0,
           onSelect: () => undefined,
           inputValue: '',
+          inputCaret: 0,
           inputSpec: spec,
           onInputSubmit: onSubmit,
         },
@@ -81,7 +82,7 @@ namespace CommandRunner {
     const context = createContext()
     const session = get(commandSessionStore)
     appendRecord('command', 'normal', `node-${session?.nodeId ?? get(TreeStore.selectedNodeId)}> ${input}`)
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '', completionDismissed: false, prompt: null }))
+    commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '', inputCaret: 0, completionDismissed: false, prompt: null }))
     const definition = CommandRegistry.find(context, tokens[0])
     if (definition == null) {
       context.appendOutput('warning', `Unknown command: ${tokens[0]}`)

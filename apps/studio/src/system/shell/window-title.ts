@@ -1,7 +1,7 @@
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import type { Unsubscriber } from 'svelte/store'
 import { APP_VERSION } from '../version'
 import ProjectSession from '../project/project-session-store'
+import TauriWindow from '../infra/tauri/window'
 
 namespace WindowTitle {
   const applicationTitle = `Mebaco v${APP_VERSION}`
@@ -15,7 +15,7 @@ namespace WindowTitle {
 
   const update = (session: ProjectSession.Value) => {
     try {
-      void getCurrentWindow().setTitle(getTitle(session)).catch(() => undefined)
+      void TauriWindow.setTitle(getTitle(session)).catch(() => undefined)
     } catch {
       // The browser-only Vite preview has no Tauri window bridge.
     }

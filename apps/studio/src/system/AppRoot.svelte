@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { getCurrentWindow } from '@tauri-apps/api/window'
   import ActionMenuLayer from './action-menu/ActionMenuLayer.svelte'
   import ClientArea from './area/client/ClientArea.svelte'
   import DevelopArea from './area/develop/DevelopArea.svelte'
@@ -23,6 +22,7 @@
   import DevelopInteractionController from './area/develop/interaction/develop-interaction-controller'
   import { developInteractionStore } from './area/develop/interaction/develop-interaction-store'
   import { developScreenStore } from './area/develop/develop-screen-store'
+  import TauriWindow from './infra/tauri/window'
 
   $effect(() => {
     if (
@@ -42,7 +42,7 @@
     let unlistenClose: (() => void) | undefined
 
     try {
-      void getCurrentWindow().onCloseRequested(async (event) => {
+      void TauriWindow.onCloseRequested(async (event) => {
         if (isClosing || !ProjectGuard.isDirty()) return
 
         if (!await ProjectGuard.confirmDiscard()) {

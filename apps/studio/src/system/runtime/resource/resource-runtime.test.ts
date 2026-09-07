@@ -93,6 +93,26 @@ describe('ResourceRuntime', () => {
     })
   })
 
+  it('uses explicit client paths instead of the development Configuration', async () => {
+    const invoke = vi.fn().mockResolvedValue('hello')
+    const session = ResourceRuntime.createWithPaths(createProject(), {
+      'workspace-id': 'C:\\client-workspace',
+      'settings-id': 'C:\\client-settings.txt',
+    }, { invoke })
+    const settings = session.namespace.settings as { read: () => Promise<string> }
+
+    await expect(settings.read()).resolves.toBe('hello')
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'resource_create_session', {
+      request: expect.objectContaining({
+        resources: expect.arrayContaining([
+          expect.objectContaining({ resourceId: 'workspace-id', path: 'C:\\client-workspace' }),
+          expect.objectContaining({ resourceId: 'settings-id', path: 'C:\\client-settings.txt' }),
+        ]),
+      }),
+    })
+  })
+
   it('rejects invalid and disallowed derived paths synchronously', () => {
     const backend: ResourceRuntime.Backend = { invoke: vi.fn() }
     const session = ResourceRuntime.create(createProject(), backend)

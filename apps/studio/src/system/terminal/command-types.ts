@@ -70,6 +70,7 @@ export type CommandPrompt = {
   focus: number
   onSelect: (choiceId: string) => void | Promise<void>
   inputValue?: string
+  inputCaret?: number
   inputSpec?: CommandInputSpec
   onInputSubmit?: (value: string) => void | Promise<void>
 }
@@ -77,6 +78,7 @@ export type CommandPrompt = {
 export type CommandSession = {
   nodeId: number
   input: string
+  inputCaret: number
   completionDismissed: boolean
   focus: number
   outputs: CommandOutput[]
