@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store'
 
 namespace ReferenceGraphController {
-  export const visible = writable(false)
+  export const visible = writable(true)
 
   export const open = () => {
     visible.set(true)

@@ -14,6 +14,29 @@ const node = (
 })
 
 describe('ReferenceGraph', () => {
+  it('tracks Style animation references to local Keyframes by stable UUID', () => {
+    const keyframes = node(4, {
+      kind: 'style-keyframes', keyframesId: 'keyframes-uuid', id: 'fade', frames: [],
+    })
+    const style = node(2, {
+      kind: 'style', styleId: 'style-uuid', id: 'animated', rules: [], bases: [],
+      animations: [{
+        type: 'animation', mode: 'custom', items: [{
+          referenceId: 'animation-ref', keyframesId: 'keyframes-uuid',
+        }],
+      }],
+    }, [node(3, { kind: 'style-locals' }, [keyframes])])
+    const root = node(1, { kind: 'project' }, [style])
+
+    expect(ReferenceGraph.build(root, keyframes.id).references).toEqual([{
+      sourceNodeId: style.id,
+      sourceLabel: 'style#animations',
+      targetNodeId: keyframes.id,
+      targetLabel: 'style-keyframes.fade',
+      sourceType: 'structural',
+    }])
+  })
+
   it('reuses one analyzed snapshot while selecting different nodes', () => {
     const component = node(2, {
       kind: 'component',

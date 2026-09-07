@@ -19,8 +19,8 @@ describe('Resource Imports', () => {
         { element: TransitionsElement.create() },
         { element: ResourceImportsElement.create() },
       ])
-    expect(TransitionsElement.definition.treeLabel).toMatchObject({ tone: 'manager' })
-    expect(ResourceImportsElement.definition.treeLabel).toMatchObject({ tone: 'manager' })
+    expect(TransitionsElement.definition.treeLabel.type).toBe('component')
+    expect(ResourceImportsElement.definition.treeLabel.type).toBe('component')
   })
 
   it('resolves selected stable Resource ids for an App', () => {

@@ -3,6 +3,7 @@
   import TreeView from '../../../tree/TreeView.svelte'
   import TreeDestinationOperation from '../../../tree/destination/tree-destination-operation'
   import AncestorPathPanel from '../../../tree/path/AncestorPathPanel.svelte'
+  import ReferenceGraphPanel from '../reference/ReferenceGraphPanel.svelte'
 
   const transaction = $derived(
     $developInteractionStore.type === 'destination-transaction'
@@ -22,6 +23,7 @@
   <AncestorPathPanel />
   <div class="tree-panel">
     <TreeView />
+    <ReferenceGraphPanel />
     {#if transaction != null && presentation != null}
       <div class="interaction-banner" role="status">
         {presentation.modeLabel} mode —

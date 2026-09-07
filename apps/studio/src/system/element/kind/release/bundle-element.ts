@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import type TreeNode from '../../../tree/tree-node'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
+import BundleTreeLabel from './BundleTreeLabel.svelte'
 
 namespace BundleElement {
   export type Kind = 'bundle'
@@ -82,8 +83,8 @@ namespace BundleElement {
   export const definition = {
     kind: 'bundle',
     treeLabel: {
-      type: 'static', kindText: 'Bundle', tone: 'master',
-      getValueText: (element: Element) => element.id,
+      type: 'component',
+      Component: BundleTreeLabel,
     },
     getHierarchyText: ({ element }) => element.id,
     search: { getIdText: (element: Element) => element.id },

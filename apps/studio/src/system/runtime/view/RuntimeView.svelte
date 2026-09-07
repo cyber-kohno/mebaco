@@ -192,8 +192,22 @@
   const displayedRuntimeFailure = $derived(runtimeFailure ?? derivedRuntimeFailure)
   const runtimeStyleSheet = $derived.by(() => {
     const rules: string[] = []
+    const emittedKeyframes = new Set<string>()
     Object.entries(styleResults).forEach(([instanceKey, entry]) => {
       const { result } = entry
+      ;(result.keyframes ?? []).forEach((definition) => {
+        if (emittedKeyframes.has(definition.name)) return
+        emittedKeyframes.add(definition.name)
+        const frames = definition.frames.map((frame) => {
+          const style = document.createElement('div').style
+          frame.declarations.forEach((declaration) => {
+            style.setProperty(declaration.property, declaration.value)
+          })
+          const selectors = frame.selectors.map((selector) => `${selector}%`).join(', ')
+          return `${selectors} { ${style.cssText} }`
+        }).join(' ')
+        rules.push(`@keyframes ${definition.name} { ${frames} }`)
+      })
       const states = [null, ...StyleElement.states] as const
       states.forEach((state) => {
         const style = document.createElement('div').style

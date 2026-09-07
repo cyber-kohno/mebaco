@@ -1,6 +1,7 @@
 <script lang="ts">
   import TreeStore from '../../store/tree-store'
   import StylePropsEditor from '../../element/kind/view/style/StylePropsEditor.svelte'
+  import StyleAnimationsEditor from '../../element/kind/view/style/StyleAnimationsEditor.svelte'
   import StyleBasesEditor from '../../element/kind/view/style/StyleBasesEditor.svelte'
   import TransitionImportsEditor from '../../element/kind/app/import/TransitionImportsEditor.svelte'
   import DebugResourceBindingsEditor from '../../element/kind/debug/DebugResourceBindingsEditor.svelte'
@@ -36,6 +37,7 @@
   import ElementUpdatePreflight from '../element-update-preflight'
   import ConfirmDialogController from '../../feedback/confirm/confirm-dialog-controller'
   import BundleDefinitionEditor from '../../element/kind/release/BundleDefinitionEditor.svelte'
+  import StyleKeyframesEditor from '../../element/kind/view/style/StyleKeyframesEditor.svelte'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -140,6 +142,10 @@
         return ElementEditSchema.validateValueType(field, value)
       case 'styleProps':
         return ElementEditSchema.validateStyleProps(value)
+      case 'styleAnimations':
+        return ElementEditSchema.validateStyleAnimations(field, value)
+      case 'styleKeyframes':
+        return ElementEditSchema.validateStyleKeyframes(value)
       case 'styleApplications':
         return ElementEditSchema.validateStyleApplications(field, value)
       case 'styleBases':
@@ -335,6 +341,8 @@
     class="dialog"
     class:wide-dialog={$elementDialogStore.schema.fields.some((field) => (
       field.type === 'objectShape' || field.type === 'signatureDefinition'
+      || field.type === 'styleKeyframes'
+      || field.type === 'styleAnimations'
       || field.type === 'transitionImports'
       || field.type === 'resourceImports'
       || field.type === 'resourceBindings'
@@ -353,6 +361,8 @@
       class="dialog-body"
       class:contained-scroll={visibleFields().some((field) => (
         field.type === 'styleProps'
+        || field.type === 'styleAnimations'
+        || field.type === 'styleKeyframes'
         || field.type === 'styleApplications'
         || field.type === 'styleBases'
         || field.type === 'styleMonitor'
@@ -406,6 +416,39 @@
               }}
             />
           </div>
+        {:else if field.type === 'styleKeyframes'}
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <StyleKeyframesEditor
+              value={values[field.key] ?? field.defaultValue ?? '[]'}
+              errorMessage={touched[field.key] === true ? error : null}
+              formulaInjectionSource={getInjectionSource('expression')}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'styleAnimations'}
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <StyleAnimationsEditor
+              value={values[field.key] ?? field.defaultValue ?? '[]'}
+              options={field.options}
+              errorMessage={touched[field.key] === true ? error : null}
+              formulaInjectionSource={getInjectionSource('expression')}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
         {:else if field.type === 'styleApplications'}
           <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
             <span class="field-label">
@@ -450,6 +493,7 @@
               parentNodeId={$elementDialogStore.mode === 'create' ? $elementDialogStore.parentNodeId : null}
               styleName={values[field.idKey] ?? ''}
               rules={values[field.rulesKey] ?? '[]'}
+              animations={values[field.animationsKey] ?? '[]'}
               bases={values[field.basesKey] ?? '[]'}
             />
           </div>

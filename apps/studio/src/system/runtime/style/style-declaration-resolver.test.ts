@@ -2,8 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StyleFixture from '../../test-support/style-fixture'
 import FormulaContext from '../formula/formula-context'
 import StyleDeclarationResolver from './style-declaration-resolver'
+import type StyleElement from '../../element/kind/view/style/style-element'
+import StyleKeyframesElement from '../../element/kind/view/style/style-keyframes-element'
 
 describe('runtime StyleDeclarationResolver', () => {
+  const animation = (keyframesId: string): StyleElement.AnimationItem => ({
+    referenceId: crypto.randomUUID(),
+    keyframesId,
+    duration: { type: 'literal', value: '1s' },
+    timingFunction: { type: 'literal', value: 'ease' },
+    delay: { type: 'literal', value: '0s' },
+    iterationCount: { type: 'literal', value: '1' },
+    direction: { type: 'literal', value: 'normal' },
+    fillMode: { type: 'literal', value: 'none' },
+    playState: { type: 'literal', value: 'running' },
+    composition: { type: 'literal', value: 'replace' },
+    timeline: { type: 'literal', value: 'auto' },
+    rangeStart: { type: 'literal', value: 'normal' },
+    rangeEnd: { type: 'literal', value: 'normal' },
+  })
+
   beforeEach(() => {
     StyleFixture.resetNodeIds()
     vi.stubGlobal('CSS', {
@@ -50,6 +68,71 @@ describe('runtime StyleDeclarationResolver', () => {
       path: ['local'],
       valueType: 'literal',
     })
+  })
+
+  it('compiles multiple local Keyframes references and animation longhands', () => {
+    const fade = StyleKeyframesElement.create('fade', [], 'keyframes:fade')
+    const from = StyleKeyframesElement.createFrame(0)
+    from.declarations = [StyleFixture.literal('opacity', '0')]
+    const to = StyleKeyframesElement.createFrame(100)
+    to.declarations = [StyleFixture.literal('opacity', '1')]
+    fade.frames = [from, to]
+
+    const first = animation(fade.keyframesId)
+    first.duration = { type: 'formula', source: '`700ms`' }
+    first.fillMode = { type: 'literal', value: 'forwards' }
+    const second = animation(fade.keyframesId)
+    second.duration = { type: 'literal', value: '2s' }
+    second.iterationCount = { type: 'literal', value: 'infinite' }
+
+    const animated = StyleFixture.style('animated', {
+      keyframes: [fade],
+      animations: [{ type: 'animation', mode: 'custom', items: [first, second] }],
+    })
+    const result = StyleDeclarationResolver
+      .createCatalog(StyleFixture.project([animated]))
+      .resolve([StyleFixture.application('animated')], FormulaContext.createEmpty())
+
+    expect(result.errors).toEqual([])
+    expect(result.keyframes).toHaveLength(1)
+    expect(result.keyframes?.[0]?.frames).toEqual([
+      { selectors: [0], declarations: [{ property: 'opacity', value: '0' }] },
+      { selectors: [100], declarations: [{ property: 'opacity', value: '1' }] },
+    ])
+    expect(result.declarations.find((item) => item.property === 'animation-name')?.value)
+      .toBe(`${result.keyframes?.[0]?.name}, ${result.keyframes?.[0]?.name}`)
+    expect(result.declarations.find((item) => item.property === 'animation-duration')?.value)
+      .toBe('700ms, 2s')
+    expect(result.declarations.find((item) => item.property === 'animation-iteration-count')?.value)
+      .toBe('1, infinite')
+  })
+
+  it('uses None as a later animation override while unspecified leaves inheritance intact', () => {
+    const base = StyleFixture.style('base', {
+      animations: [{ type: 'animation', mode: 'none', items: [] }],
+    })
+    const unspecified = StyleFixture.style('unspecified', {
+      bases: [StyleFixture.base('base')],
+    })
+    const hoverNone = StyleFixture.style('hover-none', {
+      bases: [StyleFixture.base('base')],
+      animations: [{ type: 'animation', state: 'hover', mode: 'none', items: [] }],
+    })
+    const catalog = StyleDeclarationResolver.createCatalog(StyleFixture.project([
+      base, unspecified, hoverNone,
+    ]))
+
+    expect(catalog.resolve(
+      [StyleFixture.application('unspecified')], FormulaContext.createEmpty(),
+    ).declarations.map(({ property, value, state }) => ({ property, value, state }))).toEqual([
+      { property: 'animation-name', value: 'none', state: null },
+    ])
+    expect(catalog.resolve(
+      [StyleFixture.application('hover-none')], FormulaContext.createEmpty(),
+    ).declarations.map(({ property, value, state }) => ({ property, value, state }))).toEqual([
+      { property: 'animation-name', value: 'none', state: null },
+      { property: 'animation-name', value: 'none', state: 'hover' },
+    ])
   })
 
   it('resolves default, literal, and formula application bindings', () => {

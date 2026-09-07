@@ -4,6 +4,7 @@ import type StyleParamElement from '../element/kind/view/style/style-param-eleme
 import type TagElement from '../element/kind/view/tag/tag-element'
 import type TreeNode from '../tree/tree-node'
 import type VariableElement from '../element/kind/variable/variable-element'
+import type StyleKeyframesElement from '../element/kind/view/style/style-keyframes-element'
 
 namespace StyleFixture {
   let nextNodeId = 1
@@ -48,17 +49,20 @@ namespace StyleFixture {
       bases?: StyleElement.Base[]
       parameters?: StyleParamElement.Element[]
       locals?: VariableElement.Element[]
+      keyframes?: StyleKeyframesElement.Element[]
+      animations?: StyleElement.AnimationRule[]
     } = {},
   ): TreeNode.Node => {
     const parameterNodes = options.parameters?.map((item) => node(item)) ?? []
     const localNodes = options.locals?.map((item) => node(item)) ?? []
+    const keyframesNodes = options.keyframes?.map((item) => node(item)) ?? []
     const children = [
       ...(parameterNodes.length === 0
         ? []
         : [node({ kind: 'style-params' }, parameterNodes)]),
-      ...(localNodes.length === 0
+      ...(localNodes.length === 0 && keyframesNodes.length === 0
         ? []
-        : [node({ kind: 'style-locals' }, localNodes)]),
+        : [node({ kind: 'style-locals' }, [...localNodes, ...keyframesNodes])]),
     ]
 
     return node({
@@ -66,6 +70,7 @@ namespace StyleFixture {
       styleId: styleId(id),
       id,
       rules: options.rules ?? [],
+      animations: options.animations ?? [],
       bases: options.bases ?? [],
     }, children)
   }

@@ -44,6 +44,7 @@ import StyleElement from './kind/view/style/style-element'
 import StyleParamElement from './kind/view/style/style-param-element'
 import StyleParamsElement from './kind/view/style/style-params-element'
 import StyleLocalsElement from './kind/view/style/style-locals-element'
+import StyleKeyframesElement from './kind/view/style/style-keyframes-element'
 import TagElement from './kind/view/tag/tag-element'
 import TextElement from './kind/view/text/text-element'
 import ObjectTypeElement from './kind/type/object/object-type-element'
@@ -120,6 +121,7 @@ namespace MebacoElement {
     | StyleParamElement.Kind
     | StyleParamsElement.Kind
     | StyleLocalsElement.Kind
+    | StyleKeyframesElement.Kind
     | TagElement.Kind
     | TextElement.Kind
     | TypesElement.Kind
@@ -195,6 +197,7 @@ namespace MebacoElement {
     | StyleParamElement.Element
     | StyleParamsElement.Element
     | StyleLocalsElement.Element
+    | StyleKeyframesElement.Element
     | TagElement.Element
     | TextElement.Element
     | TypesElement.Element

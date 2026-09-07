@@ -1,6 +1,7 @@
 import type TreeNode from '../../tree/tree-node'
 import type StyleElement from '../../element/kind/view/style/style-element'
 import type StyleParamElement from '../../element/kind/view/style/style-param-element'
+import type StyleKeyframesElement from '../../element/kind/view/style/style-keyframes-element'
 import type TagElement from '../../element/kind/view/tag/tag-element'
 import StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
 import StyleArgumentContract from '../../element/kind/view/style/style-argument-contract'
@@ -56,6 +57,15 @@ namespace StyleDeclarationResolver {
   export type Result = {
     declarations: Declaration[]
     errors: Error[]
+    keyframes?: KeyframesDefinition[]
+  }
+
+  export type KeyframesDefinition = {
+    name: string
+    frames: {
+      selectors: number[]
+      declarations: { property: string; value: string }[]
+    }[]
   }
 
   export type ResolveOptions = {
@@ -75,6 +85,7 @@ namespace StyleDeclarationResolver {
     element: StyleElement.Element
     parameters: Map<string, StyleParamElement.Element>
     locals: readonly TreeNode.Node[]
+    keyframes: ReadonlyMap<string, StyleKeyframesElement.Element>
   }
 
   type ResolvedValue = {
@@ -145,6 +156,27 @@ namespace StyleDeclarationResolver {
   ): readonly TreeNode.Node[] => node.children
     .find((child) => child.element.kind === 'style-locals')
     ?.children.filter((child) => child.element.kind === 'variable') ?? []
+
+  const collectKeyframes = (
+    node: TreeNode.Node,
+  ): ReadonlyMap<string, StyleKeyframesElement.Element> => new Map(
+    (node.children.find((child) => child.element.kind === 'style-locals')
+      ?.children ?? [])
+      .flatMap((child): [string, StyleKeyframesElement.Element][] => (
+        child.element.kind === 'style-keyframes'
+          ? [[child.element.keyframesId, child.element]]
+          : []
+      )),
+  )
+
+  const hashText = (value: string): string => {
+    let hash = 2166136261
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
+  }
 
   const matchesType = (
     value: unknown,
@@ -351,6 +383,7 @@ namespace StyleDeclarationResolver {
           element: node.element,
           parameters: collectParameters(node),
           locals: collectLocals(node),
+          keyframes: collectKeyframes(node),
         })
       }
       node.children.forEach(collect)
@@ -397,6 +430,7 @@ namespace StyleDeclarationResolver {
       const parameterContext = createFormulaContext(globalContext, parameters)
       const declarations: Declaration[] = []
       const errors: Error[] = []
+      const keyframes: KeyframesDefinition[] = []
       const localsResult = resolveLocals(
         record.locals,
         parameterContext,
@@ -406,7 +440,7 @@ namespace StyleDeclarationResolver {
         nextPathNames,
       )
       errors.push(...localsResult.errors)
-      if (localsResult.errors.length > 0) return { declarations, errors }
+      if (localsResult.errors.length > 0) return { declarations, errors, keyframes }
       const context = localsResult.context
 
       record.element.bases.forEach((base) => {
@@ -487,6 +521,7 @@ namespace StyleDeclarationResolver {
         )
         declarations.push(...baseResult.declarations)
         errors.push(...baseResult.errors)
+        keyframes.push(...(baseResult.keyframes ?? []))
       })
 
       record.element.rules.forEach((rule) => {
@@ -598,7 +633,144 @@ namespace StyleDeclarationResolver {
         }
       })
 
-      return { declarations, errors }
+      const evaluateAnimationValue = (
+        value: StyleElement.StyleValue,
+        property: string,
+      ): string | null => {
+        if (value.type === 'literal') return value.value
+        const result = FormulaEvaluator.evaluateExpression(value.source, context)
+        if (!result.ok) {
+          errors.push({
+            type: 'formula',
+            message: `Failed to evaluate '${property}' in style '${record.element.id}'.`,
+            styleId,
+            path: nextPathNames,
+            property,
+            scriptError: result.error,
+          })
+          return null
+        }
+        if (isUnresolvedFormula(result.value)) return null
+        if (typeof result.value !== 'string') {
+          errors.push({
+            type: 'result-type',
+            message: `'${property}' in style '${record.element.id}' must return string.`,
+            styleId,
+            path: nextPathNames,
+            property,
+          })
+          return null
+        }
+        return result.value
+      }
+
+      const appendAnimationDeclaration = (
+        property: string,
+        value: string,
+        state: StyleElement.State | null,
+        valueType: StyleElement.StyleValue['type'] = 'literal',
+      ) => declarations.push({
+        property,
+        value,
+        state,
+        source: { styleId, path: [...nextPathNames], valueType },
+      })
+
+      ;(record.element.animations ?? []).forEach((rule) => {
+        const state = rule.state ?? null
+        if (rule.mode === 'none') {
+          appendAnimationDeclaration('animation-name', 'none', state)
+          return
+        }
+
+        const compiled = rule.items.map((item) => {
+          const definition = record.keyframes.get(item.keyframesId)
+          if (definition == null) {
+            errors.push({
+              type: 'structure',
+              message: `Keyframes '${item.keyframesId}' was not found in style '${record.element.id}'.`,
+              styleId,
+              referenceId: item.referenceId,
+              path: nextPathNames,
+              assertion: true,
+            })
+            return null
+          }
+
+          let frameIsValid = true
+          const frames = definition.frames.map((frame) => ({
+            selectors: frame.selectors.map((selector) => selector.value),
+            declarations: frame.declarations.flatMap((declaration) => {
+              const resolved = evaluateAnimationValue(declaration.value, declaration.property)
+              if (resolved == null) {
+                frameIsValid = false
+                return []
+              }
+              if (StyleValueSupport.check(declaration.property, resolved) === 'unsupported') {
+                errors.push({
+                  type: 'css-value',
+                  message: `'${resolved}' is not supported for '${declaration.property}' in Keyframes '${definition.id}'.`,
+                  styleId,
+                  path: nextPathNames,
+                  property: declaration.property,
+                })
+                frameIsValid = false
+                return []
+              }
+              return [{ property: declaration.property, value: resolved }]
+            }),
+          }))
+          if (!frameIsValid) return null
+
+          const canonical = JSON.stringify(frames)
+          const safeId = definition.keyframesId.replace(/[^a-zA-Z0-9_-]/g, '')
+          const name = `mbc-kf-${safeId}-${hashText(canonical)}`
+          if (!keyframes.some((candidate) => candidate.name === name)) {
+            keyframes.push({ name, frames })
+          }
+
+          const valueEntries = [
+            ['animation-duration', item.duration],
+            ['animation-timing-function', item.timingFunction],
+            ['animation-delay', item.delay],
+            ['animation-iteration-count', item.iterationCount],
+            ['animation-direction', item.direction],
+            ['animation-fill-mode', item.fillMode],
+            ['animation-play-state', item.playState],
+            ['animation-composition', item.composition],
+            ['animation-timeline', item.timeline],
+            ['animation-range-start', item.rangeStart],
+            ['animation-range-end', item.rangeEnd],
+          ] as const
+          const values = valueEntries.map(([property, value]) => ({
+            property,
+            value: evaluateAnimationValue(value, property),
+            valueType: value.type,
+          }))
+          return values.some((entry) => entry.value == null) ? null : { name, values }
+        })
+        if (compiled.some((item) => item == null)) return
+
+        appendAnimationDeclaration(
+          'animation-name',
+          compiled.map((item) => item!.name).join(', '),
+          state,
+        )
+        const properties = compiled[0]?.values.map((entry) => entry.property) ?? []
+        properties.forEach((property) => {
+          const entries = compiled.map((item) => (
+            item!.values.find((entry) => entry.property === property)!
+          ))
+          appendAnimationDeclaration(
+            property,
+            entries.map((entry) => entry.value!).join(', '),
+            state,
+            entries.some((entry) => entry.valueType === 'formula') ? 'formula' : 'literal',
+          )
+        })
+      })
+
+      return { declarations, errors, keyframes }
     }
 
     const resolve = (
@@ -608,6 +780,7 @@ namespace StyleDeclarationResolver {
     ): Result => {
       const declarations: Declaration[] = []
       const errors: Error[] = []
+      const keyframes: KeyframesDefinition[] = []
 
       applications.forEach((application) => {
         const resolution = parameterCatalog.resolve(application.styleId)
@@ -687,9 +860,16 @@ namespace StyleDeclarationResolver {
         )
         declarations.push(...result.declarations)
         errors.push(...result.errors)
+        keyframes.push(...(result.keyframes ?? []))
       })
 
-      return { declarations, errors }
+      return {
+        declarations,
+        errors,
+        keyframes: keyframes.filter((item, index) => (
+          keyframes.findIndex((candidate) => candidate.name === item.name) === index
+        )),
+      }
     }
 
     return { resolve }

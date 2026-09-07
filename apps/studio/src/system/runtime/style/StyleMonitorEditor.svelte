@@ -12,10 +12,11 @@
     parentNodeId: number | null
     styleName: string
     rules: string
+    animations: string
     bases: string
   }
 
-  let { rootNode, nodeId, parentNodeId, styleName, rules, bases }: Props = $props()
+  let { rootNode, nodeId, parentNodeId, styleName, rules, animations, bases }: Props = $props()
 
   const replaceStyle = (
     node: TreeNode.Node,
@@ -58,6 +59,7 @@
       StyleElement.parseRules(rules),
       StyleElement.parseBases(bases),
       previewStyleId,
+      StyleElement.parseAnimations(animations),
     )
     const previewRoot = nodeId != null
       ? replaceStyle(rootNode, nodeId, draft)

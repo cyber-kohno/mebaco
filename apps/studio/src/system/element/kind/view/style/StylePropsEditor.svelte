@@ -190,6 +190,12 @@
     if (property.trim().length === 0) {
       return { message: 'Property is required.', severity: 'warning' }
     }
+    if (StylePropertyCatalog.isAnimationProperty(property)) {
+      return {
+        message: 'Use the Animations tab for animation properties.',
+        severity: 'error',
+      }
+    }
     if (duplicatePropertyKeys.has(StylePropertyName.normalize(property))) {
       return {
         message: 'Property is duplicated in this state.',

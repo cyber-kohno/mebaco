@@ -19,6 +19,8 @@ namespace DefinitionCatalog {
         return element.slotId
       case 'style':
         return element.styleId
+      case 'style-keyframes':
+        return element.keyframesId
       case 'style-param':
         return element.parameterId
       case 'object-type':

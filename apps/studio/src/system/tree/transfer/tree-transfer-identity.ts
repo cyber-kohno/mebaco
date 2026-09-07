@@ -78,6 +78,9 @@ namespace TreeTransferIdentity {
     switch (element.kind) {
       case 'style':
         element.bases.forEach((base) => addFreshId(maps.referenceIds, base.referenceId))
+        ;(element.animations ?? []).forEach((rule) => {
+          rule.items.forEach((item) => addFreshId(maps.referenceIds, item.referenceId))
+        })
         break
       case 'object-type':
         element.properties.forEach((property) => {
@@ -187,10 +190,23 @@ namespace TreeTransferIdentity {
               ?? argument.parameterId
           })
         })
+        ;(clone.animations ?? []).forEach((rule) => {
+          rule.items.forEach((item) => {
+            item.referenceId = maps.referenceIds.get(item.referenceId) ?? item.referenceId
+            item.keyframesId = maps.definitionIds.get(item.keyframesId) ?? item.keyframesId
+          })
+        })
         break
       case 'style-param':
         clone.parameterId = maps.definitionIds.get(clone.parameterId)
           ?? clone.parameterId
+        break
+      case 'style-keyframes':
+        clone.keyframesId = maps.definitionIds.get(clone.keyframesId)
+          ?? clone.keyframesId
+        clone.frames.forEach((frame) => {
+          frame.frameId = crypto.randomUUID()
+        })
         break
       case 'tag':
         clone.styles.forEach((style) => {

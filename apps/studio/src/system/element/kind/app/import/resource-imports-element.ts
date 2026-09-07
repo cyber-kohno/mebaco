@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../../element-dialog/element-edit-sche
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import type TreeNode from '../../../../tree/tree-node'
+import ImportItemsTreeLabel from './ImportItemsTreeLabel.svelte'
 import ResourceImportCatalog from './resource-import-catalog'
 
 namespace ResourceImportsElement {
@@ -44,7 +45,7 @@ namespace ResourceImportsElement {
 
   export const definition = {
     kind: 'resource-imports',
-    treeLabel: { type: 'static', kindText: 'Resources', tone: 'manager' },
+    treeLabel: { type: 'component', Component: ImportItemsTreeLabel },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       return [action('Modify', () => ElementDialog.openUpdate(

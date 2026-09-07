@@ -8,6 +8,7 @@ import SlotsElement from './component/definition/slot/slots-element'
 import StyleElement from './view/style/style-element'
 import StyleParamElement from './view/style/style-param-element'
 import StyleParamsElement from './view/style/style-params-element'
+import StyleLocalsElement from './view/style/style-locals-element'
 
 vi.mock('../../store/tree-store', () => ({
   default: {
@@ -110,5 +111,24 @@ describe('Optional feature menus', () => {
 
     expect(StyleElement.getContainerInsertIndex(styleWithLocals, 'style-params')).toBe(0)
     expect(StyleElement.getContainerInsertIndex(styleWithParameters, 'style-locals')).toBe(1)
+  })
+
+  it('offers variables and Keyframes from a Style Locals container', () => {
+    const locals = createNode(3, StyleLocalsElement.create())
+    const style = createNode(2, StyleElement.create('card'), [locals])
+    const root = createNode(1, { kind: 'project' }, [style])
+
+    const items = StyleLocalsElement.definition.getContextMenu({
+      element: locals.element as StyleLocalsElement.Element,
+      node: locals,
+      parentNode: style,
+      rootNode: root,
+    })
+
+    expect(items.map((item) => item.label)).toEqual([
+      'Add variable',
+      'Add keyframes',
+      'Delete',
+    ])
   })
 })

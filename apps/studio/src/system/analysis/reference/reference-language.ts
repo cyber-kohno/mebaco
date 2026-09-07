@@ -10,6 +10,7 @@ namespace ReferenceLanguage {
     | 'slot'
     | 'state'
     | 'style'
+    | 'style-keyframes'
     | 'style-param'
     | 'union-type'
     | 'value-prop'
@@ -26,6 +27,7 @@ namespace ReferenceLanguage {
     propId: ['launch-argument', 'value-prop'],
     slotId: ['slot'],
     styleId: ['style'],
+    keyframesId: ['style-keyframes'],
     parameterId: ['style-param'],
     namedTypeId: ['object-type', 'union-type', 'signature-type'],
     unionTypeId: ['union-type'],

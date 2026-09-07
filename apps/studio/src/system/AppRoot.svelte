@@ -13,7 +13,6 @@
   import ConfirmDialogLayer from './feedback/confirm/ConfirmDialogLayer.svelte'
   import CommandConsoleLayer from './terminal/console/CommandConsoleLayer.svelte'
   import ElementSearchLayer from './element-search/ElementSearchLayer.svelte'
-  import ReferenceGraphPanel from './analysis/reference/ReferenceGraphPanel.svelte'
   import { appAreaStore } from './navigation/app-area-store'
   import TreeStore from './store/tree-store'
   import ProjectSession from './project/project-session-store'
@@ -97,7 +96,6 @@
   <PreviewDialog />
   <CommandConsoleLayer />
   <ElementSearchLayer />
-  <ReferenceGraphPanel />
   <TreeDestinationDialog />
   <ConfirmDialogLayer />
   <ToastLayer />

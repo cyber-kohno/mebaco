@@ -1,19 +1,22 @@
 <script lang="ts">
-  import { elementDialogStore } from '../../element-dialog/element-dialog-store'
-  import { elementSearchStore } from '../../element-search/element-search-store'
-  import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
-  import RuntimeSessionStore from '../../runtime/runtime-session-store'
-  import { commandSessionStore } from '../../terminal/command-session-store'
-  import TreeStore from '../../store/tree-store'
-  import TreeNode from '../../tree/tree-node'
-  import TreeNavigationController from '../../tree/tree-navigation-controller'
-  import ReferenceGraph from './reference-graph'
+  import { onDestroy } from 'svelte'
+  import ReferenceGraph from '../../../analysis/reference/reference-graph'
+  import { elementDialogStore } from '../../../element-dialog/element-dialog-store'
+  import { elementSearchStore } from '../../../element-search/element-search-store'
+  import RuntimeSessionStore from '../../../runtime/runtime-session-store'
+  import TreeStore from '../../../store/tree-store'
+  import { commandSessionStore } from '../../../terminal/command-session-store'
+  import TreeNavigationController from '../../../tree/tree-navigation-controller'
+  import TreeNode from '../../../tree/tree-node'
+  import { developInteractionStore } from '../interaction/develop-interaction-store'
   import ReferenceGraphController from './reference-graph-controller'
 
   const rootNodeStore = TreeStore.rootNode
   const selectedNodeIdStore = TreeStore.selectedNodeId
   const referenceGraphVisible = ReferenceGraphController.visible
   const runtimeSessionStore = RuntimeSessionStore.store
+
+  onDestroy(ReferenceGraphController.close)
 
   const panelVisible = $derived(
     $referenceGraphVisible
@@ -117,11 +120,11 @@
 
 <style>
   .reference-graph {
-    position: fixed;
+    position: absolute;
     z-index: 8000;
-    top: 56px;
+    top: 10px;
     right: 18px;
-    width: min(360px, calc(100vw - 36px));
+    width: min(360px, calc(100% - 36px));
     overflow: visible;
     border: 1px solid var(--mbc-color-border-strong);
     border-radius: 8px;

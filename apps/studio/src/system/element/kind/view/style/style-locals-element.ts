@@ -5,6 +5,7 @@ import VariableElement from '../../variable/variable-element'
 import TypeCatalog from '../../type/type-catalog'
 import TreeStore from '../../../../store/tree-store'
 import ElementDeletionController from '../../../deletion/element-deletion-controller'
+import StyleKeyframesElement from './style-keyframes-element'
 
 namespace StyleLocalsElement {
   export type Kind = 'style-locals'
@@ -35,10 +36,12 @@ namespace StyleLocalsElement {
     void ElementDeletionController.requestDelete({
       rootNode,
       node,
-      referenceNodes: node.children.filter((child) => child.element.kind === 'variable'),
+      referenceNodes: node.children.filter((child) => (
+        child.element.kind === 'variable' || child.element.kind === 'style-keyframes'
+      )),
       policy: {
         label: 'Style Locals',
-        structuralReferences: 'ignore',
+        structuralReferences: 'block',
         expressionReferences: 'confirm',
       },
       deleteNode: () => TreeStore.removeNode(node.id),
@@ -54,14 +57,23 @@ namespace StyleLocalsElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const reservedNames = context.node.children.flatMap((child) => (
+      const reservedVariableNames = context.node.children.flatMap((child) => (
         child.element.kind === 'variable' ? [child.element.id] : []
+      ))
+      const reservedKeyframesNames = context.node.children.flatMap((child) => (
+        child.element.kind === 'style-keyframes' ? [child.element.id] : []
       ))
       return [
         action('Add variable', () => {
           ElementDialog.openCreate(
             context.node.id,
-            createVariableSchema(context.rootNode, context.node.id, reservedNames),
+            createVariableSchema(context.rootNode, context.node.id, reservedVariableNames),
+          )
+        }),
+        action('Add keyframes', () => {
+          ElementDialog.openCreate(
+            context.node.id,
+            StyleKeyframesElement.createSchema(reservedKeyframesNames),
           )
         }),
         action('Delete', () => requestDelete(context.rootNode, context.node), 'danger'),

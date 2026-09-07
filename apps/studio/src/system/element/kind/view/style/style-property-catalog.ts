@@ -715,9 +715,16 @@ zoom
     ...standardNames,
   ]))
 
-  export const options = names.map((name) => ({
+  export const isAnimationProperty = (propertyName: string): boolean => {
+    const normalized = propertyName.trim().toLowerCase()
+    return normalized === 'animation' || normalized.startsWith('animation-')
+  }
+
+  export const options = names
+    .filter((name) => !isAnimationProperty(name))
+    .map((name) => ({
     value: name,
-  }))
+    }))
 
   const createUnitValues = (
     propertyName: string,

@@ -2,6 +2,7 @@ import type MebacoElement from '../../element/element'
 import type StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
 import type StyleElement from '../../element/kind/view/style/style-element'
 import StylePropertyName from '../../element/kind/view/style/style-property-name'
+import StylePropertyCatalog from '../../element/kind/view/style/style-property-catalog'
 import ValueSource from '../../ui/input/value-source'
 import TypeExpression from '../../element/kind/type/type-expression'
 import ObjectShape from '../../element/kind/type/object/object-shape'
@@ -186,6 +187,21 @@ namespace ElementEditSchema {
     defaultValue?: string
   } & FieldBase
 
+  export type StyleKeyframesField = {
+    type: 'styleKeyframes'
+    key: string
+    label: string
+    defaultValue?: string
+  } & FieldBase
+
+  export type StyleAnimationsField = {
+    type: 'styleAnimations'
+    key: string
+    label: string
+    defaultValue?: string
+    options: readonly SelectOption[]
+  } & FieldBase
+
   export type StyleApplicationsField = {
     type: 'styleApplications'
     key: string
@@ -212,6 +228,7 @@ namespace ElementEditSchema {
     defaultValue?: string
     idKey: string
     rulesKey: string
+    animationsKey: string
     basesKey: string
   } & FieldBase
 
@@ -350,6 +367,8 @@ namespace ElementEditSchema {
     | ValueSourceField
     | ValueTypeField
     | StylePropsField
+    | StyleAnimationsField
+    | StyleKeyframesField
     | StyleApplicationsField
     | StyleBasesField
     | TransitionImportsField
@@ -619,6 +638,14 @@ namespace ElementEditSchema {
       const hasInvalid = parsed.some((item) => !isStyleRule(item))
       if (hasInvalid) return 'Fill all properties and values.'
 
+      const hasAnimationProperty = parsed.some((item) => {
+        const declarations = item.type === 'state' ? item.declarations : [item]
+        return declarations.some((declaration: { property: string }) => (
+          StylePropertyCatalog.isAnimationProperty(declaration.property)
+        ))
+      })
+      if (hasAnimationProperty) return 'Use the Animations tab for animation properties.'
+
       const states = parsed
         .filter((item) => item?.type === 'state')
         .map((item) => item.state)
@@ -637,6 +664,127 @@ namespace ElementEditSchema {
       return null
     } catch {
       return 'Invalid properties.'
+    }
+  }
+
+  export const validateStyleKeyframes = (value: string): string | null => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (!Array.isArray(parsed)) return 'Invalid keyframes.'
+
+      const frameIds = parsed.flatMap((item) => (
+        item != null
+        && typeof item === 'object'
+        && typeof (item as { frameId?: unknown }).frameId === 'string'
+          ? [(item as { frameId: string }).frameId]
+          : []
+      ))
+      if (frameIds.length !== parsed.length || new Set(frameIds).size !== frameIds.length) {
+        return 'Keyframe identity is invalid.'
+      }
+
+      const hasInvalidFrame = parsed.some((item) => {
+        if (item == null || typeof item !== 'object') return true
+        const frame = item as {
+          selectors?: unknown
+          declarations?: unknown
+        }
+        if (
+          !Array.isArray(frame.selectors)
+          || frame.selectors.length === 0
+          || !Array.isArray(frame.declarations)
+        ) return true
+
+        const invalidSelector = frame.selectors.some((selector) => {
+          if (selector == null || typeof selector !== 'object') return true
+          const candidate = selector as { type?: unknown; value?: unknown }
+          return candidate.type !== 'offset'
+            || typeof candidate.value !== 'number'
+            || !Number.isFinite(candidate.value)
+            || candidate.value < 0
+            || candidate.value > 100
+        })
+        if (invalidSelector) return true
+
+        const offsets = frame.selectors.map((selector) => (
+          (selector as { value: number }).value
+        ))
+        if (new Set(offsets).size !== offsets.length) return true
+
+        return frame.declarations.some((declaration) => (
+          declaration == null
+          || typeof declaration !== 'object'
+          || (declaration as { type?: unknown }).type !== 'declaration'
+          || !isStyleRule(declaration)
+          || (
+            StylePropertyCatalog.isAnimationProperty(
+              String((declaration as { property?: unknown }).property ?? ''),
+            )
+            && String((declaration as { property?: unknown }).property ?? '')
+              .trim().toLowerCase() !== 'animation-timing-function'
+          )
+        )) || StylePropertyName.hasDuplicates(frame.declarations)
+      })
+
+      return hasInvalidFrame ? 'Fill all keyframe selectors and properties.' : null
+    } catch {
+      return 'Invalid keyframes.'
+    }
+  }
+
+  export const validateStyleAnimations = (
+    field: StyleAnimationsField,
+    value: string,
+  ): string | null => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (!Array.isArray(parsed)) return 'Invalid animations.'
+      const states = parsed.map((item) => (
+        item != null && typeof item === 'object'
+          ? (item as { state?: unknown }).state ?? 'default'
+          : Symbol()
+      ))
+      if (new Set(states).size !== states.length) return 'Animation state is duplicated.'
+
+      const referenceIds = new Set<string>()
+      for (const value of parsed) {
+        if (value == null || typeof value !== 'object') return 'Invalid animations.'
+        const rule = value as { type?: unknown; state?: unknown; mode?: unknown; items?: unknown }
+        if (
+          rule.type !== 'animation'
+          || (rule.state != null && (
+            typeof rule.state !== 'string'
+            || !['hover', 'focus', 'focus-visible', 'active', 'disabled', 'checked'].includes(rule.state)
+          ))
+          || (rule.mode !== 'none' && rule.mode !== 'custom')
+          || !Array.isArray(rule.items)
+          || (rule.mode === 'none' && rule.items.length > 0)
+          || (rule.mode === 'custom' && rule.items.length === 0)
+        ) return 'Fill all animation settings.'
+
+        for (const value of rule.items) {
+          if (value == null || typeof value !== 'object') return 'Fill all animation settings.'
+          const item = value as Record<string, unknown>
+          if (
+            typeof item.referenceId !== 'string'
+            || item.referenceId.length === 0
+            || referenceIds.has(item.referenceId)
+            || typeof item.keyframesId !== 'string'
+            || field.options.every((option) => option.value !== item.keyframesId)
+          ) return 'Select valid local Keyframes for every animation.'
+          referenceIds.add(item.referenceId)
+          const valueKeys = [
+            'duration', 'timingFunction', 'delay', 'iterationCount', 'direction',
+            'fillMode', 'playState', 'composition', 'timeline', 'rangeStart', 'rangeEnd',
+          ]
+          if (valueKeys.some((key) => !isStyleValue(item[key]))) {
+            return 'Fill all animation settings.'
+          }
+        }
+      }
+      return null
+    } catch {
+      return 'Invalid animations.'
     }
   }
 

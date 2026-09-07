@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../../element-dialog/element-edit-sche
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import type TreeNode from '../../../../tree/tree-node'
+import ImportItemsTreeLabel from './ImportItemsTreeLabel.svelte'
 import TransitionImportCatalog from './transition-import-catalog'
 
 namespace TransitionsElement {
@@ -51,7 +52,7 @@ namespace TransitionsElement {
 
   export const definition = {
     kind: 'transitions',
-    treeLabel: { type: 'static', kindText: 'Transitions', tone: 'manager' },
+    treeLabel: { type: 'component', Component: ImportItemsTreeLabel },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
       return [action('Modify', () => ElementDialog.openUpdate(

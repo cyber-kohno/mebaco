@@ -30,7 +30,7 @@ vi.mock('svelte/store', () => ({
 vi.mock('../action-menu/action-menu-store', () => ({
   actionMenuStore: mocks.actionMenuStore,
 }))
-vi.mock('../analysis/reference/reference-graph-controller', () => ({
+vi.mock('../area/develop/reference/reference-graph-controller', () => ({
   default: { toggle: vi.fn() },
 }))
 vi.mock('../area/develop/develop-screen-store', () => ({

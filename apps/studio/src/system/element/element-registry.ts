@@ -47,6 +47,7 @@ import StyleElement from './kind/view/style/style-element'
 import StyleParamElement from './kind/view/style/style-param-element'
 import StyleParamsElement from './kind/view/style/style-params-element'
 import StyleLocalsElement from './kind/view/style/style-locals-element'
+import StyleKeyframesElement from './kind/view/style/style-keyframes-element'
 import TagElement from './kind/view/tag/tag-element'
 import TextElement from './kind/view/text/text-element'
 import ObjectTypeElement from './kind/type/object/object-type-element'
@@ -127,6 +128,7 @@ namespace ElementRegistry {
     'style-param': StyleParamElement.definition,
     'style-params': StyleParamsElement.definition,
     'style-locals': StyleLocalsElement.definition,
+    'style-keyframes': StyleKeyframesElement.definition,
     tag: TagElement.definition,
     text: TextElement.definition,
     types: TypesElement.definition,

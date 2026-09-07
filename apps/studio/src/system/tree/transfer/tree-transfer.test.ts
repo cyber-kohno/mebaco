@@ -21,6 +21,7 @@ import SignatureDefinition from '../../element/kind/type/signature/signature-def
 import TypeExpression from '../../element/kind/type/type-expression'
 import UnionDefinition from '../../element/kind/type/union/union-definition'
 import StyleElement from '../../element/kind/view/style/style-element'
+import StyleKeyframesElement from '../../element/kind/view/style/style-keyframes-element'
 import StyleParamElement from '../../element/kind/view/style/style-param-element'
 import TagElement from '../../element/kind/view/tag/tag-element'
 import type MebacoElement from '../../element/element'
@@ -1058,9 +1059,25 @@ describe('TreeTransfer', () => {
   })
 
   it('remaps local Style, Component, Prop, and Slot identities in a retained Tag subtree', () => {
-    const localStyle = node(5, StyleElement.create('localCard', [], [], 'local-style'), [
+    const localAnimation = StyleElement.createAnimation()
+    localAnimation.referenceId = 'local-animation-reference'
+    localAnimation.keyframesId = 'local-keyframes'
+    const localStyle = node(5, StyleElement.create(
+      'localCard',
+      [],
+      [],
+      'local-style',
+      [{ type: 'animation', mode: 'custom', items: [localAnimation] }],
+    ), [
       node(6, { kind: 'style-params' }, [
         node(7, StyleParamElement.create('tone', 'string', undefined, 'local-style-param')),
+      ]),
+      node(20, { kind: 'style-locals' }, [
+        node(21, StyleKeyframesElement.create(
+          'fade-in',
+          [StyleKeyframesElement.createFrame(0, 'local-frame')],
+          'local-keyframes',
+        )),
       ]),
     ])
     const localProp = node(10, {
@@ -1128,6 +1145,13 @@ describe('TreeTransfer', () => {
     const copiedStyleParam = copiedRetention?.children[0]?.children[0]?.children[0]?.element
     if (copiedStyleParam?.kind !== 'style-param') throw new Error('Expected Style parameter.')
     expect(copiedStyleParam.parameterId).not.toBe('local-style-param')
+    const copiedKeyframes = copiedRetention?.children[0]?.children[1]?.children[0]?.element
+    if (copiedKeyframes?.kind !== 'style-keyframes') throw new Error('Expected local Keyframes.')
+    expect(copiedKeyframes.keyframesId).not.toBe('local-keyframes')
+    expect(copiedKeyframes.frames[0]?.frameId).not.toBe('local-frame')
+    expect(copiedStyle.animations?.[0]?.items[0]?.keyframesId).toBe(copiedKeyframes.keyframesId)
+    expect(copiedStyle.animations?.[0]?.items[0]?.referenceId)
+      .not.toBe('local-animation-reference')
     expect(copiedStyledTag.styles[0]).toMatchObject({
       styleId: copiedStyle.styleId,
       arguments: [{ parameterId: copiedStyleParam.parameterId }],

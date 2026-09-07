@@ -19,6 +19,7 @@ namespace StyleElement {
     styleId: string
     id: string
     rules: Rule[]
+    animations?: AnimationRule[]
     bases: Base[]
   }
 
@@ -90,16 +91,59 @@ namespace StyleElement {
     declarations: DeclarationRule[]
   }
 
+  export type AnimationItem = {
+    referenceId: string
+    keyframesId: string
+    duration: StyleValue
+    timingFunction: StyleValue
+    delay: StyleValue
+    iterationCount: StyleValue
+    direction: StyleValue
+    fillMode: StyleValue
+    playState: StyleValue
+    composition: StyleValue
+    timeline: StyleValue
+    rangeStart: StyleValue
+    rangeEnd: StyleValue
+  }
+
+  export type AnimationRule = {
+    type: 'animation'
+    state?: State
+    mode: 'none' | 'custom'
+    items: AnimationItem[]
+  }
+
+  const literal = (value: string): StyleValue => ({ type: 'literal', value })
+
+  export const createAnimation = (): AnimationItem => ({
+    referenceId: crypto.randomUUID(),
+    keyframesId: '',
+    duration: literal('1s'),
+    timingFunction: literal('ease'),
+    delay: literal('0s'),
+    iterationCount: literal('1'),
+    direction: literal('normal'),
+    fillMode: literal('none'),
+    playState: literal('running'),
+    composition: literal('replace'),
+    timeline: literal('auto'),
+    rangeStart: literal('normal'),
+    rangeEnd: literal('normal'),
+  })
+
   export const create = (
     id: string,
     rules: Rule[] = [],
     bases: Base[] = [],
     styleId: string = crypto.randomUUID(),
+    animations: AnimationRule[] = [],
   ): Element => ({
     kind: 'style',
     styleId,
     id,
     rules,
+    animations,
     bases,
   })
 
@@ -125,6 +169,7 @@ namespace StyleElement {
     styleOptions?: readonly ElementEditSchema.SelectOption[]
     styleCatalog?: StyleParameterCatalog.Catalog
     ownerStyleId?: string
+    keyframesOptions?: readonly ElementEditSchema.SelectOption[]
   }
 
   export const createSchema = (
@@ -135,6 +180,7 @@ namespace StyleElement {
     tabs: [
       { id: 'info', label: 'Info' },
       { id: 'properties', label: 'Properties' },
+      { id: 'animations', label: 'Animations' },
       { id: 'inheritance', label: 'Inheritance' },
       { id: 'monitor', label: 'Monitor' },
     ],
@@ -157,6 +203,14 @@ namespace StyleElement {
         key: 'rules',
         label: 'Properties',
         defaultValue: '[]',
+      },
+      {
+        type: 'styleAnimations',
+        tab: 'animations',
+        key: 'animations',
+        label: 'Animations',
+        defaultValue: '[]',
+        options: options.keyframesOptions ?? [],
       },
       {
         type: 'styleBases',
@@ -182,6 +236,7 @@ namespace StyleElement {
         label: 'Resolved Style',
         idKey: 'id',
         rulesKey: 'rules',
+        animationsKey: 'animations',
         basesKey: 'bases',
       },
     ],
@@ -189,17 +244,21 @@ namespace StyleElement {
     getInitialValues: (element) => ({
       id: element.id,
       rules: JSON.stringify(element.rules),
+      animations: JSON.stringify(element.animations ?? []),
       bases: JSON.stringify(element.bases ?? []),
     }),
     create: (values) => create(
       values.id,
       parseRules(values.rules),
       parseBases(values.bases),
+      undefined,
+      parseAnimations(values.animations),
     ),
     update: (element, values) => ({
       ...element,
       id: values.id,
       rules: parseRules(values.rules),
+      animations: parseAnimations(values.animations),
       bases: parseBases(values.bases),
     }),
   })
@@ -223,6 +282,14 @@ namespace StyleElement {
     collect(rootNode)
     return options
   }
+
+  export const getKeyframesOptions = (
+    styleNode: TreeNode.Node,
+  ): ElementEditSchema.SelectOption[] => styleNode.children
+    .find((child) => child.element.kind === 'style-locals')
+    ?.children.flatMap((child) => child.element.kind === 'style-keyframes'
+      ? [{ value: child.element.keyframesId, label: child.element.id }]
+      : []) ?? []
 
   export const parseBases = (
     source: string,
@@ -411,6 +478,65 @@ namespace StyleElement {
     return null
   }
 
+  const parseAnimationItem = (value: unknown): AnimationItem | null => {
+    if (value == null || typeof value !== 'object') return null
+    const item = value as Partial<Record<keyof AnimationItem, unknown>>
+    if (typeof item.referenceId !== 'string' || typeof item.keyframesId !== 'string') return null
+    const fields = [
+      'duration', 'timingFunction', 'delay', 'iterationCount', 'direction',
+      'fillMode', 'playState', 'composition', 'timeline', 'rangeStart', 'rangeEnd',
+    ] as const
+    const parsed = Object.fromEntries(fields.map((field) => [
+      field,
+      parseStyleValue(item[field]),
+    ])) as Record<(typeof fields)[number], StyleValue | null>
+    if (fields.some((field) => parsed[field] == null)) return null
+    return {
+      referenceId: item.referenceId,
+      keyframesId: item.keyframesId,
+      duration: parsed.duration!,
+      timingFunction: parsed.timingFunction!,
+      delay: parsed.delay!,
+      iterationCount: parsed.iterationCount!,
+      direction: parsed.direction!,
+      fillMode: parsed.fillMode!,
+      playState: parsed.playState!,
+      composition: parsed.composition!,
+      timeline: parsed.timeline!,
+      rangeStart: parsed.rangeStart!,
+      rangeEnd: parsed.rangeEnd!,
+    }
+  }
+
+  export const parseAnimations = (source: string): AnimationRule[] => {
+    try {
+      const parsed: unknown = JSON.parse(source)
+      if (!Array.isArray(parsed)) return []
+      return parsed.flatMap((value): AnimationRule[] => {
+        if (value == null || typeof value !== 'object') return []
+        const rule = value as { type?: unknown; state?: unknown; mode?: unknown; items?: unknown }
+        if (
+          rule.type !== 'animation'
+          || (rule.state != null && !states.includes(rule.state as State))
+          || (rule.mode !== 'none' && rule.mode !== 'custom')
+          || !Array.isArray(rule.items)
+        ) return []
+        const items = rule.items.map(parseAnimationItem)
+          .filter((item): item is AnimationItem => item != null)
+        return items.length === rule.items.length
+          ? [{
+              type: 'animation',
+              state: typeof rule.state === 'string' ? rule.state as State : undefined,
+              mode: rule.mode,
+              items,
+            }]
+          : []
+      })
+    } catch {
+      return []
+    }
+  }
+
   export const definition = {
     kind: 'style',
     treeLabel: {
@@ -471,6 +597,7 @@ namespace StyleElement {
               styleOptions: getStyleOptions(context.rootNode, context.node.id),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
               ownerStyleId: context.element.styleId,
+              keyframesOptions: getKeyframesOptions(context.node),
             }),
           )
         }),
