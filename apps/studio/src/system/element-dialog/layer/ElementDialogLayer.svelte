@@ -5,6 +5,7 @@
   import StyleBasesEditor from '../../element/kind/view/style/StyleBasesEditor.svelte'
   import TransitionImportsEditor from '../../element/kind/app/import/TransitionImportsEditor.svelte'
   import DebugResourceBindingsEditor from '../../element/kind/debug/DebugResourceBindingsEditor.svelte'
+  import DebugLaunchShortcutsEditor from '../../element/kind/debug/DebugLaunchShortcutsEditor.svelte'
   import StyleMonitorEditor from '../../runtime/style/StyleMonitorEditor.svelte'
   import TagStyleMonitorEditor from '../../runtime/style/TagStyleMonitorEditor.svelte'
   import TagAttributesEditor from '../../element/kind/view/tag/TagAttributesEditor.svelte'
@@ -49,7 +50,8 @@
   )
 
   const isReadOnlyField = (field: ElementEditSchema.Field): boolean => (
-    $elementDialogStore?.mode === 'update' && field.readOnlyOnUpdate === true
+    field.readOnly === true
+    || ($elementDialogStore?.mode === 'update' && field.readOnlyOnUpdate === true)
   )
 
   const isFieldValid = (
@@ -85,7 +87,7 @@
   ) => {
     const initialValues = session.schema.getInitialValues(session.element)
     const changedField = session.schema.fields.find((field) => (
-      field.readOnlyOnUpdate === true
+      (field.readOnly === true || field.readOnlyOnUpdate === true)
       && values[field.key] !== initialValues[field.key]
     ))
     if (changedField != null) throw new ElementEditSchema.ReadOnlyFieldMutationError(changedField)
@@ -155,6 +157,7 @@
       case 'transitionImports':
       case 'resourceImports':
       case 'resourceBindings':
+      case 'debugLaunchShortcuts':
         return null
       case 'bundleDefinition':
         return ElementEditSchema.validateBundleDefinition(field, value)
@@ -719,6 +722,18 @@
             <DebugResourceBindingsEditor
               value={values[field.key] ?? '[]'}
               resources={field.resources}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'debugLaunchShortcuts'}
+          <div class="field contained-editor-field">
+            <span class="field-label">{field.label}</span>
+            <DebugLaunchShortcutsEditor
+              value={values[field.key] ?? '[]'}
+              apps={field.apps}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

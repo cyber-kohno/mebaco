@@ -98,7 +98,7 @@
   const browse = async (resource: NonNullable<typeof analysis>['resources'][number]) => {
     try {
       const selected = await NativeDialogController.open({
-        title: `Select path for ${resource.element.id}`,
+        title: `Select path for ${ClientPackage.resourceLabel(resource.element)}`,
         multiple: false,
         directory: resource.element.kind === 'directory-resource',
         filters: resource.element.kind === 'sqlite-resource'
@@ -248,7 +248,7 @@
                     {@const validation = getValidation(resource, path)}
                     <div class="resource-row" data-validation={validation.status}>
                       <div class="resource-title">
-                        <div><strong>{resource.element.id}</strong><span>{ClientPackage.resourceKindLabel(resource.element)}</span></div>
+                        <div><strong>{ClientPackage.resourceLabel(resource.element)}</strong><span>{ClientPackage.resourceKindLabel(resource.element)}</span></div>
                         <span
                           class="validation-label"
                           data-status={validation.status}

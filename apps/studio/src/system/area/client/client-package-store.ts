@@ -45,47 +45,81 @@ namespace ClientPackageStore {
   export const install = async (
     parsed: ClientPackage.Parsed,
   ): Promise<{
-    status: 'installed' | 'updated' | 'duplicate'
+    status: 'installed' | 'duplicate'
     installedPackage: ClientPackage.Installed
   }> => {
     await initialize()
     const current = get(store)
-    const duplicate = current.packages.find((item) => item.digest === parsed.digest)
+    const duplicate = current.packages.find((item) => (
+      item.manifest.bundle.bundleId === parsed.manifest.bundle.bundleId
+    ))
     if (duplicate != null) {
       store.set({ ...current, selectedId: duplicate.installationId })
       return { status: 'duplicate', installedPackage: duplicate }
     }
 
-    const previous = current.packages.find((item) => (
-      item.manifest.bundle.bundleId === parsed.manifest.bundle.bundleId
-    ))
-    const installedPackage: ClientPackage.Installed = previous == null
-      ? {
-          ...parsed,
-          installationId: crypto.randomUUID(),
-          displayName: uniqueName(parsed.sourceFileName, current.packages),
-          installedAt: new Date().toISOString(),
-          resourcePaths: {},
-        }
-      : {
-          ...parsed,
-          installationId: previous.installationId,
-          displayName: previous.displayName,
-          installedAt: previous.installedAt,
-          resourcePaths: Object.fromEntries(Object.entries(previous.resourcePaths).filter(([resourceId]) => (
-            parsed.module.resources.some((resource) => resource.resourceId === resourceId)
-          ))),
-        }
+    const now = new Date().toISOString()
+    const installedPackage: ClientPackage.Installed = {
+      ...parsed,
+      installationId: crypto.randomUUID(),
+      displayName: uniqueName(parsed.sourceFileName, current.packages),
+      installedAt: now,
+      updatedAt: now,
+      resourcePaths: {},
+    }
     await ClientPackageRepository.save(installedPackage)
     store.set({
-      packages: previous == null
-        ? [...current.packages, installedPackage]
-        : current.packages.map((item) => (
-            item.installationId === previous.installationId ? installedPackage : item
-          )),
+      packages: [...current.packages, installedPackage],
       selectedId: installedPackage.installationId,
     })
-    return { status: previous == null ? 'installed' : 'updated', installedPackage }
+    return { status: 'installed', installedPackage }
+  }
+
+  export const update = async (
+    installationId: string,
+    parsed: ClientPackage.Parsed,
+    options: { allowDowngrade?: boolean } = {},
+  ): Promise<{
+    status: 'updated' | 'unchanged' | 'mismatch' | 'revision-conflict' | 'downgrade' | 'not-found'
+    installedPackage?: ClientPackage.Installed
+  }> => {
+    await initialize()
+    const current = get(store)
+    const previous = current.packages.find((item) => item.installationId === installationId)
+    if (previous == null) return { status: 'not-found' }
+    if (previous.manifest.bundle.bundleId !== parsed.manifest.bundle.bundleId) {
+      return { status: 'mismatch', installedPackage: previous }
+    }
+    const previousRevision = previous.manifest.bundle
+    const nextRevision = parsed.manifest.bundle
+    if (previousRevision.generation === nextRevision.generation) {
+      if (previousRevision.contentHash !== nextRevision.contentHash) {
+        return { status: 'revision-conflict', installedPackage: previous }
+      }
+      return { status: 'unchanged', installedPackage: previous }
+    }
+    if (
+      nextRevision.generation < previousRevision.generation
+      && options.allowDowngrade !== true
+    ) return { status: 'downgrade', installedPackage: previous }
+    const installedPackage: ClientPackage.Installed = {
+      ...parsed,
+      installationId: previous.installationId,
+      displayName: previous.displayName,
+      installedAt: previous.installedAt,
+      updatedAt: new Date().toISOString(),
+      resourcePaths: Object.fromEntries(Object.entries(previous.resourcePaths).filter(([resourceId]) => (
+        parsed.module.resources.some((resource) => resource.resourceId === resourceId)
+      ))),
+    }
+    await ClientPackageRepository.save(installedPackage)
+    store.set({
+      packages: current.packages.map((item) => (
+        item.installationId === installationId ? installedPackage : item
+      )),
+      selectedId: installationId,
+    })
+    return { status: 'updated', installedPackage }
   }
 
   export const toggleSelection = (installationId: string) => store.update((state) => ({

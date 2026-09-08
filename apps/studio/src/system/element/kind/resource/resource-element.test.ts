@@ -12,6 +12,12 @@ const node = (
 ): TreeNode.Node => ({ id, element, children, isOpen: true })
 
 describe('Resource elements', () => {
+  it('uses detailed tree labels for every Resource kind', () => {
+    expect(DirectoryResourceElement.definition.treeLabel.type).toBe('component')
+    expect(TextResourceElement.definition.treeLabel.type).toBe('component')
+    expect(SqliteResourceElement.definition.treeLabel.type).toBe('component')
+  })
+
   it('uses the requested action menu labels', () => {
     const resources = node(2, ResourcesElement.create())
     const project = node(1, { kind: 'project' }, [resources])
@@ -66,6 +72,17 @@ describe('Resource elements', () => {
     expect(SqliteResourceElement.createSchema().update(sqlite, {
       id: 'manageDb', access: 'read-write', create: 'true',
     })).toMatchObject({ resourceId: 'sqlite-resource-id', id: 'manageDb', access: 'read-write', create: true })
+  })
+
+  it('stores Resource names only when they contain visible text', () => {
+    const schema = TextResourceElement.createSchema()
+    const unnamed = schema.create({ id: 'config', name: '   ', access: 'read' })
+    const named = schema.update(unnamed, { id: 'config', name: 'Configuration', access: 'read' })
+    const cleared = schema.update(named, { id: 'config', name: '', access: 'read' })
+
+    expect(unnamed).not.toHaveProperty('name')
+    expect(named).toHaveProperty('name', 'Configuration')
+    expect(cleared).not.toHaveProperty('name')
   })
 
   it('disables SQLite creation for read-only Resources', () => {

@@ -8,6 +8,7 @@
   import Boxes from '@lucide/svelte/icons/boxes'
   import Rocket from '@lucide/svelte/icons/rocket'
   import Database from '@lucide/svelte/icons/database'
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw'
   import ClientPackage from '../client-package'
   import ClientPackageController from '../client-package-controller'
   import ClientPackageStore from '../client-package-store'
@@ -15,7 +16,10 @@
 
   const packageStore = ClientPackageStore.value
   let fileInput: HTMLInputElement
+  let updateFileInput: HTMLInputElement
   let installing = $state(false)
+  let updating = $state(false)
+  let updateTargetId = $state<string | null>(null)
   let renamingId = $state<string | null>(null)
   let renameValue = $state('')
   const selectedPackage = $derived(ClientPackageStore.getSelected($packageStore))
@@ -30,6 +34,27 @@
       await ClientPackageController.installFile(file)
     } finally {
       installing = false
+    }
+  }
+
+  const selectUpdateFile = () => {
+    if (selectedPackage == null || updating) return
+    updateTargetId = selectedPackage.installationId
+    updateFileInput.click()
+  }
+
+  const updatePackage = async (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    const installationId = updateTargetId
+    updateTargetId = null
+    if (file == null || installationId == null) return
+    updating = true
+    try {
+      await ClientPackageController.updateFile(installationId, file)
+    } finally {
+      updating = false
     }
   }
 
@@ -72,6 +97,7 @@
       {installing ? 'Installing…' : 'Install App Package'}
     </button>
     <input bind:this={fileInput} class="file-input" type="file" accept=".mbcapp" onchange={install} />
+    <input bind:this={updateFileInput} class="file-input" type="file" accept=".mbcapp" onchange={updatePackage} />
   </header>
 
   <div class="split-pane">
@@ -142,6 +168,9 @@
           {#if renamingId !== selectedPackage.installationId}
             <div class="detail-actions">
               <button type="button" onclick={startRename}><Pencil size={15} />Rename</button>
+              <button type="button" disabled={updating} onclick={selectUpdateFile}>
+                <RefreshCw size={15} />{updating ? 'Updating…' : 'Update'}
+              </button>
               <button class="danger" type="button" onclick={() => ClientPackageController.deletePackage(selectedPackage.installationId)}><Trash2 size={15} />Delete</button>
               <button class="primary" type="button" onclick={() => ClientNavigation.openLaunchSetup(selectedPackage.installationId)}>
                 Launch Setup<ArrowRight size={16} />
@@ -166,7 +195,10 @@
               <h3>Package</h3>
               <dl>
                 <div><dt>Bundle ID</dt><dd>{selectedPackage.manifest.bundle.id}</dd></div>
+                <div><dt>Revision</dt><dd>{selectedPackage.manifest.bundle.generation}</dd></div>
+                <div><dt>Built</dt><dd>{formatDate(selectedPackage.manifest.bundle.builtAt)}</dd></div>
                 <div><dt>Created</dt><dd>{formatDate(selectedPackage.manifest.createdAt)}</dd></div>
+                <div><dt>Last updated</dt><dd>{formatDate(selectedPackage.updatedAt)}</dd></div>
                 <div><dt>File size</dt><dd>{formatBytes(selectedPackage.byteLength)}</dd></div>
                 <div><dt>Format</dt><dd>mbcapp {selectedPackage.manifest.formatVersion}</dd></div>
                 <div><dt>Schema / API</dt><dd>{selectedPackage.manifest.schemaGen} / {selectedPackage.manifest.apiGen}</dd></div>

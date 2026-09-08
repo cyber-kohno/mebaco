@@ -12,6 +12,11 @@ namespace BundleElement {
     bundleId: string
     id: string
     launcherIds: string[]
+    revision?: {
+      generation: number
+      contentHash: string
+      builtAt: string
+    }
   }
 
   export const create = (
@@ -63,11 +68,18 @@ namespace BundleElement {
         type: 'bundleDefinition', key: 'launcherIds', label: 'Launchers',
         defaultValue: '[]', options: launcherOptions(rootNode),
       },
+      { type: 'heading', key: 'revisionHeading', label: 'Build revision' },
+      { type: 'number', key: 'generation', label: 'Generation', readOnly: true },
+      { type: 'text', key: 'contentHash', label: 'Content hash', readOnly: true },
+      { type: 'text', key: 'builtAt', label: 'Built at', readOnly: true },
     ],
     createPreview: () => create('...'),
     getInitialValues: (element) => ({
       id: element.id,
       launcherIds: JSON.stringify(element.launcherIds),
+      generation: element.revision == null ? '' : String(element.revision.generation),
+      contentHash: element.revision?.contentHash ?? '',
+      builtAt: element.revision?.builtAt ?? '',
     }),
     create: (values) => ({
       ...create(values.id),

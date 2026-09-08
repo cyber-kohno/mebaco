@@ -6,11 +6,15 @@ import ClientPackage from './client-package'
 import ClientPackageStore from './client-package-store'
 import PreviewController from '../../runtime/preview/preview-controller'
 import RuntimeSessionStore from '../../runtime/runtime-session-store'
+import ReleaseContentHash from '../../release/release-content-hash'
 
 const createPackage = async (options: {
   schemaGen?: number
   createdAt?: string
   bundleId?: string
+  generation?: number
+  resourceName?: string
+  contentHash?: string
 } = {}) => {
   const bundleId = options.bundleId ?? 'bundle-uuid'
   const app = {
@@ -37,16 +41,21 @@ const createPackage = async (options: {
     kind: 'launcher', launcherId: 'launcher-id', id: 'main', name: 'Main Window',
     appId: 'app-id', argumentBindings: [],
   }
-  const resource = { kind: 'directory-resource', resourceId: 'resource-id', id: 'workspace', permissions: { access: 'read', deleteFile: false, text: null, sqlite: null } }
+  const resource = { kind: 'directory-resource', resourceId: 'resource-id', id: 'workspace', name: options.resourceName, permissions: { access: 'read', deleteFile: false, text: null, sqlite: null } }
+  const module = {
+    bundle: { bundleId, id: 'desktop', launcherIds: ['launcher-id'] },
+    launchers: [launcher], apps: [app], common: null, resources: [resource],
+  }
   const manifest = {
     format: 'mebaco-app', formatVersion: 1, appVersion: APP_VERSION,
     schemaGen: options.schemaGen ?? SCHEMA_GEN, apiGen: API_GEN,
     createdAt: options.createdAt ?? '2026-09-07T00:00:00.000Z',
-    bundle: { bundleId, id: 'desktop', launcherCount: 1, appCount: 1, resourceCount: 1 },
-  }
-  const module = {
-    bundle: { bundleId, id: 'desktop', launcherIds: ['launcher-id'] },
-    launchers: [launcher], apps: [app], common: null, resources: [resource],
+    bundle: {
+      bundleId, id: 'desktop', generation: options.generation ?? 1,
+      contentHash: options.contentHash ?? await ReleaseContentHash.create(module),
+      builtAt: options.createdAt ?? '2026-09-07T00:00:00.000Z',
+      launcherCount: 1, appCount: 1, resourceCount: 1,
+    },
   }
   const zip = new JSZip()
   zip.file('manifest.json', JSON.stringify(manifest))
@@ -70,6 +79,10 @@ describe('ClientPackage', () => {
     expect(analysis.errors).toEqual([])
     expect(analysis.apps.map((app) => app.element.id)).toEqual(['sample-app'])
     expect(analysis.resources.map((resource) => resource.element.id)).toEqual(['workspace'])
+    const resource = analysis.resources[0]?.element
+    if (resource == null) throw new Error('Test Resource is missing.')
+    expect(ClientPackage.resourceLabel(resource)).toBe('workspace')
+    expect(ClientPackage.resourceLabel({ ...resource, name: 'Workspace Files' })).toBe('Workspace Files')
   })
 
   it('creates a runtime project containing packaged launch dependencies', async () => {
@@ -131,9 +144,9 @@ describe('ClientPackage', () => {
     ClientPackageStore.rename(first.installationId, 'Production')
     ClientPackageStore.setResourcePath(first.installationId, 'resource-id', 'C:\\data')
 
-    const result = await ClientPackageStore.install(await ClientPackage.parse(
+    const result = await ClientPackageStore.update(first.installationId, await ClientPackage.parse(
       'sample-v2.mbcapp',
-      await createPackage({ createdAt: '2026-09-08T00:00:00.000Z' }),
+      await createPackage({ createdAt: '2026-09-08T00:00:00.000Z', generation: 2, resourceName: 'Workspace' }),
     ))
 
     expect(result.status).toBe('updated')
@@ -144,6 +157,54 @@ describe('ClientPackage', () => {
       resourcePaths: { 'resource-id': 'C:\\data' },
     })
     expect(get(ClientPackageStore.value).packages).toHaveLength(1)
+  })
+
+  it('rejects package content that does not match the built revision hash', async () => {
+    await expect(ClientPackage.parse('tampered.mbcapp', await createPackage({
+      contentHash: '0'.repeat(64),
+    }))).rejects.toThrow('does not match its built revision')
+  })
+
+  it('rejects an update whose Bundle UUID differs from the selected installation', async () => {
+    const installed = (await ClientPackageStore.install(await ClientPackage.parse(
+      'sample.mbcapp', await createPackage(),
+    ))).installedPackage
+    const result = await ClientPackageStore.update(installed.installationId, await ClientPackage.parse(
+      'other.mbcapp', await createPackage({ bundleId: 'different-bundle-uuid' }),
+    ))
+
+    expect(result.status).toBe('mismatch')
+    expect(ClientPackageStore.find(installed.installationId)?.digest).toBe(installed.digest)
+  })
+
+  it('rejects different content with the same generation number', async () => {
+    const installed = (await ClientPackageStore.install(await ClientPackage.parse(
+      'sample.mbcapp', await createPackage(),
+    ))).installedPackage
+    const result = await ClientPackageStore.update(installed.installationId, await ClientPackage.parse(
+      'conflict.mbcapp', await createPackage({ resourceName: 'Changed workspace' }),
+    ))
+
+    expect(result.status).toBe('revision-conflict')
+    expect(ClientPackageStore.find(installed.installationId)?.digest).toBe(installed.digest)
+  })
+
+  it('requires permission to downgrade and then installs the older revision', async () => {
+    const installed = (await ClientPackageStore.install(await ClientPackage.parse(
+      'revision-2.mbcapp', await createPackage({ generation: 2, resourceName: 'Revision 2' }),
+    ))).installedPackage
+    const revision1 = await ClientPackage.parse('revision-1.mbcapp', await createPackage())
+
+    expect((await ClientPackageStore.update(installed.installationId, revision1)).status)
+      .toBe('downgrade')
+    expect(ClientPackageStore.find(installed.installationId)?.manifest.bundle.generation).toBe(2)
+
+    expect((await ClientPackageStore.update(
+      installed.installationId,
+      revision1,
+      { allowDowngrade: true },
+    )).status).toBe('updated')
+    expect(ClientPackageStore.find(installed.installationId)?.manifest.bundle.generation).toBe(1)
   })
 
   it('keeps display name and resource path as installation settings', async () => {

@@ -8,9 +8,9 @@ namespace ConfirmDialogController {
     }
     confirmDialogStore.set({ tone: options.tone ?? 'normal', title: options.title, message: typeof options.message === 'string' ? [options.message] : options.message, choices: choices.map((choice) => ({ ...choice, callback: async () => { resolve(choice.role === 'proceed'); await choice.callback?.() } })), focus: 0 })
   })
-  export const openNotice = (options: { title?: string; message: string | string[] }): Promise<void> => new Promise((resolve) => {
+  export const openNotice = (options: { tone?: 'normal' | 'danger'; title?: string; message: string | string[] }): Promise<void> => new Promise((resolve) => {
     confirmDialogStore.set({
-      tone: 'normal',
+      tone: options.tone ?? 'normal',
       title: options.title,
       message: typeof options.message === 'string' ? [options.message] : options.message,
       choices: [{

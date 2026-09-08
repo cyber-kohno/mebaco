@@ -20,6 +20,7 @@ type InstallationMetadata = {
   sourceFileName: string
   displayName: string
   installedAt: string
+  updatedAt?: string
   digest: string
   resourcePaths: Record<string, string>
 }
@@ -44,6 +45,7 @@ const parseMetadata = (source: string): InstallationMetadata => {
     || typeof value.sourceFileName !== 'string'
     || typeof value.displayName !== 'string'
     || typeof value.installedAt !== 'string'
+    || !(value.updatedAt == null || typeof value.updatedAt === 'string')
     || typeof value.digest !== 'string'
     || !isRecord(value.resourcePaths)
     || !Object.values(value.resourcePaths).every((path) => typeof path === 'string')
@@ -59,6 +61,7 @@ const metadataOf = (installedPackage: ClientPackage.Installed): InstallationMeta
   sourceFileName: installedPackage.sourceFileName,
   displayName: installedPackage.displayName,
   installedAt: installedPackage.installedAt,
+  updatedAt: installedPackage.updatedAt,
   digest: installedPackage.digest,
   resourcePaths: { ...installedPackage.resourcePaths },
 })
@@ -126,6 +129,7 @@ namespace ClientPackageRepository {
           installationId: metadata.installationId,
           displayName: metadata.displayName,
           installedAt: metadata.installedAt,
+          updatedAt: metadata.updatedAt ?? metadata.installedAt,
           resourcePaths: metadata.resourcePaths,
         })
       } catch (error) {

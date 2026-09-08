@@ -21,6 +21,7 @@ import { developInteractionStore } from '../area/develop/interaction/develop-int
 import TreeContextMenuResolver from '../tree/tree-context-menu-resolver'
 import type ShortcutCommand from './shortcut-command'
 import ShortcutRegistry from './shortcut-registry'
+import DebugLaunchShortcutController from '../element/kind/debug/debug-launch-shortcut-controller'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -85,6 +86,9 @@ namespace AppKeyboardController {
           get(TreeStore.rootNode),
           get(TreeStore.selectedNodeId),
         )
+      },
+      launchAppShortcut: (appNodeId) => {
+        DebugLaunchShortcutController.launch(rootNode, appNodeId)
       },
       goBack: TreeNavigationController.goBack,
       goForward: TreeNavigationController.goForward,

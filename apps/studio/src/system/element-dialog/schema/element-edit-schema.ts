@@ -29,6 +29,7 @@ namespace ElementEditSchema {
     visibleWhen?: FieldVisibility
     visibleWhenAll?: readonly FieldVisibility[]
     visibleWhenValid?: string
+    readOnly?: boolean
     readOnlyOnUpdate?: boolean
     width?: 'id' | 'tagName' | 'mode' | 'valueType' | 'arrayDepth' | 'literalUnion'
   }
@@ -340,6 +341,21 @@ namespace ElementEditSchema {
     resources: readonly ResourceBindingResource[]
   } & FieldBase
 
+  export type DebugLaunchShortcutApp = {
+    appId: string
+    label: string
+    hasLaunchArguments: boolean
+    launchers: readonly SelectOption[]
+  }
+
+  export type DebugLaunchShortcutsField = {
+    type: 'debugLaunchShortcuts'
+    key: string
+    label: string
+    defaultValue?: string
+    apps: readonly DebugLaunchShortcutApp[]
+  } & FieldBase
+
   export type CodeField = {
     type: 'code'
     key: string
@@ -375,6 +391,7 @@ namespace ElementEditSchema {
     | ResourceImportsField
     | BundleDefinitionField
     | ResourceBindingsField
+    | DebugLaunchShortcutsField
     | StyleMonitorField
     | TagStyleMonitorField
     | TagAttributesField

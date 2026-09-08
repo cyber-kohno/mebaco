@@ -14,6 +14,7 @@ import DebugConfigurationsElement from '../element/kind/debug/debug-configuratio
 import DebugConfigurationElement from '../element/kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from '../element/kind/debug/debug-resource-bindings-element'
 import DebugLogElement from '../element/kind/debug/debug-log-element'
+import DebugLaunchShortcutsElement from '../element/kind/debug/debug-launch-shortcuts-element'
 import ReleaseElement from '../element/kind/release/release-element'
 import BundlesElement from '../element/kind/release/bundles-element'
 
@@ -141,6 +142,12 @@ namespace TreeNode {
                 ],
               },
             ],
+          },
+          {
+            id: 18,
+            element: DebugLaunchShortcutsElement.create(),
+            isOpen: true,
+            children: [],
           },
           {
             id: 15,

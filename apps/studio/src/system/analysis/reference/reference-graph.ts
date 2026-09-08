@@ -696,11 +696,15 @@ namespace ReferenceGraph {
 
     Object.entries(value).forEach(([key, child]) => {
       if (key === 'id' || key === 'typeId' || key === 'referenceId') return
+      // Shortcut App entries are derived from the App tree and are removed with it;
+      // only the explicitly selected Launcher is a deletion-blocking dependency.
+      const ignoreDerivedShortcutApp = sourceNode.element.kind === 'debug-launch-shortcuts'
+        && key === 'appId'
       if (
         typeof child === 'string'
         && child === DefinitionCatalog.getDefinitionId(sourceNode.element)
       ) return
-      const kinds = referenceKinds[key]
+      const kinds = ignoreDerivedShortcutApp ? undefined : referenceKinds[key]
       if (kinds != null) {
         const values = Array.isArray(child) ? child : [child]
         values

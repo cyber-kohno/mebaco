@@ -36,6 +36,7 @@ const createContext = (
     setSelectedAsCriteria: vi.fn(),
     raiseCriteria: vi.fn(),
     lowerCriteria: vi.fn(),
+    launchAppShortcut: vi.fn(),
     goBack: vi.fn(),
     goForward: vi.fn(),
     getContextMenu: () => [],
@@ -54,6 +55,25 @@ const createEvent = (overrides: Partial<KeyboardEvent> = {}) => ({
 } as unknown as KeyboardEvent)
 
 describe('KeyboardController disabled shortcut', () => {
+  it('launches the owner App with Space from a descendant', () => {
+    const child: TreeNode.Node = {
+      id: 3, element: { kind: 'launch-options' }, isOpen: true, children: [],
+    }
+    const app: TreeNode.Node = {
+      id: 2, element: { kind: 'app', appId: 'app-uuid', id: 'sample' },
+      isOpen: true, children: [child],
+    }
+    const context = createContext(app)
+    context.visibleNodes.push({ node: child, parentNode: app, isPreview: false })
+    context.selectedNodeId = child.id
+    const event = createEvent({ key: ' ' })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(context.launchAppShortcut).toHaveBeenCalledWith(app.id)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+  })
+
   it('runs the selected node Copy action with Ctrl+C', () => {
     const selectedNode: TreeNode.Node = {
       id: 2,

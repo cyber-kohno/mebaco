@@ -3,6 +3,26 @@ import TreeDestinationActionId from '../tree/destination/tree-destination-action
 import ShortcutCommand from './shortcut-command'
 
 namespace ShortcutRegistry {
+  const getOwnerAppNode = (context: ShortcutCommand.Context) => {
+    const selectedRow = ShortcutCommand.getSelectedRow(context)
+    if (selectedRow == null) return null
+    const findPath = (
+      node: typeof context.rootNode,
+      path: (typeof context.rootNode)[] = [],
+    ): (typeof context.rootNode)[] | null => {
+      const nextPath = [...path, node]
+      if (node.id === selectedRow.node.id) return nextPath
+      for (const child of node.children) {
+        const found = findPath(child, nextPath)
+        if (found != null) return found
+      }
+      return null
+    }
+    return [...(findPath(context.rootNode) ?? [])]
+      .reverse()
+      .find((node) => node.element.kind === 'app') ?? null
+  }
+
   const canUseSelectedRow = (context: ShortcutCommand.Context): boolean => (
     ShortcutCommand.getSelectedRow(context) != null
   )
@@ -170,6 +190,15 @@ namespace ShortcutRegistry {
   }
 
   export const commands: readonly ShortcutCommand.Command[] = [
+    {
+      id: 'launch-app-shortcut',
+      key: { key: ' ' },
+      when: (context) => getOwnerAppNode(context) != null,
+      run: (context) => {
+        const appNode = getOwnerAppNode(context)
+        if (appNode != null) context.launchAppShortcut(appNode.id)
+      },
+    },
     {
       id: 'copy-selected-node',
       key: { key: 'c', ctrl: true },

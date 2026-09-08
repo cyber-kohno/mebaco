@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import ResourceDefinition from './resource-definition'
+import ResourceTreeLabel from './ResourceTreeLabel.svelte'
 
 namespace DirectoryResourceElement {
   export type Kind = 'directory-resource'
@@ -49,6 +50,7 @@ namespace DirectoryResourceElement {
     updateTitle: 'Update Directory Resource',
     fields: [
       { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'jsIdentifier', minLength: 1, maxLength: 32, reservedNames: options.reservedNames },
+      { type: 'text', key: 'name', label: 'Name', width: 'id', maxLength: 64 },
       { type: 'heading', key: 'directoryPermissions', label: 'Directory permissions' },
       { type: 'select', key: 'access', label: 'Access', defaultValue: 'read', required: true, options: [{ value: 'read', label: 'Read' }, { value: 'read-write', label: 'Read / Write' }] },
       { type: 'heading', key: 'dangerousOperations', label: 'Dangerous operations', visibleWhen: { key: 'access', value: 'read-write' } },
@@ -65,6 +67,7 @@ namespace DirectoryResourceElement {
     createPreview: () => create('...', 'preview'),
     getInitialValues: (element) => ({
       id: element.id,
+      name: element.name ?? '',
       access: element.permissions.access,
       deleteFile: String(element.permissions.deleteFile),
       deriveText: String(element.permissions.text != null),
@@ -79,7 +82,7 @@ namespace DirectoryResourceElement {
     update: (element, values) => fromValues({ ...element, id: values.id }, values),
   })
 
-  const fromValues = (element: Element, values: Record<string, string>): Element => ({
+  const fromValues = (element: Element, values: Record<string, string>): Element => ResourceDefinition.withOptionalName({
     ...element,
     permissions: {
       access: ResourceDefinition.parseAccess(values.access),
@@ -95,11 +98,11 @@ namespace DirectoryResourceElement {
           && values.sqliteCreate === 'true',
       } : null,
     },
-  })
+  }, values.name)
 
   export const definition = {
     kind: 'directory-resource',
-    treeLabel: { type: 'static', kindText: 'Directory', tone: 'master', getValueText: (element: Element) => element.id },
+    treeLabel: { type: 'component', Component: ResourceTreeLabel },
     search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

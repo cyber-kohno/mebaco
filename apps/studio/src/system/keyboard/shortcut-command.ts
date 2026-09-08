@@ -29,6 +29,7 @@ namespace ShortcutCommand {
     setSelectedAsCriteria: () => void
     raiseCriteria: () => void
     lowerCriteria: () => void
+    launchAppShortcut: (appNodeId: number) => void
     goBack: () => void
     goForward: () => void
     getContextMenu: (node: TreeNode.Node, parentNode: TreeNode.Node | null) => ActionMenuState.Item[]

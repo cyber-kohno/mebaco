@@ -7,6 +7,7 @@ import ExpressionVerificationRunner from '../validation/expression/expression-ve
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
 import NativeDialogController from '../ui/native-dialog-controller'
 import TauriFileSystem from '../infra/tauri/filesystem'
+import ReleaseContentHash from './release-content-hash'
 
 namespace ReleasePackage {
   export type SaveResult =
@@ -24,6 +25,9 @@ namespace ReleasePackage {
     bundle: {
       bundleId: string
       id: string
+      generation: number
+      contentHash: string
+      builtAt: string
       launcherCount: number
       appCount: number
       resourceCount: number
@@ -95,31 +99,20 @@ namespace ReleasePackage {
     return errors
   }
 
-  export const createArchive = async (
+  export const createRevisionCandidate = async (
     rootNode: TreeNode.Node,
     bundle: BundleElement.Element,
-  ): Promise<{ bytes: Uint8Array; analysis: ReleaseBundle.Analysis } | { errors: readonly string[] }> => {
+  ): Promise<{
+    analysis: ReleaseBundle.Analysis
+    moduleJson: ModuleJson
+    contentHash: string
+  } | { errors: readonly string[] }> => {
     const analysis = ReleaseBundle.analyze(rootNode, bundle.launcherIds)
     if (analysis.errors.length > 0) return { errors: analysis.errors }
 
     const expressionErrors = await verifyExpressions(rootNode, analysis)
     if (expressionErrors.length > 0) return { errors: expressionErrors }
 
-    const manifest: Manifest = {
-      format: 'mebaco-app',
-      formatVersion: 1,
-      appVersion: APP_VERSION,
-      schemaGen: SCHEMA_GEN,
-      apiGen: API_GEN,
-      createdAt: new Date().toISOString(),
-      bundle: {
-        bundleId: bundle.bundleId,
-        id: bundle.id,
-        launcherCount: analysis.launchers.length,
-        appCount: analysis.apps.length,
-        resourceCount: analysis.resources.length,
-      },
-    }
     const moduleJson: ModuleJson = {
       bundle: {
         bundleId: bundle.bundleId,
@@ -131,12 +124,45 @@ namespace ReleasePackage {
       common: getCommonModule(rootNode),
       resources: analysis.resources.map((node) => node.element),
     }
+    return { analysis, moduleJson, contentHash: await ReleaseContentHash.create(moduleJson) }
+  }
+
+  export const createArchive = async (
+    rootNode: TreeNode.Node,
+    bundle: BundleElement.Element,
+  ): Promise<{ bytes: Uint8Array; analysis: ReleaseBundle.Analysis } | { errors: readonly string[] }> => {
+    const candidate = await createRevisionCandidate(rootNode, bundle)
+    if ('errors' in candidate) return candidate
+    if (bundle.revision == null) {
+      return { errors: [`Bundle '${bundle.id}' has not been built. Run 'build ${bundle.id}' before releasing.`] }
+    }
+    if (candidate.contentHash !== bundle.revision.contentHash) {
+      return { errors: [`Bundle '${bundle.id}' has changed since Revision ${bundle.revision.generation} was built. Run 'build ${bundle.id}' before releasing.`] }
+    }
+    const manifest: Manifest = {
+      format: 'mebaco-app',
+      formatVersion: 1,
+      appVersion: APP_VERSION,
+      schemaGen: SCHEMA_GEN,
+      apiGen: API_GEN,
+      createdAt: new Date().toISOString(),
+      bundle: {
+        bundleId: bundle.bundleId,
+        id: bundle.id,
+        generation: bundle.revision.generation,
+        contentHash: bundle.revision.contentHash,
+        builtAt: bundle.revision.builtAt,
+        launcherCount: candidate.analysis.launchers.length,
+        appCount: candidate.analysis.apps.length,
+        resourceCount: candidate.analysis.resources.length,
+      },
+    }
     const zip = new JSZip()
     zip.file('manifest.json', JSON.stringify(manifest, null, 2))
-    zip.file('module.json', JSON.stringify(moduleJson, null, 2))
+    zip.file('module.json', JSON.stringify(candidate.moduleJson, null, 2))
     zip.folder('assets')
     const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
-    return { bytes, analysis }
+    return { bytes, analysis: candidate.analysis }
   }
 
   export const save = async (

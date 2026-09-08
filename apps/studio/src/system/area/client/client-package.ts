@@ -6,6 +6,7 @@ import type ReleasePackage from '../../release/release-package'
 import ReleaseBundle from '../../release/release-bundle'
 import type TreeNode from '../../tree/tree-node'
 import { API_GEN, SCHEMA_GEN } from '../../version'
+import ReleaseContentHash from '../../release/release-content-hash'
 
 namespace ClientPackage {
   export class InvalidPackageError extends Error {}
@@ -23,6 +24,7 @@ namespace ClientPackage {
     installationId: string
     displayName: string
     installedAt: string
+    updatedAt: string
     resourcePaths: Readonly<Record<string, string>>
   }
 
@@ -52,6 +54,11 @@ namespace ClientPackage {
       || !isRecord(value.bundle)
       || typeof value.bundle.bundleId !== 'string'
       || typeof value.bundle.id !== 'string'
+      || !Number.isInteger(value.bundle.generation)
+      || (value.bundle.generation as number) < 1
+      || typeof value.bundle.contentHash !== 'string'
+      || !/^[0-9a-f]{64}$/.test(value.bundle.contentHash)
+      || typeof value.bundle.builtAt !== 'string'
       || typeof value.bundle.launcherCount !== 'number'
       || typeof value.bundle.appCount !== 'number'
       || typeof value.bundle.resourceCount !== 'number'
@@ -91,6 +98,7 @@ namespace ClientPackage {
       || !value.resources.every((resource) => isRecord(resource)
         && typeof resource.resourceId === 'string'
         && typeof resource.id === 'string'
+        && (resource.name == null || typeof resource.name === 'string')
         && ['directory-resource', 'text-resource', 'sqlite-resource'].includes(String(resource.kind)))
     ) throw new InvalidPackageError('module.json is incomplete or invalid.')
 
@@ -133,6 +141,9 @@ namespace ClientPackage {
     }
     const manifest = validateManifest(await readJson(zip, 'manifest.json'))
     const module = validateModule(await readJson(zip, 'module.json'), manifest)
+    if (await ReleaseContentHash.create(module) !== manifest.bundle.contentHash) {
+      throw new InvalidPackageError('The package content does not match its built revision.')
+    }
     return {
       sourceFileName,
       byteLength: bytes.byteLength,
@@ -181,6 +192,10 @@ namespace ClientPackage {
   )
 
   export const resourceKindLabel = ReleaseBundle.getResourceKindLabel
+
+  export const resourceLabel = (resource: ResourceImportCatalog.ResourceElement): string => (
+    resource.name?.trim() || resource.id
+  )
 }
 
 export default ClientPackage

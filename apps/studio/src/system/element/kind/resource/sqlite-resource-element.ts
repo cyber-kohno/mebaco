@@ -3,6 +3,7 @@ import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
 import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import ResourceDefinition from './resource-definition'
+import ResourceTreeLabel from './ResourceTreeLabel.svelte'
 
 namespace SqliteResourceElement {
   export type Kind = 'sqlite-resource'
@@ -31,24 +32,29 @@ namespace SqliteResourceElement {
     updateTitle: 'Update SQLite Resource',
     fields: [
       { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'jsIdentifier', minLength: 1, maxLength: 32, reservedNames: options.reservedNames },
+      { type: 'text', key: 'name', label: 'Name', width: 'id', maxLength: 64 },
       { type: 'select', key: 'access', label: 'Access', defaultValue: 'read', required: true, options: [{ value: 'read', label: 'Read' }, { value: 'read-write', label: 'Read / Write' }] },
       { type: 'checkbox', key: 'create', label: 'Create if missing', defaultValue: 'false', visibleWhen: { key: 'access', value: 'read-write' } },
     ],
     createPreview: () => create('...', 'preview'),
-    getInitialValues: (element) => ({ id: element.id, access: element.access, create: String(element.create) }),
+    getInitialValues: (element) => ({ id: element.id, name: element.name ?? '', access: element.access, create: String(element.create) }),
     create: (values) => {
       const access = ResourceDefinition.parseAccess(values.access)
-      return create(values.id, undefined, access, access === 'read-write' && values.create === 'true')
+      return ResourceDefinition.withOptionalName(
+        create(values.id, undefined, access, access === 'read-write' && values.create === 'true'), values.name,
+      )
     },
     update: (element, values) => {
       const access = ResourceDefinition.parseAccess(values.access)
-      return { ...element, id: values.id, access, create: access === 'read-write' && values.create === 'true' }
+      return ResourceDefinition.withOptionalName(
+        { ...element, id: values.id, access, create: access === 'read-write' && values.create === 'true' }, values.name,
+      )
     },
   })
 
   export const definition = {
     kind: 'sqlite-resource',
-    treeLabel: { type: 'static', kindText: 'SQLite', tone: 'master', getValueText: (element: Element) => element.id },
+    treeLabel: { type: 'component', Component: ResourceTreeLabel },
     search: { getIdText: (element) => element.id },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()

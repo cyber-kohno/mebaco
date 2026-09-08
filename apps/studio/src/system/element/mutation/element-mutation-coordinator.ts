@@ -13,6 +13,7 @@ import ObjectDefinitionUpdatePolicy from '../kind/type/object/object-definition-
 import FunctionDefinitionUpdatePolicy from '../kind/function/function-definition-update-policy'
 import StyleLocalScope from '../kind/view/style/style-local-scope'
 import DebugResourceBindingSync from '../kind/debug/debug-resource-binding-sync'
+import DebugLaunchShortcutSync from '../kind/debug/debug-launch-shortcut-sync'
 
 namespace ElementMutationCoordinator {
   export const afterAdd = (
@@ -35,6 +36,7 @@ namespace ElementMutationCoordinator {
     ) {
       correctedNodeCount = DebugResourceBindingSync.sync(rootNode)
     }
+    correctedNodeCount += DebugLaunchShortcutSync.sync(rootNode)
     const localVariableReferences = element.kind === 'variable'
       && StyleLocalScope.isLocalVariable(rootNode, addedNode.id)
       ? ReferenceImpact.collectReferences(rootNode, [addedNode.id], 'expression')
@@ -182,6 +184,7 @@ namespace ElementMutationCoordinator {
       && nextElement.implementation.mode === 'code'
       && JSON.stringify(impactPreviousElement) !== JSON.stringify(nextElement)
     )
+    correctedNodeCount += DebugLaunchShortcutSync.sync(nextRoot)
 
     return {
       correctedNodeCount,
@@ -245,6 +248,10 @@ namespace ElementMutationCoordinator {
     }
 
     const targetNodeIds = ReferenceImpact.collectSubtreeNodeIds(removedNode)
+    correctedNodeCount += DebugLaunchShortcutSync.sync(
+      rootNode,
+      new Set(targetNodeIds),
+    )
     const scopedDefinition = removedNode.element.kind === 'state'
       || removedNode.element.kind === 'variable'
     const scopedNodeIds = scopedDefinition

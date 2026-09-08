@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   openElementSearch: vi.fn(),
   cancelInteraction: vi.fn(),
   returnToDestinationSelection: vi.fn(),
+  launchAppShortcut: vi.fn(),
 }))
 
 vi.mock('svelte/store', () => ({
@@ -47,6 +48,9 @@ vi.mock('../area/develop/interaction/develop-interaction-controller', () => ({
 }))
 vi.mock('../element/element-registry', () => ({
   default: { get: vi.fn() },
+}))
+vi.mock('../element/kind/debug/debug-launch-shortcut-controller', () => ({
+  default: { launch: mocks.launchAppShortcut },
 }))
 vi.mock('../element-dialog/element-dialog-store', () => ({
   elementDialogStore: mocks.elementDialogStore,

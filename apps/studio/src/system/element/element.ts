@@ -69,6 +69,7 @@ import DebugConfigurationsElement from './kind/debug/debug-configurations-elemen
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 import DebugLogElement from './kind/debug/debug-log-element'
+import DebugLaunchShortcutsElement from './kind/debug/debug-launch-shortcuts-element'
 import ReleaseElement from './kind/release/release-element'
 import BundlesElement from './kind/release/bundles-element'
 import BundleElement from './kind/release/bundle-element'
@@ -148,6 +149,7 @@ namespace MebacoElement {
     | DebugConfigurationElement.Kind
     | DebugResourceBindingsElement.Kind
     | DebugLogElement.Kind
+    | DebugLaunchShortcutsElement.Kind
     | ReleaseElement.Kind
     | BundlesElement.Kind
     | BundleElement.Kind
@@ -224,6 +226,7 @@ namespace MebacoElement {
     | DebugConfigurationElement.Element
     | DebugResourceBindingsElement.Element
     | DebugLogElement.Element
+    | DebugLaunchShortcutsElement.Element
     | ReleaseElement.Element
     | BundlesElement.Element
     | BundleElement.Element

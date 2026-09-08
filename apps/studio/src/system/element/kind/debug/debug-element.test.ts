@@ -22,7 +22,8 @@ describe('Debug element structure', () => {
     const configurations = debug?.children[0]
     const defaultConfiguration = configurations?.children[0]
     const resourceBindings = defaultConfiguration?.children[0]
-    const log = debug?.children[1]
+    const shortcuts = debug?.children[1]
+    const log = debug?.children[2]
 
     expect(configurations?.element).toEqual({ kind: 'debug-configurations' })
     expect(defaultConfiguration?.element).toMatchObject({
@@ -32,6 +33,10 @@ describe('Debug element structure', () => {
     expect(defaultConfiguration?.element).not.toHaveProperty('name')
     expect(resourceBindings?.element).toEqual({
       kind: 'debug-resource-bindings',
+      bindings: [],
+    })
+    expect(shortcuts?.element).toEqual({
+      kind: 'debug-launch-shortcuts',
       bindings: [],
     })
     expect(log?.element).toEqual({
@@ -66,6 +71,7 @@ describe('Debug element structure', () => {
     }).map((item) => item.label)).toEqual(['Modify'])
     expect(DebugLogElement.definition.canDisable).toBe(false)
     expect(DebugLogElement.definition.childSlots).toEqual([])
+    expect(DebugLogElement.definition.treeLabel.type).toBe('component')
 
     const schema = DebugLogElement.createSchema()
     expect(schema.getInitialValues(logNode.element)).toEqual({

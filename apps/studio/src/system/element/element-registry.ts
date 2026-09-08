@@ -72,6 +72,7 @@ import DebugConfigurationsElement from './kind/debug/debug-configurations-elemen
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
 import DebugResourceBindingsElement from './kind/debug/debug-resource-bindings-element'
 import DebugLogElement from './kind/debug/debug-log-element'
+import DebugLaunchShortcutsElement from './kind/debug/debug-launch-shortcuts-element'
 import ReleaseElement from './kind/release/release-element'
 import BundlesElement from './kind/release/bundles-element'
 import BundleElement from './kind/release/bundle-element'
@@ -155,6 +156,7 @@ namespace ElementRegistry {
     'debug-configuration': DebugConfigurationElement.definition,
     'debug-resource-bindings': DebugResourceBindingsElement.definition,
     'debug-log': DebugLogElement.definition,
+    'debug-launch-shortcuts': DebugLaunchShortcutsElement.definition,
     release: ReleaseElement.definition,
     bundles: BundlesElement.definition,
     bundle: BundleElement.definition,

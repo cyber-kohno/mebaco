@@ -5,6 +5,7 @@ namespace ReferenceLanguage {
     | 'function'
     | 'function-parameter'
     | 'launch-argument'
+    | 'launcher'
     | 'object-type'
     | 'signature-type'
     | 'slot'
@@ -22,6 +23,8 @@ namespace ReferenceLanguage {
   export const structuralFields: Readonly<Record<string, readonly Kind[]>> = {
     appId: ['app'],
     appIds: ['app'],
+    launcherId: ['launcher'],
+    launcherIds: ['launcher'],
     componentId: ['component'],
     functionId: ['function'],
     propId: ['launch-argument', 'value-prop'],

@@ -3,14 +3,46 @@ import type MebacoElement from '../element/element'
 import ConfirmDialogController from '../feedback/confirm/confirm-dialog-controller'
 import type TreeNode from '../tree/tree-node'
 import UnionDefinitionUpdatePolicy from '../element/kind/type/union/union-definition-update-policy'
+import ReferenceImpact from '../analysis/reference/reference-impact'
 
 namespace ElementUpdatePreflight {
+  const findNode = (node: TreeNode.Node, nodeId: number): TreeNode.Node | null => {
+    if (node.id === nodeId) return node
+    for (const child of node.children) {
+      const found = findNode(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
+
   export const confirm = async (
     rootNode: TreeNode.Node,
     nodeId: number,
     previousElement: MebacoElement.Element,
     nextElement: MebacoElement.Element,
   ): Promise<boolean> => {
+    if (
+      previousElement.kind === 'launcher'
+      && nextElement.kind === 'launcher'
+      && previousElement.appId !== nextElement.appId
+    ) {
+      const references = ReferenceImpact.collectReferences(rootNode, [nodeId], 'structural')
+        .filter((reference) => (
+          findNode(rootNode, reference.sourceNodeId)?.element.kind
+            === 'debug-launch-shortcuts'
+        ))
+      if (references.length > 0) {
+        await ConfirmDialogController.openNotice({
+          title: 'Update Blocked',
+          message: [
+            `Launcher '${previousElement.id}' is configured as an App launch shortcut.`,
+            'Clear the shortcut under Debug > Launch Shortcuts before changing its target App.',
+          ],
+        })
+        return false
+      }
+    }
+
     if (previousElement.kind === 'union-type' && nextElement.kind === 'union-type') {
       const conflicts = UnionDefinitionUpdatePolicy.collectConflicts(
         rootNode,
