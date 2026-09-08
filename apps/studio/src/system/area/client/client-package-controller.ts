@@ -7,9 +7,13 @@ namespace ClientPackageController {
   export const installFile = async (file: File): Promise<void> => {
     try {
       const parsed = await ClientPackage.parse(file.name, await file.arrayBuffer())
-      const result = ClientPackageStore.install(parsed)
+      const result = await ClientPackageStore.install(parsed)
       if (result.status === 'duplicate') {
         ToastController.show('This application package is already installed.', { tone: 'warning' })
+        return
+      }
+      if (result.status === 'updated') {
+        ToastController.show(`${result.installedPackage.displayName} was updated.`, { tone: 'success' })
         return
       }
       ToastController.show(`${result.installedPackage.displayName} was installed.`, { tone: 'success' })
@@ -31,7 +35,7 @@ namespace ClientPackageController {
       choices: [{ label: 'Delete', role: 'proceed' }],
     })
     if (!confirmed) return
-    ClientPackageStore.remove(installationId)
+    await ClientPackageStore.remove(installationId)
     ToastController.show(`${installedPackage.displayName} was deleted.`, { tone: 'success' })
   }
 }

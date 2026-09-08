@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte'
   import ReferenceGraph from '../../../analysis/reference/reference-graph'
   import { elementDialogStore } from '../../../element-dialog/element-dialog-store'
   import { elementSearchStore } from '../../../element-search/element-search-store'
@@ -15,8 +14,6 @@
   const selectedNodeIdStore = TreeStore.selectedNodeId
   const referenceGraphVisible = ReferenceGraphController.visible
   const runtimeSessionStore = RuntimeSessionStore.store
-
-  onDestroy(ReferenceGraphController.close)
 
   const panelVisible = $derived(
     $referenceGraphVisible

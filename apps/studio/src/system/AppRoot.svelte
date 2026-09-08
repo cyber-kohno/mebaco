@@ -23,6 +23,8 @@
   import { developInteractionStore } from './area/develop/interaction/develop-interaction-store'
   import { developScreenStore } from './area/develop/develop-screen-store'
   import TauriWindow from './infra/tauri/window'
+  import ClientPackageStore from './area/client/client-package-store'
+  import ToastController from './feedback/toast/toast-controller'
 
   $effect(() => {
     if (
@@ -32,6 +34,19 @@
   })
 
   onMount(() => {
+    void ClientPackageStore.initialize().then((result) => {
+      if (result.warnings.length > 0) {
+        ToastController.show(
+          `${result.warnings.length} installed package${result.warnings.length === 1 ? '' : 's'} could not be loaded.`,
+          { tone: 'warning', durationMs: 5000 },
+        )
+      }
+    }).catch(() => {
+      ToastController.show('Installed packages could not be loaded.', {
+        tone: 'warning',
+        durationMs: 5000,
+      })
+    })
     const unsubscribeRoot = TreeStore.rootNode.subscribe((rootNode) => {
       ProjectSession.updateFromRoot(rootNode)
       ExpressionVerificationStore.syncRoot(rootNode)

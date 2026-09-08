@@ -1,5 +1,6 @@
 import { get, writable } from 'svelte/store'
 import type ClientPackage from './client-package'
+import ClientPackageRepository, { type LoadResult } from './client-package-repository'
 
 export type ClientPackageState = {
   packages: ClientPackage.Installed[]
@@ -8,9 +9,23 @@ export type ClientPackageState = {
 
 const initialState = (): ClientPackageState => ({ packages: [], selectedId: null })
 const store = writable<ClientPackageState>(initialState())
+let initialization: Promise<LoadResult> | null = null
+const metadataSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 namespace ClientPackageStore {
   export const value = store
+
+  export const initialize = (): Promise<LoadResult> => {
+    if (initialization != null) return initialization
+    initialization = ClientPackageRepository.load().then((result) => {
+      store.set({ packages: result.packages, selectedId: null })
+      return result
+    }).catch((error) => {
+      initialization = null
+      throw error
+    })
+    return initialization
+  }
 
   export const getSelected = (state: ClientPackageState): ClientPackage.Installed | null => (
     state.packages.find((item) => item.installationId === state.selectedId) ?? null
@@ -27,27 +42,50 @@ namespace ClientPackageStore {
     return `${base} (${index})${extension}`
   }
 
-  export const install = (
+  export const install = async (
     parsed: ClientPackage.Parsed,
-  ): { status: 'installed' | 'duplicate'; installedPackage: ClientPackage.Installed } => {
+  ): Promise<{
+    status: 'installed' | 'updated' | 'duplicate'
+    installedPackage: ClientPackage.Installed
+  }> => {
+    await initialize()
     const current = get(store)
     const duplicate = current.packages.find((item) => item.digest === parsed.digest)
     if (duplicate != null) {
       store.set({ ...current, selectedId: duplicate.installationId })
       return { status: 'duplicate', installedPackage: duplicate }
     }
-    const installedPackage: ClientPackage.Installed = {
-      ...parsed,
-      installationId: crypto.randomUUID(),
-      displayName: uniqueName(parsed.sourceFileName, current.packages),
-      installedAt: new Date().toISOString(),
-      resourcePaths: {},
-    }
+
+    const previous = current.packages.find((item) => (
+      item.manifest.bundle.bundleId === parsed.manifest.bundle.bundleId
+    ))
+    const installedPackage: ClientPackage.Installed = previous == null
+      ? {
+          ...parsed,
+          installationId: crypto.randomUUID(),
+          displayName: uniqueName(parsed.sourceFileName, current.packages),
+          installedAt: new Date().toISOString(),
+          resourcePaths: {},
+        }
+      : {
+          ...parsed,
+          installationId: previous.installationId,
+          displayName: previous.displayName,
+          installedAt: previous.installedAt,
+          resourcePaths: Object.fromEntries(Object.entries(previous.resourcePaths).filter(([resourceId]) => (
+            parsed.module.resources.some((resource) => resource.resourceId === resourceId)
+          ))),
+        }
+    await ClientPackageRepository.save(installedPackage)
     store.set({
-      packages: [...current.packages, installedPackage],
+      packages: previous == null
+        ? [...current.packages, installedPackage]
+        : current.packages.map((item) => (
+            item.installationId === previous.installationId ? installedPackage : item
+          )),
       selectedId: installedPackage.installationId,
     })
-    return { status: 'installed', installedPackage }
+    return { status: previous == null ? 'installed' : 'updated', installedPackage }
   }
 
   export const toggleSelection = (installationId: string) => store.update((state) => ({
@@ -60,40 +98,64 @@ namespace ClientPackageStore {
   export const rename = (installationId: string, displayName: string): boolean => {
     const normalized = displayName.trim()
     if (normalized.length === 0) return false
-    store.update((state) => ({
-      ...state,
-      packages: state.packages.map((item) => item.installationId === installationId
+    store.update((state) => {
+      const packages = state.packages.map((item) => item.installationId === installationId
         ? { ...item, displayName: normalized }
-        : item),
-    }))
+        : item)
+      const installedPackage = packages.find((item) => item.installationId === installationId)
+      if (installedPackage != null) void ClientPackageRepository.saveMetadata(installedPackage)
+        .catch((error) => console.error('Could not save the package display name.', error))
+      return { ...state, packages }
+    })
     return true
   }
 
-  export const remove = (installationId: string) => store.update((state) => {
-    if (!state.packages.some((item) => item.installationId === installationId)) return state
-    const packages = state.packages.filter((item) => item.installationId !== installationId)
-    return {
-      packages,
-      selectedId: state.selectedId === installationId ? null : state.selectedId,
-    }
-  })
+  export const remove = async (installationId: string): Promise<void> => {
+    await initialize()
+    const installedPackage = find(installationId)
+    if (installedPackage == null) return
+    const timer = metadataSaveTimers.get(installationId)
+    if (timer != null) clearTimeout(timer)
+    metadataSaveTimers.delete(installationId)
+    await ClientPackageRepository.deletePackage(installedPackage)
+    store.update((state) => {
+      if (!state.packages.some((item) => item.installationId === installationId)) return state
+      const packages = state.packages.filter((item) => item.installationId !== installationId)
+      return {
+        packages,
+        selectedId: state.selectedId === installationId ? null : state.selectedId,
+      }
+    })
+  }
 
   export const setResourcePath = (
     installationId: string,
     resourceId: string,
     path: string,
-  ) => store.update((state) => ({
-    ...state,
-    packages: state.packages.map((item) => item.installationId === installationId
+  ) => store.update((state) => {
+    const packages = state.packages.map((item) => item.installationId === installationId
       ? { ...item, resourcePaths: { ...item.resourcePaths, [resourceId]: path } }
-      : item),
-  }))
+      : item)
+    const timer = metadataSaveTimers.get(installationId)
+    if (timer != null) clearTimeout(timer)
+    metadataSaveTimers.set(installationId, setTimeout(() => {
+      metadataSaveTimers.delete(installationId)
+      const installedPackage = find(installationId)
+      if (installedPackage != null) void ClientPackageRepository.saveMetadata(installedPackage)
+        .catch((error) => console.error('Could not save the package resource paths.', error))
+    }, 300))
+    return { ...state, packages }
+  })
 
   export const find = (installationId: string): ClientPackage.Installed | null => (
     get(store).packages.find((item) => item.installationId === installationId) ?? null
   )
 
-  export const reset = () => store.set(initialState())
+  export const reset = () => {
+    metadataSaveTimers.forEach((timer) => clearTimeout(timer))
+    metadataSaveTimers.clear()
+    store.set(initialState())
+  }
 }
 
 export default ClientPackageStore

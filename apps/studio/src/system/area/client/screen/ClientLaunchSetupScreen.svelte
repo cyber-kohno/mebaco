@@ -156,15 +156,17 @@
         <h1>Launch Setup</h1>
         <p>Select a Launcher and configure the resource paths it requires.</p>
       </div>
-      <div class:ready class:checking={launchChecking || checkingResources} class="readiness">
-        {#if launchChecking || checkingResources}
-          <LoaderCircle class="spinner" size={16} />Checking resources
-        {:else if ready}
-          <CircleCheck size={16} />Ready
-        {:else}
-          <TriangleAlert size={16} />Configuration required
-        {/if}
-      </div>
+      {#if selectedLauncher != null}
+        <div class:ready class:checking={launchChecking || checkingResources} class="readiness">
+          {#if launchChecking || checkingResources}
+            <LoaderCircle class="spinner" size={16} />Checking resources
+          {:else if ready}
+            <CircleCheck size={16} />Ready
+          {:else}
+            <TriangleAlert size={16} />Configuration required
+          {/if}
+        </div>
+      {/if}
     </header>
 
     <div class="split-pane">

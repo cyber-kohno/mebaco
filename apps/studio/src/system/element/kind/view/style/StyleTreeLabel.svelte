@@ -11,7 +11,6 @@
   let { element, rootNode }: Props = $props()
 
   const propertyCount = $derived(StyleTreeLabelPresentation.countProperties(element))
-  const propertyCountText = $derived(`{${propertyCount}}`)
   const inheritedStyleNames = $derived(
     StyleTreeLabelPresentation.getInheritedStyleNames(rootNode, element),
   )
@@ -19,12 +18,9 @@
 
 <span class="style-label">
   <span class="style-kind">Style</span>
-  <span class="style-name">{element.id}</span>
-  <span class="style-details">
-    <span class="style-detail-group">
-      <span class="style-detail-label">properties:</span>
-      <span class="property-count">{propertyCountText}</span>
-    </span>
+  <span class="style-value">
+    <span class="style-name">{element.id}</span>
+    <span class="property-summary">properties {'{'} {propertyCount} {'}'}</span>
     {#if inheritedStyleNames.length > 0}
       <span class="style-detail-group">
         <span class="style-detail-label">inherits:</span>
@@ -49,8 +45,7 @@
   }
 
   .style-kind,
-  .style-name,
-  .style-details {
+  .style-value {
     display: inline-flex;
     align-items: center;
     height: 30px;
@@ -65,20 +60,18 @@
     color: #27484f;
   }
 
-  .style-name {
+  .style-value {
     min-width: 82px;
-    padding: 0 12px;
-    border-left: 0;
-    background: #496970;
-    color: #f4fbfc;
-  }
-
-  .style-details {
     gap: 12px;
     padding: 0 12px;
     border-left: 0;
     border-radius: 0 4px 4px 0;
     background: #496970;
+    color: #f4fbfc;
+  }
+
+  .style-name {
+    color: #ffe184;
   }
 
   .style-detail-group {
@@ -91,8 +84,8 @@
     color: #ddeef1;
   }
 
-  .property-count {
-    color: #ffb36b;
+  .property-summary {
+    color: #f4fbfc;
   }
 
   .style-token {

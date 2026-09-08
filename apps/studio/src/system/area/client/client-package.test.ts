@@ -7,7 +7,12 @@ import ClientPackageStore from './client-package-store'
 import PreviewController from '../../runtime/preview/preview-controller'
 import RuntimeSessionStore from '../../runtime/runtime-session-store'
 
-const createPackage = async (options: { schemaGen?: number; createdAt?: string } = {}) => {
+const createPackage = async (options: {
+  schemaGen?: number
+  createdAt?: string
+  bundleId?: string
+} = {}) => {
+  const bundleId = options.bundleId ?? 'bundle-uuid'
   const app = {
     id: 10,
     element: { kind: 'app', appId: 'app-id', id: 'sample-app' },
@@ -37,10 +42,10 @@ const createPackage = async (options: { schemaGen?: number; createdAt?: string }
     format: 'mebaco-app', formatVersion: 1, appVersion: APP_VERSION,
     schemaGen: options.schemaGen ?? SCHEMA_GEN, apiGen: API_GEN,
     createdAt: options.createdAt ?? '2026-09-07T00:00:00.000Z',
-    bundle: { bundleId: 'bundle-uuid', id: 'desktop', launcherCount: 1, appCount: 1, resourceCount: 1 },
+    bundle: { bundleId, id: 'desktop', launcherCount: 1, appCount: 1, resourceCount: 1 },
   }
   const module = {
-    bundle: { bundleId: 'bundle-uuid', id: 'desktop', launcherIds: ['launcher-id'] },
+    bundle: { bundleId, id: 'desktop', launcherIds: ['launcher-id'] },
     launchers: [launcher], apps: [app], common: null, resources: [resource],
   }
   const zip = new JSZip()
@@ -57,7 +62,7 @@ afterEach(() => {
 describe('ClientPackage', () => {
   it('loads a compatible mbcapp and resolves Launcher dependencies', async () => {
     const parsed = await ClientPackage.parse('sample.mbcapp', await createPackage())
-    const installed = ClientPackageStore.install(parsed).installedPackage
+    const installed = (await ClientPackageStore.install(parsed)).installedPackage
     const analysis = ClientPackage.analyzeLauncher(installed, 'launcher-id')
 
     expect(parsed.manifest.bundle).toMatchObject({ id: 'desktop', launcherCount: 1 })
@@ -69,7 +74,7 @@ describe('ClientPackage', () => {
 
   it('creates a runtime project containing packaged launch dependencies', async () => {
     const parsed = await ClientPackage.parse('sample.mbcapp', await createPackage())
-    const installed = ClientPackageStore.install(parsed).installedPackage
+    const installed = (await ClientPackageStore.install(parsed)).installedPackage
     const project = ClientPackage.createRuntimeProject(installed)
 
     expect(project.element.kind).toBe('project')
@@ -83,7 +88,7 @@ describe('ClientPackage', () => {
 
   it('opens a packaged Launcher in the shared runtime session', async () => {
     const parsed = await ClientPackage.parse('sample.mbcapp', await createPackage())
-    const installed = ClientPackageStore.install(parsed).installedPackage
+    const installed = (await ClientPackageStore.install(parsed)).installedPackage
     const launcher = installed.module.launchers[0]
     if (launcher?.appId == null) throw new Error('Test Launcher is incomplete.')
     const project = ClientPackage.createRuntimeProject(installed)
@@ -109,8 +114,8 @@ describe('ClientPackage', () => {
 
   it('selects an existing installation for duplicate package bytes', async () => {
     const bytes = await createPackage()
-    const first = ClientPackageStore.install(await ClientPackage.parse('sample.mbcapp', bytes))
-    const duplicate = ClientPackageStore.install(await ClientPackage.parse('copy.mbcapp', bytes))
+    const first = await ClientPackageStore.install(await ClientPackage.parse('sample.mbcapp', bytes))
+    const duplicate = await ClientPackageStore.install(await ClientPackage.parse('copy.mbcapp', bytes))
 
     expect(first.status).toBe('installed')
     expect(duplicate.status).toBe('duplicate')
@@ -118,10 +123,33 @@ describe('ClientPackage', () => {
     expect(get(ClientPackageStore.value).selectedId).toBe(first.installedPackage.installationId)
   })
 
+  it('updates the same Bundle while preserving its installation settings', async () => {
+    const first = (await ClientPackageStore.install(await ClientPackage.parse(
+      'sample.mbcapp',
+      await createPackage({ createdAt: '2026-09-07T00:00:00.000Z' }),
+    ))).installedPackage
+    ClientPackageStore.rename(first.installationId, 'Production')
+    ClientPackageStore.setResourcePath(first.installationId, 'resource-id', 'C:\\data')
+
+    const result = await ClientPackageStore.install(await ClientPackage.parse(
+      'sample-v2.mbcapp',
+      await createPackage({ createdAt: '2026-09-08T00:00:00.000Z' }),
+    ))
+
+    expect(result.status).toBe('updated')
+    expect(result.installedPackage).toMatchObject({
+      installationId: first.installationId,
+      displayName: 'Production',
+      sourceFileName: 'sample-v2.mbcapp',
+      resourcePaths: { 'resource-id': 'C:\\data' },
+    })
+    expect(get(ClientPackageStore.value).packages).toHaveLength(1)
+  })
+
   it('keeps display name and resource path as installation settings', async () => {
-    const installed = ClientPackageStore.install(
+    const installed = (await ClientPackageStore.install(
       await ClientPackage.parse('sample.mbcapp', await createPackage()),
-    ).installedPackage
+    )).installedPackage
 
     expect(ClientPackageStore.rename(installed.installationId, 'Production')).toBe(true)
     ClientPackageStore.setResourcePath(installed.installationId, 'resource-id', 'C:\\data')
@@ -134,9 +162,9 @@ describe('ClientPackage', () => {
   })
 
   it('toggles package selection off and back on', async () => {
-    const installed = ClientPackageStore.install(
+    const installed = (await ClientPackageStore.install(
       await ClientPackage.parse('sample.mbcapp', await createPackage()),
-    ).installedPackage
+    )).installedPackage
 
     expect(get(ClientPackageStore.value).selectedId).toBe(installed.installationId)
     ClientPackageStore.toggleSelection(installed.installationId)
@@ -146,15 +174,18 @@ describe('ClientPackage', () => {
   })
 
   it('returns to no selection when the selected package is removed', async () => {
-    const first = ClientPackageStore.install(
+    const first = (await ClientPackageStore.install(
       await ClientPackage.parse('first.mbcapp', await createPackage({ createdAt: '2026-09-07T00:00:00.000Z' })),
-    ).installedPackage
-    ClientPackageStore.install(
-      await ClientPackage.parse('second.mbcapp', await createPackage({ createdAt: '2026-09-08T00:00:00.000Z' })),
+    )).installedPackage
+    await ClientPackageStore.install(
+      await ClientPackage.parse('second.mbcapp', await createPackage({
+        createdAt: '2026-09-08T00:00:00.000Z',
+        bundleId: 'bundle-uuid-2',
+      })),
     )
     ClientPackageStore.toggleSelection(first.installationId)
 
-    ClientPackageStore.remove(first.installationId)
+    await ClientPackageStore.remove(first.installationId)
 
     expect(get(ClientPackageStore.value)).toMatchObject({ selectedId: null })
     expect(get(ClientPackageStore.value).packages).toHaveLength(1)

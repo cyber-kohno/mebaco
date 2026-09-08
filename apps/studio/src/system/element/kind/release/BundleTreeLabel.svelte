@@ -19,15 +19,15 @@
 
 <span class="bundle-label">
   <span class="bundle-kind">Bundle</span>
-  <span class:has-detail={launcherNames.length > 0} class="bundle-name">{element.id}</span>
-  {#if launcherNames.length > 0}
-    <span class="bundle-details">
+  <span class="bundle-value">
+    <span class="bundle-name">{element.id}</span>
+    {#if launcherNames.length > 0}
       <span class="bundle-detail-label">launchers:</span>
       {#each launcherNames as launcherName, index (`${element.launcherIds[index]}-${index}`)}
         <span class="bundle-token">{launcherName}</span>
       {/each}
-    </span>
-  {/if}
+    {/if}
+  </span>
 </span>
 
 <style>
@@ -43,8 +43,7 @@
   }
 
   .bundle-kind,
-  .bundle-name,
-  .bundle-details {
+  .bundle-value {
     display: inline-flex;
     align-items: center;
     height: 30px;
@@ -59,8 +58,9 @@
     color: #27484f;
   }
 
-  .bundle-name {
+  .bundle-value {
     min-width: 82px;
+    gap: 5px;
     padding: 0 12px;
     border-left: 0;
     border-radius: 0 4px 4px 0;
@@ -68,17 +68,8 @@
     color: #f4fbfc;
   }
 
-  .bundle-name.has-detail {
-    border-radius: 0;
-  }
-
-  .bundle-details {
-    gap: 5px;
-    min-width: 84px;
-    padding: 0 12px;
-    border-left: 0;
-    border-radius: 0 4px 4px 0;
-    background: #496970;
+  .bundle-name {
+    color: #ffe184;
   }
 
   .bundle-detail-label {
