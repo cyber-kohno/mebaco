@@ -59,19 +59,28 @@ namespace BundleElement {
   ): ElementEditSchema.Schema<Element> => ({
     createTitle: 'Create Bundle',
     updateTitle: 'Update Bundle',
+    tabs: [
+      { id: 'targets', label: 'Targets' },
+      { id: 'revision', label: 'Revision' },
+    ],
     fields: [
       {
-        type: 'text', key: 'id', label: 'Id', width: 'id', required: true,
+        type: 'text', tab: 'targets', key: 'id', label: 'Id', width: 'id', required: true,
         charset: 'identifier', minLength: 1, maxLength: 32, reservedNames,
       },
       {
-        type: 'bundleDefinition', key: 'launcherIds', label: 'Launchers',
+        type: 'bundleDefinition', tab: 'targets', key: 'launcherIds', label: 'Launchers',
         defaultValue: '[]', options: launcherOptions(rootNode),
       },
-      { type: 'heading', key: 'revisionHeading', label: 'Build revision' },
-      { type: 'number', key: 'generation', label: 'Generation', readOnly: true },
-      { type: 'text', key: 'contentHash', label: 'Content hash', readOnly: true },
-      { type: 'text', key: 'builtAt', label: 'Built at', readOnly: true },
+      {
+        type: 'number', tab: 'revision', key: 'generation', label: 'Generation', readOnly: true,
+      },
+      {
+        type: 'text', tab: 'revision', key: 'contentHash', label: 'Content hash', readOnly: true,
+      },
+      {
+        type: 'text', tab: 'revision', key: 'builtAt', label: 'Built at', readOnly: true,
+      },
     ],
     createPreview: () => create('...'),
     getInitialValues: (element) => ({

@@ -32,4 +32,23 @@ describe('Release element structure', () => {
       launcherIds: ['a', 'b'],
     })
   })
+
+  it('separates Bundle targets from build revision details', () => {
+    const schema = BundleElement.createSchema(TreeNode.createRootNode())
+
+    expect(schema.tabs).toEqual([
+      { id: 'targets', label: 'Targets' },
+      { id: 'revision', label: 'Revision' },
+    ])
+    expect(schema.fields.find((field) => field.key === 'id'))
+      .toMatchObject({ tab: 'targets' })
+    expect(schema.fields.find((field) => field.key === 'launcherIds'))
+      .toMatchObject({ tab: 'targets' })
+    expect(schema.fields.find((field) => field.key === 'generation'))
+      .toMatchObject({ tab: 'revision', readOnly: true })
+    expect(schema.fields.find((field) => field.key === 'contentHash'))
+      .toMatchObject({ tab: 'revision', readOnly: true })
+    expect(schema.fields.find((field) => field.key === 'builtAt'))
+      .toMatchObject({ tab: 'revision', readOnly: true })
+  })
 })

@@ -1770,6 +1770,7 @@ dependencies = [
  "tauri-plugin-fs",
  "tauri-plugin-log",
  "tauri-plugin-process",
+ "windows",
 ]
 
 [[package]]

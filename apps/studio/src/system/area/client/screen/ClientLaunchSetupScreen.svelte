@@ -7,13 +7,15 @@
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert'
   import CircleCheck from '@lucide/svelte/icons/circle-check'
   import LoaderCircle from '@lucide/svelte/icons/loader-circle'
+  import FileSymlink from '@lucide/svelte/icons/file-symlink'
   import ClientPackage from '../client-package'
   import ClientPackageStore from '../client-package-store'
   import NativeDialogController from '../../../ui/native-dialog-controller'
   import ClientNavigation from '../client-navigation-store'
   import ToastController from '../../../feedback/toast/toast-controller'
   import ClientResourcePathValidator from '../client-resource-path-validator'
-  import PreviewController from '../../../runtime/preview/preview-controller'
+  import ClientLauncher from '../client-launcher'
+  import ClientLaunchShortcutController from '../client-launch-shortcut-controller'
 
   let { installationId }: { installationId: string } = $props()
   const packageStore = ClientPackageStore.value
@@ -24,6 +26,7 @@
   let validationStates = $state<Record<string, ClientResourcePathValidator.State>>({})
   let validatedLauncherKey = ''
   let launchChecking = $state(false)
+  let creatingShortcut = $state(false)
   const pathValidator = ClientResourcePathValidator.create((resourceId, state) => {
     validationStates = { ...validationStates, [resourceId]: state }
   })
@@ -121,22 +124,41 @@
     ) return
     launchChecking = true
     try {
-      const results = await Promise.all(analysis.resources.map((resource) => {
-        const path = installedPackage.resourcePaths[resource.element.resourceId] ?? ''
-        return pathValidator.checkNow(resource.element, path)
-      }))
-      if (!results.every((state) => state != null && ClientResourcePathValidator.isAccepted(state))) return
-      const opened = PreviewController.open({
-        projectNode: ClientPackage.createRuntimeProject(installedPackage),
-        appDefinitionId: selectedLauncher.appId,
-        launcherId: selectedLauncher.launcherId,
-        resourcePaths: installedPackage.resourcePaths,
+      const result = await ClientLauncher.open(installedPackage, selectedLauncher.launcherId, {
+        validateResource: async (resource, path) => {
+          const state = await pathValidator.checkNow(resource, path)
+          return state != null && ClientResourcePathValidator.isAccepted(state)
+        },
       })
-      if (!opened) {
-        ToastController.show('The selected Launcher could not be opened.', { tone: 'danger' })
+      if (
+        result.status !== 'opened'
+        && result.message !== 'The Launcher resource configuration is incomplete.'
+      ) {
+        ToastController.show(result.message, { tone: 'danger' })
       }
     } finally {
       launchChecking = false
+    }
+  }
+
+  const createShortcut = async () => {
+    if (installedPackage == null || selectedLauncher == null || !ready) return
+    creatingShortcut = true
+    try {
+      const result = await ClientLaunchShortcutController.create(
+        installedPackage,
+        selectedLauncher.launcherId,
+      )
+      if (result === 'saved') {
+        ToastController.show('Launcher shortcut created.', { tone: 'success' })
+      }
+    } catch (error) {
+      ToastController.show(
+        error instanceof Error ? error.message : 'The Launcher shortcut could not be created.',
+        { tone: 'danger', durationMs: 5000 },
+      )
+    } finally {
+      creatingShortcut = false
     }
   }
 </script>
@@ -204,10 +226,22 @@
               <h2>{ClientPackage.launcherLabel(selectedLauncher)}</h2>
               <code>{selectedLauncher.id}</code>
             </div>
-            <button class="launch-button" type="button" disabled={!ready} onclick={() => { void launch() }}>
-              {#if launchChecking}<LoaderCircle class="spinner" size={16} />{:else}<Rocket size={16} fill="currentColor" />{/if}
-              Launch
-            </button>
+            <div class="configuration-actions">
+              <button
+                class="shortcut-button"
+                type="button"
+                disabled={!ready || creatingShortcut}
+                title={ready ? 'Create a Windows shortcut for this Launcher' : 'Complete the Launcher configuration first'}
+                onclick={() => { void createShortcut() }}
+              >
+                {#if creatingShortcut}<LoaderCircle class="spinner" size={16} />{:else}<FileSymlink size={16} />{/if}
+                Create Shortcut
+              </button>
+              <button class="launch-button" type="button" disabled={!ready} onclick={() => { void launch() }}>
+                {#if launchChecking}<LoaderCircle class="spinner" size={16} />{:else}<Rocket size={16} fill="currentColor" />{/if}
+                Launch
+              </button>
+            </div>
           </header>
 
           <div class="configuration-content">
@@ -318,6 +352,8 @@
   .configuration-header { display:flex; align-items:center; justify-content:space-between; gap:18px; min-height:91px; padding:14px 20px; border-bottom:1px solid var(--mbc-color-border); }
   .configuration-header h2 { margin-top:3px; color:#263f46; font-size:19px; }
   .configuration-header code { display:block; margin-top:3px; color:#82989e; font-family:Consolas,monospace; font-size:10px; }
+  .configuration-actions { display:flex; align-items:center; gap:8px; }
+  .shortcut-button { min-width:148px; }
   .launch-button { min-width:104px; border-color:#278f9e; background:#2aa7b8; color:white; }
   .launch-button:hover:not(:disabled) { border-color:#1f7d89; background:#218d9d; color:white; }
   .configuration-content { min-height:0; padding:17px 20px 28px; overflow:auto; }

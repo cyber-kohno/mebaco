@@ -1,5 +1,6 @@
 use tauri::{webview::PageLoadEvent, Manager};
 
+mod client_launch;
 mod resource;
 
 fn app_window_title() -> String {
@@ -14,6 +15,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(resource::ResourceSessions::default())
         .invoke_handler(tauri::generate_handler![
+            client_launch::client_get_startup_launch_request,
+            client_launch::client_create_launcher_shortcut,
             resource::resource_create_session,
             resource::resource_dispose_session,
             resource::resource_validate_path,
