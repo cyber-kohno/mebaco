@@ -19,6 +19,7 @@ namespace ReferenceLanguage {
     | 'directory-resource'
     | 'text-resource'
     | 'sqlite-resource'
+    | 'key-value'
 
   export const structuralFields: Readonly<Record<string, readonly Kind[]>> = {
     appId: ['app'],
@@ -38,6 +39,7 @@ namespace ReferenceLanguage {
     baseObjectId: ['object-type'],
     baseObjectIds: ['object-type'],
     resourceId: ['directory-resource', 'text-resource', 'sqlite-resource'],
+    storageIds: ['key-value'],
     objectTypeId: ['object-type'],
     objectTypeIds: ['object-type'],
   }
@@ -50,6 +52,7 @@ namespace ReferenceLanguage {
     $param: ['style-param'],
     $props: ['value-prop'],
     $state: ['state'],
+    '$storage.keyValue': ['key-value'],
     $transition: ['app'],
     $type: ['object-type', 'union-type', 'signature-type'],
     $var: ['variable'],

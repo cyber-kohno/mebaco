@@ -31,6 +31,8 @@ namespace DefinitionCatalog {
       case 'text-resource':
       case 'sqlite-resource':
         return element.resourceId
+      case 'key-value':
+        return element.storageId
       case 'debug-configuration':
         return element.configurationId
       default:

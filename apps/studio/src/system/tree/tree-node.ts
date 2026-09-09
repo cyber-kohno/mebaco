@@ -9,6 +9,7 @@ import CommonElement from '../element/kind/project/common-element'
 import LaunchersElement from '../element/kind/project/launchers-element'
 import ProjectElement from '../element/kind/project/project-element'
 import ResourcesElement from '../element/kind/resource/resources-element'
+import StorageElement from '../element/kind/storage/storage-element'
 import DebugElement from '../element/kind/debug/debug-element'
 import DebugConfigurationsElement from '../element/kind/debug/debug-configurations-element'
 import DebugConfigurationElement from '../element/kind/debug/debug-configuration-element'
@@ -113,6 +114,12 @@ namespace TreeNode {
           {
             id: 10,
             element: ResourcesElement.create(),
+            isOpen: true,
+            children: [],
+          },
+          {
+            id: 19,
+            element: StorageElement.create(),
             isOpen: true,
             children: [],
           },

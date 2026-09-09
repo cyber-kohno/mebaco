@@ -1,6 +1,7 @@
 import type ElementDefinition from '../../../element-definition'
 import TransitionsElement from './transitions-element'
 import ResourceImportsElement from './resource-imports-element'
+import StorageImportsElement from './storage-imports-element'
 
 namespace ImportsElement {
   export type Kind = 'imports'
@@ -14,6 +15,7 @@ namespace ImportsElement {
     createInitialChildren: () => [
       { element: TransitionsElement.create() },
       { element: ResourceImportsElement.create() },
+      { element: StorageImportsElement.create() },
     ],
     getContextMenu: () => [],
     childSlots: [],

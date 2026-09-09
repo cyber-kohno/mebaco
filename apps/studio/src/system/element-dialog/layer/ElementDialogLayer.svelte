@@ -156,6 +156,7 @@
       case 'tagStyleMonitor':
       case 'transitionImports':
       case 'resourceImports':
+      case 'storageImports':
       case 'resourceBindings':
       case 'debugLaunchShortcuts':
         return null
@@ -348,6 +349,7 @@
       || field.type === 'styleAnimations'
       || field.type === 'transitionImports'
       || field.type === 'resourceImports'
+      || field.type === 'storageImports'
       || field.type === 'resourceBindings'
       || field.type === 'bundleDefinition'
     ))}
@@ -374,6 +376,7 @@
         || field.type === 'signatureDefinition'
         || field.type === 'transitionImports'
         || field.type === 'resourceImports'
+        || field.type === 'storageImports'
         || field.type === 'resourceBindings'
         || field.type === 'bundleDefinition'
       ))}
@@ -642,6 +645,7 @@
               value={values[field.key] ?? field.defaultValue ?? ''}
               objectOptions={field.objectOptions}
               namedTypeOptions={field.namedTypeOptions}
+              allowSignature={field.allowSignature}
               readOnly={isReadOnlyField(field)}
               errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
@@ -722,6 +726,22 @@
             <DebugResourceBindingsEditor
               value={values[field.key] ?? '[]'}
               resources={field.resources}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'storageImports'}
+          <div class="field contained-editor-field">
+            <span class="field-label">{field.label}</span>
+            <TransitionImportsEditor
+              value={values[field.key] ?? field.defaultValue ?? '[]'}
+              options={field.options}
+              ariaLabel="Imported Storage"
+              description="Only selected Storage items are available from $storage."
+              emptyLabel="No imported Storage"
+              itemLabel="Storage item"
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

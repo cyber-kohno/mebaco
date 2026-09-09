@@ -20,17 +20,19 @@
   import type ResourceRuntime from '../resource/resource-runtime'
   import type RuntimeLog from '../log/runtime-log'
   import ResourceImportCatalog from '../../element/kind/app/import/resource-import-catalog'
+  import type StorageRuntime from '../storage/storage-runtime'
 
   type Props = {
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
     resourceSession: ResourceRuntime.Session
     logSession: RuntimeLog.Session
+    storageSession: StorageRuntime.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
   }
 
-  let { appNode, projectNode, resourceSession, logSession, launcherId, launchValues }: Props = $props()
+  let { appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues }: Props = $props()
 
   let renderRevision = $state(0)
   let actionError = $state<{
@@ -69,6 +71,7 @@
   const runtimeResources = $derived(resourceSession.getNamespace(
     ResourceImportCatalog.getResourceIds(appNode),
   ))
+  const runtimeStorage = $derived(storageSession.getNamespace(appNode))
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
   const runtimeState = $derived(RuntimeState.createState(
@@ -79,6 +82,7 @@
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
     $resource: runtimeResources,
+    $storage: runtimeStorage,
     logSession,
     $system: runtimeSystem,
     $transition: runtimeTransition,

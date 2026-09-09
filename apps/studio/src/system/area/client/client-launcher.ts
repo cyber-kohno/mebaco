@@ -56,6 +56,12 @@ namespace ClientLauncher {
       appDefinitionId: launcher.appId,
       launcherId: launcher.launcherId,
       resourcePaths: installedPackage.resourcePaths,
+      storageScope: {
+        kind: 'package',
+        id: installedPackage.manifest?.bundle.bundleId
+          ?? installedPackage.module.bundle?.bundleId
+          ?? installedPackage.installationId,
+      },
     })
     return opened
       ? { status: 'opened' }

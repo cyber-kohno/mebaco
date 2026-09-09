@@ -178,6 +178,7 @@ namespace ElementEditSchema {
     required?: boolean
     objectOptions: readonly SelectOption[]
     namedTypeOptions: readonly SelectOption[]
+    allowSignature?: boolean
     resetWhenChanged?: readonly string[]
   } & FieldBase
 
@@ -341,6 +342,10 @@ namespace ElementEditSchema {
     resources: readonly ResourceBindingResource[]
   } & FieldBase
 
+  export type StorageImportsField = Omit<ResourceImportsField, 'type'> & {
+    type: 'storageImports'
+  }
+
   export type DebugLaunchShortcutApp = {
     appId: string
     label: string
@@ -389,6 +394,7 @@ namespace ElementEditSchema {
     | StyleBasesField
     | TransitionImportsField
     | ResourceImportsField
+    | StorageImportsField
     | BundleDefinitionField
     | ResourceBindingsField
     | DebugLaunchShortcutsField

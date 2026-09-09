@@ -33,6 +33,7 @@ namespace FormulaContext {
     $fn: Record<string, unknown>
     $log: RuntimeLog.Value
     $resource: Readonly<Record<string, unknown>>
+    $storage: Readonly<Record<string, unknown>>
     $system: SystemValue
     $transition: TransitionValue
     $event?: Event
@@ -71,6 +72,7 @@ namespace FormulaContext {
       $fn: options.$fn ?? {},
       $log: options.$log ?? logSession.forNode(0),
       $resource: options.$resource ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
+      $storage: options.$storage ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
       $system: options.$system ?? emptySystem,
       $transition: options.$transition ?? emptyTransition,
       $event: options.$event,

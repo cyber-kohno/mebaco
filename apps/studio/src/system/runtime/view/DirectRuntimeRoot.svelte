@@ -11,6 +11,7 @@
       appNode={$sessionStore.appNode}
       projectNode={$sessionStore.projectNode}
       resourceSession={$sessionStore.resourceSession}
+      storageSession={$sessionStore.storageSession}
       logSession={$sessionStore.logSession}
       launcherId={$sessionStore.launcherId}
       launchValues={$sessionStore.launchValues}

@@ -140,6 +140,76 @@ describe('ResourceRuntime', () => {
     expect(settings).toHaveProperty('write')
   })
 
+  it('queries SQLite values and converts BLOB results to Uint8Array', async () => {
+    const invoke = vi.fn(async <T>(command: string): Promise<T> => (
+      command === 'resource_query_sqlite'
+        ? [{ id: 7, name: 'sample', data: { $sqlite: 'blob', bytes: [1, 2, 255] } }]
+        : undefined
+    ) as T)
+    const session = ResourceRuntime.create(createProject(), {
+      invoke: invoke as ResourceRuntime.Backend['invoke'],
+    })
+    const database = (session.namespace.workspace as {
+      sqlite: (path: string) => { query: (sql: string, parameters?: ResourceRuntime.SqliteParameter[]) => Promise<ResourceRuntime.SqliteRow[]> }
+    }).sqlite('data/manage.db')
+
+    const rows = await database.query('SELECT * FROM sample WHERE id = ?', [7])
+
+    expect(rows[0]).toMatchObject({ id: 7, name: 'sample' })
+    expect(rows[0].data).toEqual(new Uint8Array([1, 2, 255]))
+    expect(invoke).toHaveBeenCalledWith('resource_query_sqlite', {
+      request: expect.objectContaining({ sql: expect.any(String), parameters: [7] }),
+    })
+  })
+
+  it('rejects unsafe SQLite integer parameters before invoking the backend', () => {
+    const invoke = vi.fn()
+    const session = ResourceRuntime.create(createProject(), {
+      invoke: invoke as ResourceRuntime.Backend['invoke'],
+    })
+    const database = (session.namespace.workspace as {
+      sqlite: (path: string) => { query: (sql: string, parameters?: ResourceRuntime.SqliteParameter[]) => Promise<unknown> }
+    }).sqlite('data/manage.db')
+
+    expect(() => database.query('SELECT ?', [Number.MAX_SAFE_INTEGER + 1]))
+      .toThrow('safe integer range')
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('rolls back an interactive SQLite transaction after inspecting updated data', async () => {
+    const commands: string[] = []
+    const invoke = vi.fn(async <T>(command: string): Promise<T> => {
+      commands.push(command)
+      if (command === 'resource_query_sqlite_transaction') return [{ stock: -1 }] as T
+      if (command === 'resource_execute_sqlite_transaction') return { changes: 1, lastInsertRowId: 0 } as T
+      return undefined as T
+    })
+    const session = ResourceRuntime.create(createProject(), {
+      invoke: invoke as ResourceRuntime.Backend['invoke'],
+    })
+    const database = (session.namespace.workspace as {
+      sqlite: (path: string) => {
+        transaction: <T>(callback: (transaction: ResourceRuntime.SqliteTransaction) => Promise<T>) => Promise<T>
+      }
+    }).sqlite('data/manage.db')
+
+    const result = await database.transaction(async (transaction) => {
+      await transaction.execute('UPDATE inventory SET stock = stock - 1')
+      const rows = await transaction.query<{ stock: number }>('SELECT stock FROM inventory')
+      if (rows[0].stock < 0) transaction.rollback()
+      return 'checked'
+    })
+
+    expect(result).toBe('checked')
+    expect(commands).toEqual([
+      'resource_create_session',
+      'resource_begin_sqlite_transaction',
+      'resource_execute_sqlite_transaction',
+      'resource_query_sqlite_transaction',
+      'resource_rollback_sqlite_transaction',
+    ])
+  })
+
   it('creates an App-scoped namespace from imported Resource ids', () => {
     const session = ResourceRuntime.create(createProject(), { invoke: vi.fn() })
 

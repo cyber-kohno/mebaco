@@ -2,9 +2,10 @@
   import DefinitionCatalog from '../../../definition-catalog'
   import type TreeNode from '../../../../tree/tree-node'
   import type ResourceImportsElement from './resource-imports-element'
+  import type StorageImportsElement from './storage-imports-element'
   import type TransitionsElement from './transitions-element'
 
-  type Element = TransitionsElement.Element | ResourceImportsElement.Element
+  type Element = TransitionsElement.Element | ResourceImportsElement.Element | StorageImportsElement.Element
 
   type Props = {
     element: Element
@@ -13,15 +14,21 @@
 
   let { element, rootNode }: Props = $props()
 
-  const kindText = $derived(element.kind === 'transitions' ? 'Transitions' : 'Resources')
+  const kindText = $derived(element.kind === 'transitions'
+    ? 'Transitions'
+    : element.kind === 'resource-imports' ? 'Resources' : 'Storage')
   const detailLabel = $derived(element.kind === 'transitions' ? 'apps:' : 'items:')
   const itemIds = $derived(
-    element.kind === 'transitions' ? element.appIds : element.resourceIds,
+    element.kind === 'transitions'
+      ? element.appIds
+      : element.kind === 'resource-imports' ? element.resourceIds : element.storageIds,
   )
   const definitionKinds = $derived(
     element.kind === 'transitions'
       ? new Set(['app'])
-      : new Set(['directory-resource', 'text-resource', 'sqlite-resource']),
+      : element.kind === 'resource-imports'
+        ? new Set(['directory-resource', 'text-resource', 'sqlite-resource'])
+        : new Set(['key-value']),
   )
   const itemNames = $derived(itemIds.map((itemId) => (
     rootNode == null
@@ -105,5 +112,11 @@
     border-color: #9fb56c;
     background: #667441;
     color: #efffc2;
+  }
+
+  .import-token[data-tone='storage-imports'] {
+    border-color: #b6a36b;
+    background: #75683f;
+    color: #fff3c5;
   }
 </style>

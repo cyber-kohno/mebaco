@@ -2,6 +2,7 @@ use tauri::{webview::PageLoadEvent, Manager};
 
 mod client_launch;
 mod resource;
+mod storage;
 
 fn app_window_title() -> String {
     format!("Mebaco v{}", env!("CARGO_PKG_VERSION"))
@@ -31,6 +32,15 @@ pub fn run() {
             resource::resource_read_text,
             resource::resource_write_text,
             resource::resource_open_sqlite,
+            resource::resource_query_sqlite,
+            resource::resource_execute_sqlite,
+            resource::resource_begin_sqlite_transaction,
+            resource::resource_query_sqlite_transaction,
+            resource::resource_execute_sqlite_transaction,
+            resource::resource_commit_sqlite_transaction,
+            resource::resource_rollback_sqlite_transaction,
+            storage::storage_get,
+            storage::storage_set,
         ])
         .on_page_load(|webview, payload| {
             if webview.label() == "main" && matches!(payload.event(), PageLoadEvent::Finished) {

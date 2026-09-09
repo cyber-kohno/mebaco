@@ -104,6 +104,13 @@ namespace RuntimeState {
     }
   }
 
+  export const createPersistentInitialValue = (
+    item: StateElement.Element,
+    projectNode: RuntimeTree.AppRuntime['projectNode'],
+  ): unknown => item.initial.type === 'literal'
+    ? coerceLiteralValue(item, item.initial.value, projectNode)
+    : getDefaultValue(item, projectNode)
+
   const createLayeredState = (
     parentState: Record<string, unknown>,
     localState: Record<string, unknown>,

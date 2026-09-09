@@ -5,6 +5,15 @@ import type SqliteResourceElement from '../../element/kind/resource/sqlite-resou
 import TauriResourceCommands from '../../infra/tauri/resource-commands'
 
 namespace ResourceRuntime {
+  export type SqliteValue = null | string | number | Uint8Array
+  export type SqliteParameter = SqliteValue
+  export type SqliteRow = Readonly<Record<string, SqliteValue>>
+  export type SqliteExecuteResult = { changes: number; lastInsertRowId: number }
+  export type SqliteTransaction = {
+    query: <Row extends Readonly<Record<string, unknown>> = SqliteRow>(sql: string, parameters?: readonly SqliteParameter[]) => Promise<Row[]>
+    execute: (sql: string, parameters?: readonly SqliteParameter[]) => Promise<SqliteExecuteResult>
+    rollback: () => void
+  }
   export type Backend = {
     invoke: <T>(command: string, args: { request: unknown }) => Promise<T>
   }
@@ -274,12 +283,99 @@ namespace ResourceRuntime {
 
     const createSqlite = (
       resourceId: string,
+      access: 'read' | 'read-write',
       relativePath?: string,
-    ): Readonly<Record<string, unknown>> => Object.freeze({
-      open: () => execute<Record<string, never>>('resource_open_sqlite', {
-        ...target(resourceId, relativePath),
-      }),
-    })
+    ): Readonly<Record<string, unknown>> => {
+      const encodeParameters = (parameters: readonly SqliteParameter[]) => parameters.map((value, index) => {
+        if (value instanceof Uint8Array) return { $sqlite: 'blob', bytes: [...value] }
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) throw new Error(`SQLite parameter ${index + 1} must be a finite number.`)
+          if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+            throw new Error(`SQLite parameter ${index + 1} exceeds the JavaScript safe integer range.`)
+          }
+        }
+        return value
+      })
+      const decodeRows = <Row extends Readonly<Record<string, unknown>>>(rows: Record<string, unknown>[]): Row[] => rows.map((row) => Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [key, (
+          value != null
+          && typeof value === 'object'
+          && (value as { $sqlite?: unknown }).$sqlite === 'blob'
+          && Array.isArray((value as { bytes?: unknown }).bytes)
+            ? new Uint8Array((value as { bytes: number[] }).bytes)
+            : value
+        )]),
+      ) as Row)
+      const request = (sql: string, parameters: readonly SqliteParameter[] = []) => ({
+        ...target(resourceId, relativePath), sql, parameters: encodeParameters([...parameters]),
+      })
+      const query = <Row extends Readonly<Record<string, unknown>> = SqliteRow>(
+        sql: string,
+        parameters: readonly SqliteParameter[] = [],
+      ) => execute<Record<string, unknown>[]>('resource_query_sqlite', request(sql, parameters))
+        .then(decodeRows<Row>)
+      let transactionActive = false
+      const writable = access === 'read-write' ? {
+        execute: (sql: string, parameters: readonly SqliteParameter[] = []) => (
+          execute<SqliteExecuteResult>('resource_execute_sqlite', request(sql, parameters))
+        ),
+        transaction: async <Result>(callback: (transaction: SqliteTransaction) => Promise<Result>): Promise<Result> => {
+          if (transactionActive) throw new Error('Nested SQLite transactions are not supported.')
+          transactionActive = true
+          const transactionId = crypto.randomUUID()
+          let rolledBack = false
+          try {
+            await execute<void>('resource_begin_sqlite_transaction', {
+              ...target(resourceId, relativePath), transactionId,
+            })
+            const transactionRequest = (sql: string, parameters: readonly SqliteParameter[] = []) => ({
+              transactionId, sql, parameters: encodeParameters(parameters),
+            })
+            const transaction = Object.freeze({
+              query: <Row extends Readonly<Record<string, unknown>> = SqliteRow>(sql: string, parameters: readonly SqliteParameter[] = []) => {
+                if (rolledBack) return Promise.reject(new Error('The SQLite transaction was rolled back.'))
+                return execute<Record<string, unknown>[]>('resource_query_sqlite_transaction', transactionRequest(sql, parameters)).then(decodeRows<Row>)
+              },
+              execute: (sql: string, parameters: readonly SqliteParameter[] = []) => {
+                if (rolledBack) return Promise.reject(new Error('The SQLite transaction was rolled back.'))
+                return execute<SqliteExecuteResult>('resource_execute_sqlite_transaction', transactionRequest(sql, parameters))
+              },
+              rollback: () => { rolledBack = true },
+            })
+            let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined
+            const timeout = new Promise<never>((_, reject) => {
+              timeoutId = globalThis.setTimeout(() => {
+                rolledBack = true
+                void execute<void>('resource_rollback_sqlite_transaction', { transactionId })
+                  .then(() => reject(new Error('The SQLite transaction timed out after 30 seconds.')), reject)
+              }, 30_000)
+            })
+            let result: Result
+            try {
+              result = await Promise.race([callback(transaction), timeout])
+            } finally {
+              if (timeoutId != null) globalThis.clearTimeout(timeoutId)
+            }
+            await execute<void>(rolledBack ? 'resource_rollback_sqlite_transaction' : 'resource_commit_sqlite_transaction', { transactionId })
+            return result
+          } catch (error) {
+            if (!rolledBack) {
+              try { await execute<void>('resource_rollback_sqlite_transaction', { transactionId }) } catch { /* preserve the callback error */ }
+            }
+            throw error
+          } finally {
+            transactionActive = false
+          }
+        },
+      } : {}
+      return Object.freeze({
+        open: () => execute<Record<string, never>>('resource_open_sqlite', {
+          ...target(resourceId, relativePath),
+        }),
+        query,
+        ...writable,
+      })
+    }
 
     const createDirectory = (
       resource: DirectoryResourceElement.Element,
@@ -334,6 +430,7 @@ namespace ResourceRuntime {
       ...(resource.permissions.sqlite == null ? {} : {
         sqlite: (relativePath: string) => createSqlite(
           resource.resourceId,
+          resource.permissions.sqlite!.access,
           validateDerivedPath(relativePath, resource.permissions.sqlite!.pattern),
         ),
       }),
@@ -351,7 +448,7 @@ namespace ResourceRuntime {
           value = createText(resource.resourceId, resource.access)
           break
         case 'sqlite-resource':
-          value = createSqlite(resource.resourceId)
+          value = createSqlite(resource.resourceId, resource.access)
           break
       }
       namespace[resource.id] = value

@@ -5,10 +5,12 @@ namespace ProjectElement {
 
   export type Element = {
     kind: Kind
+    projectId?: string
   }
 
   export const create = (): Element => ({
     kind: 'project',
+    projectId: crypto.randomUUID(),
   })
 
   export const definition = {

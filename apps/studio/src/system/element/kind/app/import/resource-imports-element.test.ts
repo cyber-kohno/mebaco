@@ -4,6 +4,7 @@ import type TreeNode from '../../../../tree/tree-node'
 import ImportsElement from './imports-element'
 import ResourceImportCatalog from './resource-import-catalog'
 import ResourceImportsElement from './resource-imports-element'
+import StorageImportsElement from './storage-imports-element'
 import TransitionsElement from './transitions-element'
 
 const node = (
@@ -13,11 +14,12 @@ const node = (
 ): TreeNode.Node => ({ id, element, children, isOpen: true })
 
 describe('Resource Imports', () => {
-  it('creates editable manager children for Transitions and Resources', () => {
+  it('creates editable manager children for Transitions, Resources, and Storage', () => {
     expect(ImportsElement.definition.createInitialChildren?.())
       .toEqual([
         { element: TransitionsElement.create() },
         { element: ResourceImportsElement.create() },
+        { element: StorageImportsElement.create() },
       ])
     expect(TransitionsElement.definition.treeLabel.type).toBe('component')
     expect(ResourceImportsElement.definition.treeLabel.type).toBe('component')

@@ -21,6 +21,7 @@ import SequentialVariableScope from '../../element/kind/variable/sequential-vari
 import type DirectoryResourceElement from '../../element/kind/resource/directory-resource-element'
 import type TextResourceElement from '../../element/kind/resource/text-resource-element'
 import type SqliteResourceElement from '../../element/kind/resource/sqlite-resource-element'
+import StorageImportCatalog from '../../element/kind/app/import/storage-import-catalog'
 
 namespace MebacoInjectionSource {
   export type CreateOptions = {
@@ -205,6 +206,12 @@ namespace MebacoInjectionSource {
     ? '$MebacoWritableTextResource'
     : '$MebacoReadonlyTextResource'
 
+  const getSqliteResourceType = (
+    access: 'read' | 'read-write',
+  ): string => access === 'read-write'
+    ? '$MebacoWritableSqliteResource'
+    : '$MebacoReadonlySqliteResource'
+
   const createDirectoryResourceType = (
     resource: DirectoryResourceElement.Element,
   ): string => {
@@ -232,7 +239,7 @@ namespace MebacoInjectionSource {
       )
     }
     if (resource.permissions.sqlite != null) {
-      methods.push('    sqlite(relativePath: string): $MebacoSqliteResource;')
+      methods.push(`    sqlite(relativePath: string): ${getSqliteResourceType(resource.permissions.sqlite.access)};`)
     }
 
     return ['  {', ...methods, '  }'].join('\n')
@@ -252,7 +259,7 @@ namespace MebacoInjectionSource {
         case 'text-resource':
           return `  ${resource.id}: ${getTextResourceType(resource.access)};`
         case 'sqlite-resource':
-          return `  ${resource.id}: $MebacoSqliteResource;`
+          return `  ${resource.id}: ${getSqliteResourceType(resource.access)};`
       }
     })
 
@@ -269,8 +276,22 @@ namespace MebacoInjectionSource {
       'interface $MebacoWritableTextResource extends $MebacoReadonlyTextResource {',
       '  write(text: string, encoding?: $MebacoTextEncoding): Promise<void>;',
       '}',
-      'interface $MebacoSqliteResource {',
+      'type $MebacoSqliteValue = null | string | number | Uint8Array;',
+      'type $MebacoSqliteParameters = readonly $MebacoSqliteValue[];',
+      'type $MebacoSqliteRow = Readonly<Record<string, $MebacoSqliteValue>>;',
+      'type $MebacoSqliteExecuteResult = { readonly changes: number; readonly lastInsertRowId: number };',
+      'interface $MebacoReadonlySqliteResource {',
       '  open(): Promise<{}>;',
+      '  query<Row extends Readonly<Record<string, unknown>> = $MebacoSqliteRow>(sql: string, parameters?: $MebacoSqliteParameters): Promise<Row[]>;',
+      '}',
+      'interface $MebacoSqliteTransaction {',
+      '  query<Row extends Readonly<Record<string, unknown>> = $MebacoSqliteRow>(sql: string, parameters?: $MebacoSqliteParameters): Promise<Row[]>;',
+      '  execute(sql: string, parameters?: $MebacoSqliteParameters): Promise<$MebacoSqliteExecuteResult>;',
+      '  rollback(): void;',
+      '}',
+      'interface $MebacoWritableSqliteResource extends $MebacoReadonlySqliteResource {',
+      '  execute(sql: string, parameters?: $MebacoSqliteParameters): Promise<$MebacoSqliteExecuteResult>;',
+      '  transaction<Result>(callback: (transaction: $MebacoSqliteTransaction) => Promise<Result>): Promise<Result>;',
       '}',
       'declare var $resource: {',
       ...fields,
@@ -286,6 +307,30 @@ namespace MebacoInjectionSource {
     '  error(...values: unknown[]): void;',
     '};',
   ].join('\n')
+
+  const createStorageDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): string | null => {
+    const ownerApp = ResourceImportCatalog.findOwnerApp(rootNode, targetNodeId)
+    if (ownerApp == null) return null
+    const fields = StorageImportCatalog.getImported(rootNode, ownerApp).map((item) => {
+      const typeText = getValueType(item.element, rootNode)
+      return [
+        `  ${item.element.id}: {`,
+        `    get(): Promise<${typeText}>;`,
+        `    set(value: ${typeText}): Promise<void>;`,
+        '  };',
+      ].join('\n')
+    })
+    return fields.length === 0 ? null : [
+      'declare var $storage: {',
+      '  keyValue: {',
+      ...fields.map((field) => field.split('\n').map((line) => `  ${line}`).join('\n')),
+      '  };',
+      '};',
+    ].join('\n')
+  }
 
   const collectValueProps = (
     componentNode: TreeNode.Node | null,
@@ -601,6 +646,9 @@ namespace MebacoInjectionSource {
       createFunctionsDeclaration(rootNode, targetNodeId),
       mode === 'action' || mode === 'code'
         ? createResourceDeclaration(rootNode, targetNodeId)
+        : null,
+      mode === 'action' || mode === 'code'
+        ? createStorageDeclaration(rootNode, targetNodeId)
         : null,
       mode === 'action' || mode === 'code'
         ? createLogDeclaration()

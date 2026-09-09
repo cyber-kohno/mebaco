@@ -6,6 +6,7 @@ import LaunchArgumentElement from './kind/app/launch/launch-argument-element'
 import ImportsElement from './kind/app/import/imports-element'
 import TransitionsElement from './kind/app/import/transitions-element'
 import ResourceImportsElement from './kind/app/import/resource-imports-element'
+import StorageImportsElement from './kind/app/import/storage-imports-element'
 import LauncherElement from './kind/project/launcher-element'
 import ComponentElement from './kind/component/definition/component-element'
 import ComponentUseElement from './kind/component/reference/component-use-element'
@@ -64,6 +65,8 @@ import ResourcesElement from './kind/resource/resources-element'
 import DirectoryResourceElement from './kind/resource/directory-resource-element'
 import TextResourceElement from './kind/resource/text-resource-element'
 import SqliteResourceElement from './kind/resource/sqlite-resource-element'
+import StorageElement from './kind/storage/storage-element'
+import StorageItemElement from './kind/storage/storage-item-element'
 import DebugElement from './kind/debug/debug-element'
 import DebugConfigurationsElement from './kind/debug/debug-configurations-element'
 import DebugConfigurationElement from './kind/debug/debug-configuration-element'
@@ -86,6 +89,7 @@ namespace MebacoElement {
     | ImportsElement.Kind
     | TransitionsElement.Kind
     | ResourceImportsElement.Kind
+    | StorageImportsElement.Kind
     | LauncherElement.Kind
     | ComponentElement.Kind
     | ComponentUseElement.Kind
@@ -144,6 +148,8 @@ namespace MebacoElement {
     | DirectoryResourceElement.Kind
     | TextResourceElement.Kind
     | SqliteResourceElement.Kind
+    | StorageElement.Kind
+    | StorageItemElement.Kind
     | DebugElement.Kind
     | DebugConfigurationsElement.Kind
     | DebugConfigurationElement.Kind
@@ -163,6 +169,7 @@ namespace MebacoElement {
     | ImportsElement.Element
     | TransitionsElement.Element
     | ResourceImportsElement.Element
+    | StorageImportsElement.Element
     | LauncherElement.Element
     | ComponentElement.Element
     | ComponentUseElement.Element
@@ -221,6 +228,8 @@ namespace MebacoElement {
     | DirectoryResourceElement.Element
     | TextResourceElement.Element
     | SqliteResourceElement.Element
+    | StorageElement.Element
+    | StorageItemElement.Element
     | DebugElement.Element
     | DebugConfigurationsElement.Element
     | DebugConfigurationElement.Element

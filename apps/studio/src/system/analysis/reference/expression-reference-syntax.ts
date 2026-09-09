@@ -12,6 +12,37 @@ namespace ExpressionReferenceSyntax {
     node: TypeScript.Node,
   ): Member | null => {
     if (
+      TypeScript.isPropertyAccessExpression(node)
+      && TypeScript.isPropertyAccessExpression(node.expression)
+      && TypeScript.isIdentifier(node.expression.expression)
+      && node.expression.expression.text === '$storage'
+      && node.expression.name.text === 'keyValue'
+    ) {
+      return {
+        root: '$storage.keyValue',
+        id: node.name.text,
+        nameNode: node.name,
+        quote: '',
+      }
+    }
+    if (
+      TypeScript.isElementAccessExpression(node)
+      && TypeScript.isPropertyAccessExpression(node.expression)
+      && TypeScript.isIdentifier(node.expression.expression)
+      && node.expression.expression.text === '$storage'
+      && node.expression.name.text === 'keyValue'
+      && node.argumentExpression != null
+      && TypeScript.isStringLiteral(node.argumentExpression)
+    ) {
+      const literal = node.argumentExpression
+      return {
+        root: '$storage.keyValue',
+        id: literal.text,
+        nameNode: literal,
+        quote: literal.getText().startsWith("'") ? "'" : '"',
+      }
+    }
+    if (
       TypeScript.isQualifiedName(node)
       && TypeScript.isIdentifier(node.left)
     ) {

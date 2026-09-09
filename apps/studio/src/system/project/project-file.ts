@@ -7,6 +7,8 @@ import ToastController from '../feedback/toast/toast-controller'
 import ProjectSession from './project-session-store'
 import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
 import ResourceImportsElement from '../element/kind/app/import/resource-imports-element'
+import StorageImportsElement from '../element/kind/app/import/storage-imports-element'
+import StorageElement from '../element/kind/storage/storage-element'
 import ReleaseElement from '../element/kind/release/release-element'
 import BundlesElement from '../element/kind/release/bundles-element'
 import NativeDialogController from '../ui/native-dialog-controller'
@@ -95,6 +97,10 @@ namespace ProjectFile {
     inspect(rootNode)
 
     let migrationApplied = false
+    if (rootNode.element.kind === 'project' && rootNode.element.projectId == null) {
+      rootNode.element.projectId = crypto.randomUUID()
+      migrationApplied = true
+    }
     const migrate = (node: TreeNode.Node) => {
       if (node.element.kind === 'app') {
         const imports = node.children.find((child) => child.element.kind === 'imports')
@@ -114,10 +120,35 @@ namespace ProjectFile {
           nextNodeId += 1
           migrationApplied = true
         }
+        if (
+          imports != null
+          && !imports.children.some((child) => child.element.kind === 'storage-imports')
+        ) {
+          imports.children.push({
+            id: nextNodeId,
+            element: StorageImportsElement.create(),
+            isOpen: true,
+            children: [],
+          })
+          nextNodeId += 1
+          migrationApplied = true
+        }
       }
       node.children.forEach(migrate)
     }
     migrate(rootNode)
+
+    const common = rootNode.children.find((child) => child.element.kind === 'common')
+    if (common != null && !common.children.some((child) => child.element.kind === 'storage')) {
+      common.children.push({
+        id: nextNodeId,
+        element: StorageElement.create(),
+        isOpen: true,
+        children: [],
+      })
+      nextNodeId += 1
+      migrationApplied = true
+    }
 
     let releaseNode = rootNode.children.find((child) => child.element.kind === 'release')
     if (releaseNode == null) {

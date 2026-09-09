@@ -11,6 +11,7 @@
     namedTypeOptions: readonly { value: string; label?: string; name?: string; detail?: string; title?: string; preview?: string; kind?: 'union' | 'signature' }[]
     errorMessage?: string | null
     readOnly?: boolean
+    allowSignature?: boolean
     onValueChange: (value: string) => void
   }
 
@@ -20,6 +21,7 @@
     namedTypeOptions,
     errorMessage = null,
     readOnly = false,
+    allowSignature = true,
     onValueChange,
   }: Props = $props()
 
@@ -210,7 +212,7 @@
       {/each}
       <option value="reference">{TypeExpression.getBaseTypeLabel('reference')}</option>
       <option value="named">{TypeExpression.getBaseTypeLabel('named')}</option>
-      <option value="signature">Signature</option>
+      {#if allowSignature}<option value="signature">Signature</option>{/if}
     </select>
   </label>
 

@@ -6,6 +6,7 @@ import ToastController from '../../feedback/toast/toast-controller'
 import ResourceRuntime from '../resource/resource-runtime'
 import { get } from 'svelte/store'
 import RuntimeLog from '../log/runtime-log'
+import StorageRuntime from '../storage/storage-runtime'
 
 namespace PreviewController {
   export type OpenOptions = {
@@ -14,6 +15,7 @@ namespace PreviewController {
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
     resourcePaths?: Readonly<Record<string, string>>
+    storageScope?: StorageRuntime.Scope
   }
 
   const findOwnerApp = (
@@ -54,6 +56,7 @@ namespace PreviewController {
     launchValues?: Readonly<Record<string, unknown>>,
     resourceSession?: ResourceRuntime.Session,
     logSession?: RuntimeLog.Session,
+    storageSession?: StorageRuntime.Session,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
@@ -61,6 +64,10 @@ namespace PreviewController {
     if (RuntimeTree.getEntryConfigurationError(runtime) != null) return false
     const effectiveResourceSession = resourceSession ?? ResourceRuntime.create(rootNode)
     const effectiveLogSession = logSession ?? RuntimeLog.create(rootNode)
+    const effectiveStorageSession = storageSession ?? new StorageRuntime.Session(
+      rootNode,
+      StorageRuntime.developmentScope(rootNode),
+    )
 
     RuntimeSessionStore.open({
       app: appNode.element as AppElement.Element,
@@ -68,6 +75,7 @@ namespace PreviewController {
       projectNode: rootNode,
       resourceSession: effectiveResourceSession,
       logSession: effectiveLogSession,
+      storageSession: effectiveStorageSession,
       launcherId,
       launchValues,
     })
@@ -88,6 +96,11 @@ namespace PreviewController {
       options.launcherId,
       options.launchValues,
       resourceSession,
+      undefined,
+      new StorageRuntime.Session(
+        options.projectNode,
+        options.storageScope ?? StorageRuntime.developmentScope(options.projectNode),
+      ),
     )
     if (!opened) resourceSession.dispose()
     return opened
@@ -117,6 +130,10 @@ namespace PreviewController {
     const currentSession = get(RuntimeSessionStore.store)
     const resourceSession = currentSession?.resourceSession ?? ResourceRuntime.create(rootNode)
     const logSession = currentSession?.logSession ?? RuntimeLog.create(rootNode)
+    const storageSession = currentSession?.storageSession ?? new StorageRuntime.Session(
+      rootNode,
+      StorageRuntime.developmentScope(rootNode),
+    )
     return openApp(
       rootNode,
       appNode,
@@ -124,6 +141,7 @@ namespace PreviewController {
       launchValues,
       resourceSession,
       logSession,
+      storageSession,
     )
   }
 

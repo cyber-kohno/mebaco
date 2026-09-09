@@ -7,6 +7,7 @@ import RuntimeTree from '../runtime/runtime-tree'
 import ComponentReference from '../element/kind/component/shared/component-reference'
 import LaunchArgumentValueProp from '../element/kind/app/launch/launch-argument-value-prop'
 import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
+import StorageImportCatalog from '../element/kind/app/import/storage-import-catalog'
 
 namespace ReleaseBundle {
   export type LauncherNode = TreeNode.Node & { element: LauncherElement.Element }
@@ -85,6 +86,8 @@ namespace ReleaseBundle {
     )))
     const resourcesById = new Map(ResourceImportCatalog.collectResources(rootNode)
       .map((node) => [node.element.resourceId, node] as const))
+    const storageIds = new Set(StorageImportCatalog.collect(rootNode)
+      .map((node) => node.element.storageId))
     const errors: string[] = []
     const launchers: LauncherNode[] = []
     const apps: AppNode[] = []
@@ -120,6 +123,12 @@ namespace ReleaseBundle {
           return
         }
         resources.push(resourceNode)
+      })
+
+      StorageImportCatalog.getIds(appNode).forEach((storageId) => {
+        if (!storageIds.has(storageId)) {
+          errors.push(`App '${appNode.element.id}' imports a missing Storage item (${storageId}).`)
+        }
       })
 
       TransitionImportCatalog.getTransitionIds(appNode).forEach((targetAppId) => {

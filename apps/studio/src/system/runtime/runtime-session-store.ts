@@ -3,6 +3,7 @@ import type AppElement from '../element/kind/app/app-element'
 import type TreeNode from '../tree/tree-node'
 import type ResourceRuntime from './resource/resource-runtime'
 import type RuntimeLog from './log/runtime-log'
+import type StorageRuntime from './storage/storage-runtime'
 
 namespace RuntimeSessionStore {
   export type Session = {
@@ -11,6 +12,7 @@ namespace RuntimeSessionStore {
     projectNode: TreeNode.Node
     resourceSession: ResourceRuntime.Session
     logSession: RuntimeLog.Session
+    storageSession: StorageRuntime.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
   }

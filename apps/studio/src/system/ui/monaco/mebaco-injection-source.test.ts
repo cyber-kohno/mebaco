@@ -821,7 +821,7 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(codeSource).toContain('declare var $resource: {')
     expect(expressionSource).not.toContain('$resource')
     expect(actionSource).toContain('settings: $MebacoWritableTextResource;')
-    expect(actionSource).toContain('database: $MebacoSqliteResource;')
+    expect(actionSource).toContain('database: $MebacoReadonlySqliteResource;')
     expect(actionSource).toContain('read(encoding?: $MebacoTextEncoding): Promise<string>;')
     expect(actionSource).toContain('write(text: string, encoding?: $MebacoTextEncoding): Promise<void>;')
     expect(actionSource).toContain('open(): Promise<{}>;')
@@ -879,7 +879,7 @@ describe('MebacoInjectionSource Function scope', () => {
     expect(writableDeclaration).toContain('createFile(')
     expect(writableDeclaration).not.toContain('deleteFile(')
     expect(writableDeclaration).toContain('text(relativePath: string): $MebacoWritableTextResource;')
-    expect(writableDeclaration).toContain('sqlite(relativePath: string): $MebacoSqliteResource;')
+    expect(writableDeclaration).toContain('sqlite(relativePath: string): $MebacoReadonlySqliteResource;')
   })
 
   it('injects only Resources imported by the owning App', () => {

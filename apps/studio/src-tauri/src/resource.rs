@@ -1,4 +1,9 @@
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+use rusqlite::{
+    params_from_iter,
+    types::{Value, ValueRef},
+    Connection, OpenFlags,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -9,7 +14,18 @@ use std::{
 use tauri::State;
 
 #[derive(Default)]
-pub struct ResourceSessions(Mutex<HashMap<String, ResourceSession>>);
+pub struct ResourceSessions(Mutex<ResourceRegistry>);
+
+#[derive(Default)]
+struct ResourceRegistry {
+    sessions: HashMap<String, ResourceSession>,
+    transactions: HashMap<String, SqliteTransaction>,
+}
+
+struct SqliteTransaction {
+    session_id: String,
+    connection: Connection,
+}
 
 #[derive(Clone)]
 struct ResourceSession {
@@ -86,6 +102,50 @@ pub struct ResourceRequest {
     session_id: String,
     resource_id: String,
     relative_path: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqliteRequest {
+    session_id: String,
+    resource_id: String,
+    relative_path: Option<String>,
+    sql: String,
+    #[serde(default)]
+    parameters: Vec<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqliteBeginRequest {
+    session_id: String,
+    resource_id: String,
+    relative_path: Option<String>,
+    transaction_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqliteTransactionRequest {
+    session_id: String,
+    transaction_id: String,
+    sql: String,
+    #[serde(default)]
+    parameters: Vec<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqliteTransactionEndRequest {
+    session_id: String,
+    transaction_id: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SqliteExecuteResult {
+    changes: usize,
+    last_insert_row_id: i64,
 }
 
 #[derive(Deserialize)]
@@ -178,7 +238,7 @@ struct FileTarget {
 
 fn lock_sessions(
     sessions: &ResourceSessions,
-) -> Result<std::sync::MutexGuard<'_, HashMap<String, ResourceSession>>, String> {
+) -> Result<std::sync::MutexGuard<'_, ResourceRegistry>, String> {
     sessions
         .0
         .lock()
@@ -191,6 +251,7 @@ fn get_resource(
     resource_id: &str,
 ) -> Result<ResourceDefinition, String> {
     lock_sessions(sessions)?
+        .sessions
         .get(session_id)
         .ok_or_else(|| "The Resource session is not available.".to_string())?
         .resources
@@ -495,7 +556,9 @@ pub fn resource_create_session(
         .into_iter()
         .map(|resource| (resource.resource_id, resource.definition))
         .collect();
-    lock_sessions(&sessions)?.insert(request.session_id, ResourceSession { resources });
+    lock_sessions(&sessions)?
+        .sessions
+        .insert(request.session_id, ResourceSession { resources });
     Ok(())
 }
 
@@ -504,7 +567,11 @@ pub fn resource_dispose_session(
     request: SessionRequest,
     sessions: State<'_, ResourceSessions>,
 ) -> Result<(), String> {
-    lock_sessions(&sessions)?.remove(&request.session_id);
+    let mut registry = lock_sessions(&sessions)?;
+    registry.sessions.remove(&request.session_id);
+    registry
+        .transactions
+        .retain(|_, transaction| transaction.session_id != request.session_id);
     Ok(())
 }
 
@@ -829,11 +896,17 @@ pub fn resource_open_sqlite(
 ) -> Result<HashMap<String, serde_json::Value>, String> {
     let resource = get_resource(&sessions, &request.session_id, &request.resource_id)?;
     let target = sqlite_target(resource, request.relative_path.as_deref())?;
-    open_sqlite_target(&target)?;
+    drop(connect_sqlite_target(&target)?);
     Ok(HashMap::new())
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn open_sqlite_target(target: &FileTarget) -> Result<(), String> {
+    drop(connect_sqlite_target(target)?);
+    Ok(())
+}
+
+fn connect_sqlite_target(target: &FileTarget) -> Result<Connection, String> {
     if path_entry_exists(&target.path)? {
         existing_file(target)?;
     } else {
@@ -867,8 +940,312 @@ fn open_sqlite_target(target: &FileTarget) -> Result<(), String> {
     connection
         .query_row("PRAGMA schema_version", [], |_row| Ok(()))
         .map_err(|error| format!("The SQLite Resource is invalid: {error}"))?;
-    drop(connection);
+    Ok(connection)
+}
+
+fn sqlite_authorizer(context: AuthContext<'_>) -> Authorization {
+    match context.action {
+        AuthAction::Attach { .. } | AuthAction::Detach { .. } | AuthAction::Transaction { .. } => {
+            Authorization::Deny
+        }
+        _ => Authorization::Allow,
+    }
+}
+
+fn secure_sqlite_connection(connection: &Connection) -> Result<(), String> {
+    connection
+        .authorizer(Some(
+            sqlite_authorizer as fn(AuthContext<'_>) -> Authorization,
+        ))
+        .map_err(|error| format!("Failed to secure the SQLite connection: {error}"))
+}
+
+const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+
+fn sqlite_parameters(parameters: Vec<serde_json::Value>) -> Result<Vec<Value>, String> {
+    parameters
+        .into_iter()
+        .enumerate()
+        .map(|(index, value)| match value {
+            serde_json::Value::Null => Ok(Value::Null),
+            serde_json::Value::String(value) => Ok(Value::Text(value)),
+            serde_json::Value::Number(value) if value.is_i64() => {
+                let integer = value.as_i64().unwrap();
+                if !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&integer) {
+                    return Err(format!(
+                        "SQLite parameter {} exceeds the JavaScript safe integer range.",
+                        index + 1
+                    ));
+                }
+                Ok(Value::Integer(integer))
+            }
+            serde_json::Value::Number(value) if value.is_u64() => {
+                let integer = value.as_u64().unwrap();
+                if integer > MAX_SAFE_INTEGER as u64 {
+                    return Err(format!(
+                        "SQLite parameter {} exceeds the JavaScript safe integer range.",
+                        index + 1
+                    ));
+                }
+                Ok(Value::Integer(integer as i64))
+            }
+            serde_json::Value::Number(value) => value
+                .as_f64()
+                .filter(|number| number.is_finite())
+                .map(Value::Real)
+                .ok_or_else(|| format!("SQLite parameter {} must be a finite number.", index + 1)),
+            serde_json::Value::Object(mut value) => {
+                if value.remove("$sqlite") != Some(serde_json::Value::String("blob".to_string())) {
+                    return Err(format!(
+                        "SQLite parameter {} has an unsupported value type.",
+                        index + 1
+                    ));
+                }
+                let bytes = value
+                    .remove("bytes")
+                    .and_then(|bytes| bytes.as_array().cloned())
+                    .ok_or_else(|| format!("SQLite BLOB parameter {} is invalid.", index + 1))?;
+                let bytes = bytes
+                    .into_iter()
+                    .map(|byte| {
+                        byte.as_u64()
+                            .filter(|byte| *byte <= 255)
+                            .map(|byte| byte as u8)
+                            .ok_or_else(|| {
+                                format!("SQLite BLOB parameter {} is invalid.", index + 1)
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(Value::Blob(bytes))
+            }
+            _ => Err(format!(
+                "SQLite parameter {} has an unsupported value type.",
+                index + 1
+            )),
+        })
+        .collect()
+}
+
+fn sqlite_value(value: ValueRef<'_>, column: &str) -> Result<serde_json::Value, String> {
+    match value {
+        ValueRef::Null => Ok(serde_json::Value::Null),
+        ValueRef::Integer(value) => {
+            if !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&value) {
+                return Err(format!("SQLite INTEGER value in column '{column}' exceeds the JavaScript safe integer range."));
+            }
+            Ok(serde_json::Value::Number(value.into()))
+        }
+        ValueRef::Real(value) if value.is_finite() => serde_json::Number::from_f64(value)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| format!("SQLite REAL value in column '{column}' is not finite.")),
+        ValueRef::Real(_) => Err(format!(
+            "SQLite REAL value in column '{column}' is not finite."
+        )),
+        ValueRef::Text(value) => std::str::from_utf8(value)
+            .map(|value| serde_json::Value::String(value.to_string()))
+            .map_err(|_| format!("SQLite TEXT value in column '{column}' is not valid UTF-8.")),
+        ValueRef::Blob(value) => Ok(serde_json::json!({ "$sqlite": "blob", "bytes": value })),
+    }
+}
+
+fn sqlite_query(
+    connection: &Connection,
+    sql: &str,
+    parameters: Vec<serde_json::Value>,
+) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
+    let parameters = sqlite_parameters(parameters)?;
+    let mut statement = connection
+        .prepare(sql)
+        .map_err(|error| format!("Failed to prepare SQLite query: {error}"))?;
+    let column_names = statement
+        .column_names()
+        .into_iter()
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    let mut rows = statement
+        .query(params_from_iter(parameters))
+        .map_err(|error| format!("Failed to execute SQLite query: {error}"))?;
+    let mut result = Vec::new();
+    while let Some(row) = rows
+        .next()
+        .map_err(|error| format!("Failed to read SQLite query result: {error}"))?
+    {
+        let mut output = HashMap::new();
+        for (index, column) in column_names.iter().enumerate() {
+            let value = row
+                .get_ref(index)
+                .map_err(|error| format!("Failed to read SQLite column '{column}': {error}"))?;
+            output.insert(column.clone(), sqlite_value(value, column)?);
+        }
+        result.push(output);
+    }
+    Ok(result)
+}
+
+fn sqlite_execute(
+    connection: &Connection,
+    sql: &str,
+    parameters: Vec<serde_json::Value>,
+) -> Result<SqliteExecuteResult, String> {
+    let parameters = sqlite_parameters(parameters)?;
+    let changes = connection
+        .execute(sql, params_from_iter(parameters))
+        .map_err(|error| format!("Failed to execute SQLite statement: {error}"))?;
+    let last_insert_row_id = connection.last_insert_rowid();
+    if !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&last_insert_row_id) {
+        return Err(
+            "SQLite last insert row id exceeds the JavaScript safe integer range.".to_string(),
+        );
+    }
+    Ok(SqliteExecuteResult {
+        changes,
+        last_insert_row_id,
+    })
+}
+
+#[tauri::command]
+pub fn resource_query_sqlite(
+    request: SqliteRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
+    let resource = get_resource(&sessions, &request.session_id, &request.resource_id)?;
+    let connection =
+        connect_sqlite_target(&sqlite_target(resource, request.relative_path.as_deref())?)?;
+    secure_sqlite_connection(&connection)?;
+    sqlite_query(&connection, &request.sql, request.parameters)
+}
+
+#[tauri::command]
+pub fn resource_execute_sqlite(
+    request: SqliteRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<SqliteExecuteResult, String> {
+    let resource = get_resource(&sessions, &request.session_id, &request.resource_id)?;
+    let target = sqlite_target(resource, request.relative_path.as_deref())?;
+    if target.access != Access::ReadWrite {
+        return Err("The SQLite Resource is read-only.".to_string());
+    }
+    let connection = connect_sqlite_target(&target)?;
+    secure_sqlite_connection(&connection)?;
+    sqlite_execute(&connection, &request.sql, request.parameters)
+}
+
+#[tauri::command]
+pub fn resource_begin_sqlite_transaction(
+    request: SqliteBeginRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<(), String> {
+    let resource = get_resource(&sessions, &request.session_id, &request.resource_id)?;
+    let target = sqlite_target(resource, request.relative_path.as_deref())?;
+    if target.access != Access::ReadWrite {
+        return Err("The SQLite Resource is read-only.".to_string());
+    }
+    let connection = connect_sqlite_target(&target)?;
+    connection
+        .execute_batch("BEGIN IMMEDIATE")
+        .map_err(|error| format!("Failed to begin SQLite transaction: {error}"))?;
+    secure_sqlite_connection(&connection)?;
+    let mut registry = lock_sessions(&sessions)?;
+    if registry.transactions.contains_key(&request.transaction_id) {
+        return Err("The SQLite transaction id is already in use.".to_string());
+    }
+    registry.transactions.insert(
+        request.transaction_id,
+        SqliteTransaction {
+            session_id: request.session_id,
+            connection,
+        },
+    );
     Ok(())
+}
+
+fn with_transaction<T>(
+    sessions: &ResourceSessions,
+    session_id: &str,
+    transaction_id: &str,
+    operation: impl FnOnce(&Connection) -> Result<T, String>,
+) -> Result<T, String> {
+    let registry = lock_sessions(sessions)?;
+    let transaction = registry
+        .transactions
+        .get(transaction_id)
+        .filter(|transaction| transaction.session_id == session_id)
+        .ok_or_else(|| "The SQLite transaction is not available.".to_string())?;
+    operation(&transaction.connection)
+}
+
+#[tauri::command]
+pub fn resource_query_sqlite_transaction(
+    request: SqliteTransactionRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<Vec<HashMap<String, serde_json::Value>>, String> {
+    with_transaction(
+        &sessions,
+        &request.session_id,
+        &request.transaction_id,
+        |connection| sqlite_query(connection, &request.sql, request.parameters),
+    )
+}
+
+#[tauri::command]
+pub fn resource_execute_sqlite_transaction(
+    request: SqliteTransactionRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<SqliteExecuteResult, String> {
+    with_transaction(
+        &sessions,
+        &request.session_id,
+        &request.transaction_id,
+        |connection| sqlite_execute(connection, &request.sql, request.parameters),
+    )
+}
+
+fn end_transaction(
+    sessions: &ResourceSessions,
+    session_id: &str,
+    transaction_id: &str,
+    sql: &str,
+) -> Result<(), String> {
+    let mut registry = lock_sessions(sessions)?;
+    let transaction = registry
+        .transactions
+        .remove(transaction_id)
+        .filter(|transaction| transaction.session_id == session_id)
+        .ok_or_else(|| "The SQLite transaction is not available.".to_string())?;
+    transaction
+        .connection
+        .authorizer(None::<fn(AuthContext<'_>) -> Authorization>)
+        .map_err(|error| format!("Failed to finish SQLite transaction: {error}"))?;
+    transaction
+        .connection
+        .execute_batch(sql)
+        .map_err(|error| format!("Failed to finish SQLite transaction: {error}"))
+}
+
+#[tauri::command]
+pub fn resource_commit_sqlite_transaction(
+    request: SqliteTransactionEndRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<(), String> {
+    end_transaction(
+        &sessions,
+        &request.session_id,
+        &request.transaction_id,
+        "COMMIT",
+    )
+}
+
+#[tauri::command]
+pub fn resource_rollback_sqlite_transaction(
+    request: SqliteTransactionEndRequest,
+    sessions: State<'_, ResourceSessions>,
+) -> Result<(), String> {
+    end_transaction(
+        &sessions,
+        &request.session_id,
+        &request.transaction_id,
+        "ROLLBACK",
+    )
 }
 
 #[cfg(test)]
@@ -972,6 +1349,78 @@ mod tests {
         assert!(open_sqlite_target(&missing).is_err());
 
         fs::remove_dir_all(directory).expect("temporary directory must be removed");
+    }
+
+    #[test]
+    fn sqlite_query_converts_supported_values_and_rejects_unsafe_integers() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite must open");
+        connection
+            .execute_batch(
+                "CREATE TABLE sample(id INTEGER, name TEXT, data BLOB);\
+             INSERT INTO sample VALUES(7, 'sample', X'0102FF');",
+            )
+            .expect("fixture must be created");
+
+        let rows = sqlite_query(&connection, "SELECT id, name, data FROM sample", vec![])
+            .expect("supported SQLite values must be returned");
+        assert_eq!(rows[0].get("id"), Some(&serde_json::json!(7)));
+        assert_eq!(rows[0].get("name"), Some(&serde_json::json!("sample")));
+        assert_eq!(
+            rows[0].get("data"),
+            Some(&serde_json::json!({
+                "$sqlite": "blob", "bytes": [1, 2, 255]
+            }))
+        );
+
+        connection
+            .execute("INSERT INTO sample(id) VALUES(?)", [MAX_SAFE_INTEGER + 1])
+            .expect("SQLite must accept a 64-bit integer");
+        let error = sqlite_query(
+            &connection,
+            "SELECT id AS unsafe_id FROM sample ORDER BY id DESC LIMIT 1",
+            vec![],
+        )
+        .expect_err("unsafe integers must not cross the JavaScript boundary");
+        assert!(error.contains("column 'unsafe_id'"));
+        assert!(error.contains("safe integer range"));
+    }
+
+    #[test]
+    fn sqlite_transaction_can_rollback_after_reading_its_update() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite must open");
+        connection.execute_batch(
+            "CREATE TABLE inventory(stock INTEGER); INSERT INTO inventory VALUES(1); BEGIN IMMEDIATE;",
+        ).expect("transaction fixture must be created");
+        sqlite_execute(
+            &connection,
+            "UPDATE inventory SET stock = stock - 2",
+            vec![],
+        )
+        .expect("update must succeed");
+        let rows = sqlite_query(&connection, "SELECT stock FROM inventory", vec![])
+            .expect("transaction must read its own update");
+        assert_eq!(rows[0].get("stock"), Some(&serde_json::json!(-1)));
+        connection
+            .execute_batch("ROLLBACK")
+            .expect("rollback must succeed");
+        let stock: i64 = connection
+            .query_row("SELECT stock FROM inventory", [], |row| row.get(0))
+            .expect("stock must be readable");
+        assert_eq!(stock, 1);
+    }
+
+    #[test]
+    fn sqlite_authorizer_blocks_external_databases_and_manual_transaction_control() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite must open");
+        secure_sqlite_connection(&connection).expect("authorizer must install");
+
+        assert!(sqlite_query(
+            &connection,
+            "ATTACH DATABASE ':memory:' AS external",
+            vec![],
+        )
+        .is_err());
+        assert!(sqlite_execute(&connection, "BEGIN", vec![]).is_err());
     }
 
     #[test]
