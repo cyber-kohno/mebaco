@@ -178,6 +178,11 @@ namespace TreeTransferIdentity {
     const clone = structuredClone(element)
 
     switch (clone.kind) {
+      case 'bundle':
+        if (isRoot && copiedName != null) clone.id = copiedName
+        clone.bundleId = crypto.randomUUID()
+        delete clone.revision
+        break
       case 'app':
         if (isRoot && copiedName != null) clone.id = copiedName
         clone.appId = maps.definitionIds.get(clone.appId) ?? clone.appId

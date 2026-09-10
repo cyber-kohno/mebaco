@@ -94,6 +94,7 @@
       .createCatalog(previewRoot)
       .resolve([application], FormulaContext.createEmpty(), {
         includeUnresolvedDeclarations: true,
+        deferRuntimeFormulas: true,
       })
 
     return {

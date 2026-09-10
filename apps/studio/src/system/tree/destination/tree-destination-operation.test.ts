@@ -130,6 +130,20 @@ describe('TreeDestinationOperation', () => {
     }, 1)).toBe('abcdefghijklmnopqrstuvwxyza-copy')
   })
 
+  it('suggests a kebab-case name when copying a Bundle', () => {
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'copy', sourceKind: 'bundle' },
+      phase: 'select-destination',
+      sourceNodeId: 3,
+      sourceLabel: 'desktop',
+      originViewRootNodeId: null,
+    }
+
+    expect(TreeDestinationOperation.createSuggestedName(session, 1)).toBe('desktop-copy')
+    expect(TreeDestinationOperation.createSuggestedName(session, 2)).toBe('desktop-copy-2')
+  })
+
   it('moves a Tag without requesting or assigning a name', async () => {
     const source = node(3, {
       kind: 'tag', tagName: 'button', comment: 'Save', styles: [], attributes: [],

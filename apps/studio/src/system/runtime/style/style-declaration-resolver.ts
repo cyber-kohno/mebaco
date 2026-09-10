@@ -11,6 +11,7 @@ import FormulaEvaluator from '../formula/formula-evaluator'
 import type ScriptError from '../script/script-error'
 import TypeValue from '../type-value'
 import VariableFrame from '../variable/variable-frame'
+import TypeScript from 'typescript'
 
 namespace StyleDeclarationResolver {
   export type DeclarationSource = {
@@ -71,6 +72,7 @@ namespace StyleDeclarationResolver {
   export type ResolveOptions = {
     includeUnresolvedDeclarations?: boolean
     deferFormulaArguments?: boolean
+    deferRuntimeFormulas?: boolean
   }
 
   export type Catalog = {
@@ -151,6 +153,32 @@ namespace StyleDeclarationResolver {
     }
   }
 
+  const runtimeFormulaRoots = new Set([
+    '$args', '$event', '$fn', '$launch', '$props', '$resource', '$state',
+    '$storage', '$system', '$transition', '$var',
+  ])
+
+  const dependsOnRuntimeContext = (source: string): boolean => {
+    const sourceFile = TypeScript.createSourceFile(
+      'mebaco-style-monitor.ts',
+      source,
+      TypeScript.ScriptTarget.Latest,
+      true,
+      TypeScript.ScriptKind.TS,
+    )
+    let found = false
+    const visit = (node: TypeScript.Node) => {
+      if (found) return
+      if (TypeScript.isIdentifier(node) && runtimeFormulaRoots.has(node.text)) {
+        found = true
+        return
+      }
+      TypeScript.forEachChild(node, visit)
+    }
+    visit(sourceFile)
+    return found
+  }
+
   const collectLocals = (
     node: TreeNode.Node,
   ): readonly TreeNode.Node[] => node.children
@@ -201,6 +229,7 @@ namespace StyleDeclarationResolver {
     styleId: string,
     styleName: string,
     path: readonly string[],
+    deferRuntimeFormulas: boolean,
   ): { context: FormulaContext.Value; errors: Error[] } => {
     const frame = VariableFrame.create({})
     const localContext = FormulaContext.create({ ...context, $local: frame.values })
@@ -209,6 +238,10 @@ namespace StyleDeclarationResolver {
     for (const node of localNodes) {
       if (node.element.kind !== 'variable') continue
       const local = node.element
+      if (deferRuntimeFormulas && dependsOnRuntimeContext(local.source)) {
+        frame.declare(local.id, 'const', createUnresolvedFormula(local.source))
+        continue
+      }
       const evaluated = FormulaEvaluator.evaluateExpression(local.source, localContext)
       if (!evaluated.ok) {
         errors.push({
@@ -438,6 +471,7 @@ namespace StyleDeclarationResolver {
         styleId,
         record.element.id,
         nextPathNames,
+        options.deferRuntimeFormulas === true,
       )
       errors.push(...localsResult.errors)
       if (localsResult.errors.length > 0) return { declarations, errors, keyframes }
@@ -561,6 +595,18 @@ namespace StyleDeclarationResolver {
 
           if (declaration.value.type === 'literal') {
             appendDeclaration(declaration.value.value)
+            return
+          }
+
+          if (
+            options.deferRuntimeFormulas === true
+            && dependsOnRuntimeContext(declaration.value.source)
+          ) {
+            appendDeclaration(declaration.value.source, {
+              type: 'formula',
+              source: declaration.value.source,
+              message: 'Value depends on runtime context.',
+            })
             return
           }
 

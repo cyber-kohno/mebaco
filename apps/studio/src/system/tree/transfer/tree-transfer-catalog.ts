@@ -8,6 +8,7 @@ import TreeNode from '../tree-node'
 namespace TreeTransferCatalog {
   export type TransferableKind =
     | 'app'
+    | 'bundle'
     | 'style'
     | 'object-type'
     | 'union-type'
@@ -37,6 +38,7 @@ namespace TreeTransferCatalog {
 
   const kinds = new Set<MebacoElement.Kind>([
     'app',
+    'bundle',
     'style',
     'object-type',
     'union-type',
@@ -79,6 +81,7 @@ namespace TreeTransferCatalog {
   ): string => {
     switch (element.kind) {
       case 'app':
+      case 'bundle':
       case 'style':
       case 'object-type':
       case 'union-type':
@@ -128,6 +131,10 @@ namespace TreeTransferCatalog {
   ): boolean => {
     if (sourceKind === 'app') {
       return destinationNode.element.kind === 'apps'
+    }
+
+    if (sourceKind === 'bundle') {
+      return destinationNode.element.kind === 'bundles'
     }
 
     if (sourceKind === 'tag') {
@@ -194,6 +201,7 @@ namespace TreeTransferCatalog {
 
     if (
       sourceNode.element.kind !== 'app'
+      && sourceNode.element.kind !== 'bundle'
       && sourceNode.element.kind !== 'style'
       && sourceNode.element.kind !== 'function'
       && sourceNode.element.kind !== 'component'
@@ -211,6 +219,11 @@ namespace TreeTransferCatalog {
     if (sourceKind === 'app') {
       return destinationNode.children.flatMap((child) => (
         child.element.kind === 'app' ? [child.element.id] : []
+      ))
+    }
+    if (sourceKind === 'bundle') {
+      return destinationNode.children.flatMap((child) => (
+        child.element.kind === 'bundle' ? [child.element.id] : []
       ))
     }
     if (sourceKind === 'component') {
@@ -265,7 +278,7 @@ namespace TreeTransferCatalog {
       required: true,
       charset: sourceKind === 'app'
         ? 'strictKebabIdentifier'
-        : sourceKind === 'style'
+        : sourceKind === 'style' || sourceKind === 'bundle'
           ? 'identifier'
         : sourceKind === 'function'
           ? 'jsIdentifier'

@@ -61,6 +61,31 @@ const referFunction = (
 })
 
 describe('TreeTransfer', () => {
+  it('copies a Bundle only to Bundles with a fresh identity and no revision', () => {
+    const source = node(3, {
+      kind: 'bundle', bundleId: 'source-bundle-id', id: 'desktop',
+      launcherIds: ['launcher-id'],
+      revision: { generation: 4, contentHash: 'hash', builtAt: '2026-09-11T00:00:00.000Z' },
+    })
+    const bundles = node(2, { kind: 'bundles' }, [source])
+    const apps = node(4, { kind: 'apps' })
+    const root = node(1, ProjectElement.create(), [bundles, apps])
+
+    expect(TreeTransferCatalog.canPasteTo(root, source, bundles, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, apps, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, bundles, 'move')).toBe(false)
+
+    const plan = TreeTransferPlanner.copy(root, source.id, bundles.id, 'desktop-copy')
+    const copied = TreeNode.findNode(plan.rootNode, plan.copiedNodeId)
+    expect(copied?.element).toMatchObject({
+      kind: 'bundle', id: 'desktop-copy', launcherIds: ['launcher-id'],
+    })
+    if (copied?.element.kind !== 'bundle') throw new Error('Expected a copied Bundle.')
+    expect(copied.element.bundleId).not.toBe(source.element.kind === 'bundle' ? source.element.bundleId : '')
+    expect(copied.element.revision).toBeUndefined()
+    expect(TreeTransferValidator.validateStructure(plan.rootNode, plan.copiedNodeId)).toBeNull()
+  })
+
   it('exposes only structurally compatible paste destinations', () => {
     const style = node(3, StyleElement.create('card', [], [], 'style-id'))
     const object = node(5, ObjectTypeElement.create('User', 'type-id'))

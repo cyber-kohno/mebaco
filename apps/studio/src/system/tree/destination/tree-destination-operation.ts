@@ -110,7 +110,7 @@ namespace TreeDestinationOperation {
           .replace(/-+$/, '')
         return `${base}${suffix}`
       }
-      return session.operation.sourceKind === 'style'
+      return session.operation.sourceKind === 'style' || session.operation.sourceKind === 'bundle'
         ? `${session.sourceLabel}-copy${index === 1 ? '' : `-${index}`}`
         : `${session.sourceLabel}Copy${index === 1 ? '' : index}`
     }

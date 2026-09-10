@@ -372,6 +372,29 @@ describe('runtime StyleDeclarationResolver', () => {
     }])
   })
 
+  it('defers formulas that depend directly on runtime context in monitor previews', () => {
+    const stateful = StyleFixture.style('stateful', {
+      rules: [StyleFixture.formula('width', '`${10 + $state.count}px`')],
+    })
+    const result = StyleDeclarationResolver
+      .createCatalog(StyleFixture.project([stateful]))
+      .resolve(
+        [StyleFixture.application('stateful')],
+        FormulaContext.createEmpty(),
+        { includeUnresolvedDeclarations: true, deferRuntimeFormulas: true },
+      )
+
+    expect(result.errors).toEqual([])
+    expect(result.declarations).toMatchObject([{
+      property: 'width',
+      value: '`${10 + $state.count}px`',
+      unresolved: {
+        type: 'formula',
+        source: '`${10 + $state.count}px`',
+      },
+    }])
+  })
+
   it('reports malformed applications and inheritance cycles', () => {
     const required = StyleFixture.style('required', {
       parameters: [StyleFixture.parameter('value', 'string')],

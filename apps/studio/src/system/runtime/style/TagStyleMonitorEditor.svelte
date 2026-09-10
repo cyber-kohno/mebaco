@@ -32,6 +32,7 @@
       .resolve(applications, FormulaContext.createEmpty(), {
         includeUnresolvedDeclarations: true,
         deferFormulaArguments: true,
+        deferRuntimeFormulas: true,
       })
   })
 </script>

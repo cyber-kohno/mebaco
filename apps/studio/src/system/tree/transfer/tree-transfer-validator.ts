@@ -222,6 +222,7 @@ namespace TreeTransferValidator {
     if (
       copiedNode.element.kind !== 'style'
       && copiedNode.element.kind !== 'app'
+      && copiedNode.element.kind !== 'bundle'
       && copiedNode.element.kind !== 'object-type'
       && copiedNode.element.kind !== 'union-type'
       && copiedNode.element.kind !== 'signature-type'
