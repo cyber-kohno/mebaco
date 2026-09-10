@@ -178,6 +178,32 @@ namespace TreeTransferIdentity {
     const clone = structuredClone(element)
 
     switch (clone.kind) {
+      case 'app':
+        if (isRoot && copiedName != null) clone.id = copiedName
+        clone.appId = maps.definitionIds.get(clone.appId) ?? clone.appId
+        break
+      case 'entry':
+        if (clone.componentId != null) {
+          clone.componentId = maps.definitionIds.get(clone.componentId)
+            ?? clone.componentId
+        }
+        clone.propBindings.forEach((binding) => {
+          binding.propId = maps.definitionIds.get(binding.propId) ?? binding.propId
+        })
+        break
+      case 'transitions':
+        clone.appIds = clone.appIds.map((appId) => (
+          maps.definitionIds.get(appId) ?? appId
+        ))
+        break
+      case 'transition':
+        if (clone.appId != null) {
+          clone.appId = maps.definitionIds.get(clone.appId) ?? clone.appId
+        }
+        clone.argumentBindings.forEach((binding) => {
+          binding.propId = maps.definitionIds.get(binding.propId) ?? binding.propId
+        })
+        break
       case 'style':
         if (isRoot && copiedName != null) clone.id = copiedName
         clone.styleId = maps.definitionIds.get(clone.styleId) ?? clone.styleId
@@ -220,6 +246,7 @@ namespace TreeTransferIdentity {
         })
         break
       case 'component':
+        if (isRoot && copiedName != null) clone.id = copiedName
         clone.componentId = maps.definitionIds.get(clone.componentId)
           ?? clone.componentId
         break
@@ -314,7 +341,7 @@ namespace TreeTransferIdentity {
     copiedName: string | null,
     firstNodeId: number,
   ): CopyResult => {
-    if (!TreeTransferCatalog.isTransferableKind(sourceNode.element.kind)) {
+    if (!TreeTransferCatalog.isTransferable(sourceNode.element)) {
       throw new Error(`Element '${sourceNode.element.kind}' cannot be copied.`)
     }
 

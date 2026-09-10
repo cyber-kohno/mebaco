@@ -103,6 +103,13 @@ namespace TreeDestinationOperation {
         TreeTransferCatalog.isTransferableKind(session.operation.sourceKind)
         && !TreeTransferCatalog.requiresName(session.operation.sourceKind)
       ) return ''
+      if (session.operation.sourceKind === 'app') {
+        const suffix = index === 1 ? '-copy' : `-copy-${index}`
+        const base = session.sourceLabel
+          .slice(0, Math.max(1, 32 - suffix.length))
+          .replace(/-+$/, '')
+        return `${base}${suffix}`
+      }
       return session.operation.sourceKind === 'style'
         ? `${session.sourceLabel}-copy${index === 1 ? '' : `-${index}`}`
         : `${session.sourceLabel}Copy${index === 1 ? '' : index}`

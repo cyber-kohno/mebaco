@@ -18,7 +18,9 @@ const mocks = vi.hoisted(() => ({
   appAreaStore: { value: 'develop' as unknown },
   developScreenStore: { value: 'workspace' as unknown },
   developInteractionStore: { value: { type: 'normal' } as unknown },
+  projectSessionStore: { value: { isDirty: true } as unknown },
   handleKeydown: vi.fn(),
+  saveWithAlert: vi.fn(),
   openElementSearch: vi.fn(),
   cancelInteraction: vi.fn(),
   returnToDestinationSelection: vi.fn(),
@@ -70,6 +72,12 @@ vi.mock('../runtime/runtime-session-store', () => ({
 vi.mock('../navigation/app-area-store', () => ({
   appAreaStore: mocks.appAreaStore,
 }))
+vi.mock('../project/project-file', () => ({
+  default: { saveWithAlert: mocks.saveWithAlert },
+}))
+vi.mock('../project/project-session-store', () => ({
+  default: { store: mocks.projectSessionStore },
+}))
 vi.mock('../store/tree-store', () => ({
   default: {
     rootNode: mocks.rootNodeStore,
@@ -115,13 +123,19 @@ import AppKeyboardController from './app-keyboard-controller'
 describe('AppKeyboardController blocking layers', () => {
   beforeEach(() => {
     mocks.handleKeydown.mockClear()
+    mocks.saveWithAlert.mockClear()
     mocks.openElementSearch.mockClear()
     mocks.cancelInteraction.mockClear()
     mocks.returnToDestinationSelection.mockClear()
     mocks.appAreaStore.value = 'develop'
     mocks.developScreenStore.value = 'workspace'
     mocks.developInteractionStore.value = { type: 'normal' }
+    mocks.projectSessionStore.value = { isDirty: true }
+    mocks.actionMenuStore.value = null
     mocks.elementDialogStore.value = { mode: 'update' }
+    mocks.confirmDialogStore.value = null
+    mocks.runtimeSessionStore.value = null
+    mocks.commandSessionStore.value = null
     mocks.elementSearchStore.value = null
     mocks.rootNodeStore.value = mocks.treeRoot
   })
@@ -154,6 +168,94 @@ describe('AppKeyboardController blocking layers', () => {
     expect(mocks.openElementSearch).toHaveBeenCalledOnce()
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it('saves a dirty project with Ctrl+S from the develop workspace', () => {
+    mocks.elementDialogStore.value = null
+    const event = {
+      defaultPrevented: false,
+      key: 's',
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      repeat: false,
+      target: { matches: () => true },
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent
+
+    AppKeyboardController.handleKeydown(event)
+
+    expect(mocks.saveWithAlert).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
+  it('does not save an unchanged project with Ctrl+S', () => {
+    mocks.elementDialogStore.value = null
+    mocks.projectSessionStore.value = { isDirty: false }
+
+    AppKeyboardController.handleKeydown({
+      defaultPrevented: false,
+      key: 's',
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      repeat: false,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent)
+
+    expect(mocks.saveWithAlert).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['client area', 'client', 'workspace'],
+    ['develop home screen', 'develop', 'home'],
+  ])('does not save with Ctrl+S in the %s', (_name, area, screen) => {
+    mocks.appAreaStore.value = area
+    mocks.developScreenStore.value = screen
+    mocks.elementDialogStore.value = null
+
+    AppKeyboardController.handleKeydown({
+      defaultPrevented: false,
+      key: 's',
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      repeat: false,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent)
+
+    expect(mocks.saveWithAlert).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['element dialog', mocks.elementDialogStore, { mode: 'update' }],
+    ['terminal', mocks.commandSessionStore, { mode: 'command' }],
+    ['element search', mocks.elementSearchStore, { query: '' }],
+  ])('does not save with Ctrl+S while the %s is open', (_name, store, value) => {
+    mocks.elementDialogStore.value = null
+    store.value = value
+
+    AppKeyboardController.handleKeydown({
+      defaultPrevented: false,
+      key: 's',
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      repeat: false,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent)
+
+    expect(mocks.saveWithAlert).not.toHaveBeenCalled()
+    store.value = null
   })
 
   it('does not dispatch develop shortcuts in the client area', () => {

@@ -11,6 +11,7 @@ import StyleArgumentContract from '../../element/kind/view/style/style-argument-
 import ComponentUseElement from '../../element/kind/component/reference/component-use-element'
 import ComponentReference from '../../element/kind/component/shared/component-reference'
 import SlotUseElement from '../../element/kind/component/definition/slot/slot-use-element'
+import EntryElement from '../../element/kind/app/entry-element'
 import ContentHost from '../../element/content-host'
 import ExpressionVerificationScope from '../../validation/expression/expression-verification-scope'
 import TreeNode from '../tree-node'
@@ -114,6 +115,24 @@ namespace TreeTransferValidator {
     return null
   }
 
+  const validateEntry = (
+    rootNode: TreeNode.Node,
+    node: TreeNode.Node & { element: Extract<TreeNode.Node['element'], { kind: 'entry' }> },
+  ): string | null => {
+    if (node.element.componentId == null) {
+      return node.element.propBindings.length === 0
+        ? null
+        : 'Entry without a Component cannot have bindings.'
+    }
+    const option = EntryElement.getComponents(rootNode, node.id)
+      .find((candidate) => candidate.componentId === node.element.componentId)
+    if (option == null) return 'Entry refers to an unavailable Component.'
+    return ComponentReference.validateBindings(
+      ComponentReference.stringifyBindings(node.element.propBindings),
+      option,
+    )
+  }
+
   const validateSlotUse = (
     rootNode: TreeNode.Node,
     node: TreeNode.Node & { element: Extract<TreeNode.Node['element'], { kind: 'slot-use' }> },
@@ -184,6 +203,8 @@ namespace TreeTransferValidator {
           rootNode,
           node as Parameters<typeof validateComponentUse>[1],
         )
+      case 'entry':
+        return validateEntry(rootNode, node as Parameters<typeof validateEntry>[1])
       case 'slot-use':
         return validateSlotUse(rootNode, node as Parameters<typeof validateSlotUse>[1])
       default:
@@ -200,10 +221,12 @@ namespace TreeTransferValidator {
 
     if (
       copiedNode.element.kind !== 'style'
+      && copiedNode.element.kind !== 'app'
       && copiedNode.element.kind !== 'object-type'
       && copiedNode.element.kind !== 'union-type'
       && copiedNode.element.kind !== 'signature-type'
       && copiedNode.element.kind !== 'function'
+      && copiedNode.element.kind !== 'component'
       && copiedNode.element.kind !== 'tag'
     ) return 'This element cannot be copied.'
 

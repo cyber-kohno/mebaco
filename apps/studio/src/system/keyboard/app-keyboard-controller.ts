@@ -22,6 +22,8 @@ import TreeContextMenuResolver from '../tree/tree-context-menu-resolver'
 import type ShortcutCommand from './shortcut-command'
 import ShortcutRegistry from './shortcut-registry'
 import DebugLaunchShortcutController from '../element/kind/debug/debug-launch-shortcut-controller'
+import ProjectFile from '../project/project-file'
+import ProjectSession from '../project/project-session-store'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -105,6 +107,25 @@ namespace AppKeyboardController {
       || get(developScreenStore) !== 'workspace'
     ) return
     const interaction = get(developInteractionStore)
+    if (
+      event.key.toLowerCase() === 's'
+      && event.ctrlKey
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+    ) {
+      event.preventDefault()
+      event.stopPropagation()
+      if (
+        !event.repeat
+        && interaction.type === 'normal'
+        && !hasBlockingLayer()
+        && get(ProjectSession.store).isDirty
+      ) {
+        void ProjectFile.saveWithAlert()
+      }
+      return
+    }
     if (
       event.key.toLowerCase() === 'p'
       && event.ctrlKey

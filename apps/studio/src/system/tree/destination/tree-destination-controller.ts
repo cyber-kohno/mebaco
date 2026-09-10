@@ -32,7 +32,7 @@ namespace TreeDestinationController {
     items: ActionMenuState.Item[],
     node: TreeNode.Node,
   ): ActionMenuState.Item[] => {
-    if (!TreeTransferCatalog.isTransferableKind(node.element.kind)) return items
+    if (!TreeTransferCatalog.isTransferable(node.element)) return items
     const { action } = ActionMenuState.createFactory()
     return insertBeforeDelete(items, action(
       'Copy',
@@ -51,7 +51,7 @@ namespace TreeDestinationController {
     items: ActionMenuState.Item[],
     node: TreeNode.Node,
   ): ActionMenuState.Item[] => {
-    if (!TreeTransferCatalog.isMovableKind(node.element.kind)) return items
+    if (!TreeTransferCatalog.isMovable(node.element)) return items
     const { action } = ActionMenuState.createFactory()
     return insertBeforeDelete(items, action(
       'Move',

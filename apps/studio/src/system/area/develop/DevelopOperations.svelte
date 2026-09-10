@@ -12,6 +12,7 @@
     type="button"
     disabled={!$projectSessionStore.isDirty}
     onclick={ProjectFile.saveWithAlert}
+    title="Save (Ctrl+S)"
   >Save</button>
   <button type="button" onclick={DevelopProjectController.close}>Close</button>
 {/if}

@@ -74,7 +74,7 @@ namespace TreeTransferPlanner {
     if (sourceNode == null) throw new Error(`node-${sourceNodeId} was not found.`)
     if (destinationNode == null) throw new Error(`node-${destinationNodeId} was not found.`)
     const sourceElement = sourceNode.element
-    if (!TreeTransferCatalog.isMovableKind(sourceElement.kind)) {
+    if (!TreeTransferCatalog.isMovable(sourceElement)) {
       throw new Error('This element cannot be moved.')
     }
     if (!TreeTransferCatalog.canPasteTo(rootNode, sourceNode, destinationNode, 'move')) {

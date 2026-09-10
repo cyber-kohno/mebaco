@@ -112,6 +112,24 @@ describe('TreeDestinationOperation', () => {
     expect(plan.rootNode.children[0].children[1].element).toEqual(source.element)
   })
 
+  it('suggests a valid kebab-case name when copying an App', () => {
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'copy', sourceKind: 'app' },
+      phase: 'select-destination',
+      sourceNodeId: 3,
+      sourceLabel: 'sample-app',
+      originViewRootNodeId: null,
+    }
+
+    expect(TreeDestinationOperation.createSuggestedName(session, 1)).toBe('sample-app-copy')
+    expect(TreeDestinationOperation.createSuggestedName(session, 2)).toBe('sample-app-copy-2')
+    expect(TreeDestinationOperation.createSuggestedName({
+      ...session,
+      sourceLabel: 'abcdefghijklmnopqrstuvwxyzabcdef',
+    }, 1)).toBe('abcdefghijklmnopqrstuvwxyza-copy')
+  })
+
   it('moves a Tag without requesting or assigning a name', async () => {
     const source = node(3, {
       kind: 'tag', tagName: 'button', comment: 'Save', styles: [], attributes: [],

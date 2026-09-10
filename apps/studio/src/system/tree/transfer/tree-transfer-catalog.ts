@@ -7,11 +7,13 @@ import TreeNode from '../tree-node'
 
 namespace TreeTransferCatalog {
   export type TransferableKind =
+    | 'app'
     | 'style'
     | 'object-type'
     | 'union-type'
     | 'signature-type'
     | 'function'
+    | 'component'
     | 'tag'
 
   export type MovableKind =
@@ -20,14 +22,27 @@ namespace TreeTransferCatalog {
     | 'union-type'
     | 'signature-type'
     | 'function'
+    | 'component'
     | 'tag'
 
+  export type TransferableElement = Extract<
+    MebacoElement.Element,
+    { kind: TransferableKind }
+  >
+
+  export type MovableElement = Extract<
+    MebacoElement.Element,
+    { kind: MovableKind }
+  >
+
   const kinds = new Set<MebacoElement.Kind>([
+    'app',
     'style',
     'object-type',
     'union-type',
     'signature-type',
     'function',
+    'component',
     'tag',
   ])
 
@@ -37,6 +52,7 @@ namespace TreeTransferCatalog {
     'union-type',
     'signature-type',
     'function',
+    'component',
     'tag',
   ])
 
@@ -48,15 +64,27 @@ namespace TreeTransferCatalog {
     kind: MebacoElement.Kind,
   ): kind is MovableKind => movableKinds.has(kind)
 
+  export const isTransferable = (
+    element: MebacoElement.Element,
+  ): element is TransferableElement => isTransferableKind(element.kind)
+    && (element.kind !== 'component' || element.local !== true)
+
+  export const isMovable = (
+    element: MebacoElement.Element,
+  ): element is MovableElement => isMovableKind(element.kind)
+    && (element.kind !== 'component' || element.local !== true)
+
   export const getLabel = (
     element: MebacoElement.Element,
   ): string => {
     switch (element.kind) {
+      case 'app':
       case 'style':
       case 'object-type':
       case 'union-type':
       case 'signature-type':
       case 'function':
+      case 'component':
         return element.id
       case 'tag':
         return `<${element.tagName}>`
@@ -67,7 +95,7 @@ namespace TreeTransferCatalog {
 
   const isTypeKind = (
     kind: MebacoElement.Kind,
-  ): kind is Exclude<TransferableKind, 'style' | 'function' | 'tag'> => (
+  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag'> => (
     kind === 'object-type'
     || kind === 'union-type'
     || kind === 'signature-type'
@@ -98,8 +126,16 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     sourceKind: TransferableKind,
   ): boolean => {
+    if (sourceKind === 'app') {
+      return destinationNode.element.kind === 'apps'
+    }
+
     if (sourceKind === 'tag') {
       return ContentPlacement.canAcceptViewChild(rootNode, destinationNode)
+    }
+
+    if (sourceKind === 'component') {
+      return destinationNode.element.kind === 'components'
     }
 
     if (sourceKind === 'style') {
@@ -148,17 +184,19 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     operation: 'copy' | 'move',
   ): boolean => {
-    if (!isTransferableKind(sourceNode.element.kind)) return false
+    if (!isTransferable(sourceNode.element)) return false
     if (operation === 'move') {
-      if (!isMovableKind(sourceNode.element.kind)) return false
+      if (!isMovable(sourceNode.element)) return false
       if (sourceNode.id === destinationNode.id) return false
       if (TreeNode.isDescendantOrSelf(rootNode, sourceNode.id, destinationNode.id)) return false
       if (TreeNode.findParent(rootNode, sourceNode.id)?.id === destinationNode.id) return false
     }
 
     if (
-      sourceNode.element.kind !== 'style'
+      sourceNode.element.kind !== 'app'
+      && sourceNode.element.kind !== 'style'
       && sourceNode.element.kind !== 'function'
+      && sourceNode.element.kind !== 'component'
       && sourceNode.element.kind !== 'tag'
       && !isTypeKind(sourceNode.element.kind)
     ) return false
@@ -170,6 +208,16 @@ namespace TreeTransferCatalog {
     destinationNode: TreeNode.Node,
     sourceKind: TransferableKind,
   ): string[] => {
+    if (sourceKind === 'app') {
+      return destinationNode.children.flatMap((child) => (
+        child.element.kind === 'app' ? [child.element.id] : []
+      ))
+    }
+    if (sourceKind === 'component') {
+      return destinationNode.children.flatMap((child) => (
+        child.element.kind === 'component' ? [child.element.id] : []
+      ))
+    }
     if (sourceKind === 'function') {
       const frame = FunctionScope.findFrameNode(rootNode, destinationNode.id)
       return [...new Set([
@@ -215,8 +263,10 @@ namespace TreeTransferCatalog {
       key: 'id',
       label: 'Id',
       required: true,
-      charset: sourceKind === 'style'
-        ? 'identifier'
+      charset: sourceKind === 'app'
+        ? 'strictKebabIdentifier'
+        : sourceKind === 'style'
+          ? 'identifier'
         : sourceKind === 'function'
           ? 'jsIdentifier'
           : 'pascalIdentifier',

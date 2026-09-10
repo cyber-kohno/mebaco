@@ -119,6 +119,66 @@ describe('TreeDestinationController', () => {
     })
   })
 
+  it('adds Component transfer actions only to regular Components', () => {
+    const component = node(6, {
+      kind: 'component', componentId: 'component-id', id: 'Card',
+    })
+    const localComponent = node(7, {
+      kind: 'component', componentId: 'local-component-id', id: 'LocalCard', local: true,
+    })
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const copyItems = TreeDestinationController.addCopyAction(items, component)
+    const moveItems = TreeDestinationController.addMoveAction(items, component)
+    expect(copyItems.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    expect(moveItems.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const copy = copyItems[1]
+    if (copy.type !== 'action') throw new Error('Expected Copy action.')
+    copy.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'copy', sourceKind: 'component' },
+      sourceNodeId: component.id,
+      sourceLabel: 'Card',
+    })
+
+    const move = moveItems[1]
+    if (move.type !== 'action') throw new Error('Expected Move action.')
+    move.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'move', sourceKind: 'component' },
+      sourceNodeId: component.id,
+      sourceLabel: 'Card',
+    })
+
+    expect(TreeDestinationController.addCopyAction(items, localComponent)).toBe(items)
+    expect(TreeDestinationController.addMoveAction(items, localComponent)).toBe(items)
+  })
+
+  it('adds Copy but not Move to an App', () => {
+    const app = node(8, { kind: 'app', appId: 'app-id', id: 'sample-app' })
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const copyItems = TreeDestinationController.addCopyAction(items, app)
+    expect(copyItems.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    expect(TreeDestinationController.addMoveAction(items, app)).toBe(items)
+
+    const copy = copyItems[1]
+    if (copy.type !== 'action') throw new Error('Expected Copy action.')
+    copy.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'copy', sourceKind: 'app' },
+      sourceNodeId: app.id,
+      sourceLabel: 'sample-app',
+    })
+  })
+
   it('marks a valid copy destination with the Paste here action id', () => {
     const source = node(2, {
       kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [],

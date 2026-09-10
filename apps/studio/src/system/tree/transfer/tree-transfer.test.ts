@@ -124,6 +124,62 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, union, retention, 'move')).toBe(true)
   })
 
+  it('transfers regular Components only between Components folders', () => {
+    const component = node(20, {
+      kind: 'component', componentId: 'component-id', id: 'Card',
+    })
+    const localComponent = node(21, {
+      kind: 'component', componentId: 'local-component-id', id: 'LocalCard', local: true,
+    })
+    const sourceComponents = node(22, { kind: 'components' }, [component])
+    const destinationComponents = node(23, { kind: 'components' })
+    const retention = node(24, { kind: 'retention' }, [localComponent])
+    const root = node(1, ProjectElement.create(), [
+      sourceComponents,
+      destinationComponents,
+      retention,
+    ])
+
+    expect(TreeTransferCatalog.isTransferable(component.element)).toBe(true)
+    expect(TreeTransferCatalog.isMovable(component.element)).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(
+      root,
+      component,
+      destinationComponents,
+      'copy',
+    )).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(
+      root,
+      component,
+      destinationComponents,
+      'move',
+    )).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, component, retention, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.isTransferable(localComponent.element)).toBe(false)
+    expect(TreeTransferCatalog.isMovable(localComponent.element)).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(
+      root,
+      localComponent,
+      destinationComponents,
+      'copy',
+    )).toBe(false)
+  })
+
+  it('copies Apps only to the project Apps container and does not move them', () => {
+    const source = node(3, { kind: 'app', appId: 'source-app-id', id: 'source-app' })
+    const apps = node(2, { kind: 'apps' }, [source])
+    const otherContainer = node(4, { kind: 'common' })
+    const root = node(1, ProjectElement.create(), [apps, otherContainer])
+
+    expect(TreeTransferCatalog.isTransferable(source.element)).toBe(true)
+    expect(TreeTransferCatalog.isMovable(source.element)).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, apps, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, otherContainer, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, apps, 'move')).toBe(false)
+    expect(TreeTransferCatalog.validateName(root, apps, 'app', 'source-app')).toBe('Already exists.')
+    expect(TreeTransferCatalog.validateName(root, apps, 'app', 'SourceApp')).toContain('kebab-case')
+  })
+
   it('offers only View content destinations for a Tag', () => {
     const source = node(3, TagElement.create('span', 'source'))
     const containerTag = node(4, TagElement.create('div', 'container'))
@@ -202,6 +258,347 @@ describe('TreeTransfer', () => {
     if (copiedParameter?.kind !== 'style-param') throw new Error('Expected copied parameter.')
     expect(copiedParameter.parameterId).not.toBe('source-parameter')
     expect(source.element).toMatchObject({ styleId: 'source-style', id: 'card' })
+  })
+
+  it('copies a Component subtree with fresh owned identities and remapped references', () => {
+    const componentProp = node(4, {
+      kind: 'value-prop', propId: 'component-prop', id: 'title',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const localProp = node(9, {
+      kind: 'value-prop', propId: 'local-prop', id: 'label',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const localSlot = node(11, {
+      kind: 'slot', slotId: 'local-slot', id: 'content',
+    }, [node(12, { kind: 'props' })])
+    const localComponent = node(7, {
+      kind: 'component', componentId: 'local-component', id: 'LocalCard', local: true,
+    }, [
+      node(8, { kind: 'props' }, [localProp]),
+      node(10, { kind: 'slots' }, [localSlot]),
+    ])
+    const titleTag = node(14, TagElement.create('h2', '', [], [{
+      type: 'property',
+      name: 'textContent',
+      value: { type: 'formula', source: '$props.title' },
+    }]))
+    const localUse = node(15, {
+      kind: 'component-use',
+      componentId: 'local-component',
+      propBindings: [{
+        propId: 'local-prop', kind: 'value',
+        source: { type: 'literal', value: 'Copied' },
+      }],
+    }, [
+      node(16, { kind: 'slot-contents' }, [
+        node(17, { kind: 'slot-content', slotId: 'local-slot' }),
+      ]),
+    ])
+    const source = node(3, {
+      kind: 'component', componentId: 'source-component', id: 'Card',
+    }, [
+      node(5, { kind: 'props' }, [componentProp]),
+      node(6, { kind: 'retention' }, [localComponent]),
+      node(13, { kind: 'elements' }, [titleTag, localUse]),
+    ])
+    const components = node(2, { kind: 'components' }, [source])
+    const root = node(1, ProjectElement.create(), [components])
+
+    const plan = TreeTransferPlanner.copy(root, source.id, components.id, 'CardCopy')
+    const copied = TreeNode.findNode(plan.rootNode, plan.copiedNodeId)
+    const copiedProp = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(componentProp.id) ?? -1,
+    )
+    const copiedLocal = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localComponent.id) ?? -1,
+    )
+    const copiedLocalProp = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localProp.id) ?? -1,
+    )
+    const copiedSlot = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localSlot.id) ?? -1,
+    )
+    const copiedUse = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localUse.id) ?? -1,
+    )
+    const copiedSlotContent = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(17) ?? -1,
+    )
+    if (
+      copied?.element.kind !== 'component'
+      || copiedProp?.element.kind !== 'value-prop'
+      || copiedLocal?.element.kind !== 'component'
+      || copiedLocalProp?.element.kind !== 'value-prop'
+      || copiedSlot?.element.kind !== 'slot'
+      || copiedUse?.element.kind !== 'component-use'
+      || copiedSlotContent?.element.kind !== 'slot-content'
+    ) throw new Error('Expected a complete copied Component subtree.')
+
+    expect(copied.element.id).toBe('CardCopy')
+    expect(copied.element.local).toBeUndefined()
+    expect(copied.element.componentId).not.toBe('source-component')
+    expect(copiedProp.element.propId).not.toBe('component-prop')
+    expect(copiedLocal.element.componentId).not.toBe('local-component')
+    expect(copiedLocalProp.element.propId).not.toBe('local-prop')
+    expect(copiedSlot.element.slotId).not.toBe('local-slot')
+    expect(copiedUse.element.componentId).toBe(copiedLocal.element.componentId)
+    expect(copiedUse.element.propBindings[0]?.propId).toBe(copiedLocalProp.element.propId)
+    expect(copiedSlotContent.element.slotId).toBe(copiedSlot.element.slotId)
+    expect(TreeTransferValidator.validateStructure(
+      plan.rootNode,
+      plan.copiedNodeId,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateReferenceTargets(
+      root,
+      plan.rootNode,
+      plan.nodeIds,
+    )).toBeNull()
+  })
+
+  it('copies an App subtree with fresh internal identities and preserved external references', () => {
+    const sourceLaunchArgument = node(5, {
+      kind: 'launch-argument', propId: 'source-launch-argument', id: 'session',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const componentProp = node(12, {
+      kind: 'value-prop', propId: 'source-component-prop', id: 'title',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const component = node(10, {
+      kind: 'component', componentId: 'source-component', id: 'Main',
+    }, [node(11, { kind: 'props' }, [componentProp])])
+    const entry = node(14, {
+      kind: 'entry', componentId: 'source-component', propBindings: [{
+        propId: 'source-component-prop', kind: 'value',
+        source: { type: 'literal', value: 'Source' },
+      }],
+    })
+    const transition = node(15, {
+      kind: 'transition', appId: 'target-app-id', argumentBindings: [{
+        propId: 'target-launch-argument', kind: 'value',
+        source: { type: 'literal', value: 'Target' },
+      }],
+    })
+    const source = node(3, {
+      kind: 'app', appId: 'source-app-id', id: 'source-app',
+    }, [
+      node(4, { kind: 'launch-options' }, [
+        node(6, { kind: 'launch-arguments' }, [sourceLaunchArgument]),
+      ]),
+      node(7, { kind: 'imports' }, [
+        node(8, { kind: 'transitions', appIds: ['target-app-id'] }),
+      ]),
+      node(9, { kind: 'declares' }, [
+        node(13, { kind: 'components' }, [component]),
+      ]),
+      entry,
+      transition,
+    ])
+    const targetLaunchArgument = node(19, {
+      kind: 'launch-argument', propId: 'target-launch-argument', id: 'value',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const target = node(17, {
+      kind: 'app', appId: 'target-app-id', id: 'target-app',
+    }, [node(18, { kind: 'launch-options' }, [
+      node(20, { kind: 'launch-arguments' }, [targetLaunchArgument]),
+    ])])
+    const apps = node(2, { kind: 'apps' }, [source, target])
+    const launcher = node(22, {
+      kind: 'launcher', launcherId: 'source-launcher', id: 'source',
+      appId: 'source-app-id', argumentBindings: [{
+        propId: 'source-launch-argument', kind: 'value',
+        source: { type: 'literal', value: 'Launcher' },
+      }],
+    })
+    const launchers = node(21, { kind: 'launchers' }, [launcher])
+    const root = node(1, ProjectElement.create(), [apps, launchers])
+
+    const plan = TreeTransferPlanner.copy(root, source.id, apps.id, 'source-app-copy')
+    const copied = TreeNode.findNode(plan.rootNode, plan.copiedNodeId)
+    const copiedLaunchArgument = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(sourceLaunchArgument.id) ?? -1,
+    )
+    const copiedComponent = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(component.id) ?? -1,
+    )
+    const copiedComponentProp = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(componentProp.id) ?? -1,
+    )
+    const copiedEntry = TreeNode.findNode(plan.rootNode, plan.nodeIds.get(entry.id) ?? -1)
+    const copiedImports = TreeNode.findNode(plan.rootNode, plan.nodeIds.get(8) ?? -1)
+    const copiedTransition = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(transition.id) ?? -1,
+    )
+    const unchangedLauncher = TreeNode.findNode(plan.rootNode, launcher.id)
+    if (
+      copied?.element.kind !== 'app'
+      || copiedLaunchArgument?.element.kind !== 'launch-argument'
+      || copiedComponent?.element.kind !== 'component'
+      || copiedComponentProp?.element.kind !== 'value-prop'
+      || copiedEntry?.element.kind !== 'entry'
+      || copiedImports?.element.kind !== 'transitions'
+      || copiedTransition?.element.kind !== 'transition'
+      || unchangedLauncher?.element.kind !== 'launcher'
+    ) throw new Error('Expected a complete copied App subtree.')
+
+    expect(copied.element).toMatchObject({ id: 'source-app-copy' })
+    expect(copied.element.appId).not.toBe('source-app-id')
+    expect(copiedLaunchArgument.element.propId).not.toBe('source-launch-argument')
+    expect(copiedComponent.element.componentId).not.toBe('source-component')
+    expect(copiedComponentProp.element.propId).not.toBe('source-component-prop')
+    expect(copiedEntry.element.componentId).toBe(copiedComponent.element.componentId)
+    expect(copiedEntry.element.propBindings[0]?.propId).toBe(copiedComponentProp.element.propId)
+    expect(copiedImports.element.appIds).toEqual(['target-app-id'])
+    expect(copiedTransition.element).toMatchObject({
+      appId: 'target-app-id',
+      argumentBindings: [{ propId: 'target-launch-argument' }],
+    })
+    expect(unchangedLauncher.element).toEqual(launcher.element)
+    expect(TreeTransferValidator.validateStructure(
+      plan.rootNode,
+      plan.copiedNodeId,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateReferenceTargets(
+      root,
+      plan.rootNode,
+      plan.nodeIds,
+    )).toBeNull()
+  })
+
+  it('moves a Component subtree while preserving every identity', async () => {
+    const prop = node(5, {
+      kind: 'value-prop', propId: 'component-prop', id: 'title',
+      valueType: TypeExpression.createPrimitive('string'), nullable: false,
+    })
+    const source = node(3, {
+      kind: 'component', componentId: 'component-id', id: 'Card',
+    }, [node(4, { kind: 'props' }, [prop])])
+    const sourceComponents = node(2, { kind: 'components' }, [source])
+    const destinationComponents = node(6, { kind: 'components' })
+    const root = node(1, ProjectElement.create(), [sourceComponents, destinationComponents])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationComponents.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)
+    const movedProp = TreeNode.findNode(plan.rootNode, prop.id)
+
+    expect(plan.rootNode.children[0]?.children).toEqual([])
+    expect(plan.rootNode.children[1]?.children[0]?.id).toBe(source.id)
+    expect(moved?.element).toEqual(source.element)
+    expect(movedProp?.element).toEqual(prop.element)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+    expect(await TreeTransferValidator.validateMoveExpressionScope(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects a Component copy or Move with a duplicate destination name', () => {
+    const source = node(3, {
+      kind: 'component', componentId: 'source-component', id: 'Card',
+    })
+    const existingCopy = node(6, {
+      kind: 'component', componentId: 'existing-copy', id: 'CardCopy',
+    })
+    const existingMove = node(7, {
+      kind: 'component', componentId: 'existing-move', id: 'Card',
+    })
+    const sourceComponents = node(2, { kind: 'components' }, [source])
+    const destinationComponents = node(5, { kind: 'components' }, [existingCopy, existingMove])
+    const root = node(1, ProjectElement.create(), [sourceComponents, destinationComponents])
+
+    expect(() => TreeTransferPlanner.copy(
+      root,
+      source.id,
+      destinationComponents.id,
+      'CardCopy',
+    )).toThrow()
+    expect(() => TreeTransferPlanner.move(
+      root,
+      source.id,
+      destinationComponents.id,
+    )).toThrow()
+  })
+
+  it('rejects a Component Move when an existing Component View loses visibility', () => {
+    const source = node(4, {
+      kind: 'component', componentId: 'shared-component', id: 'SharedCard',
+    })
+    const commonComponents = node(3, { kind: 'components' }, [source])
+    const common = node(2, { kind: 'common' }, [
+      node(18, { kind: 'declares' }, [commonComponents]),
+    ])
+    const use = node(12, {
+      kind: 'component-use', componentId: 'shared-component', propBindings: [],
+    })
+    const host = node(9, {
+      kind: 'component', componentId: 'host-component', id: 'Host',
+    }, [
+      node(10, { kind: 'retention' }),
+      node(11, { kind: 'elements' }, [use]),
+    ])
+    const firstApp = node(6, { kind: 'app', appId: 'first-app', id: 'first' }, [
+      node(7, { kind: 'declares' }, [
+        node(8, { kind: 'components' }, [host]),
+      ]),
+    ])
+    const destinationComponents = node(16, { kind: 'components' })
+    const secondApp = node(14, { kind: 'app', appId: 'second-app', id: 'second' }, [
+      node(15, { kind: 'declares' }, [destinationComponents]),
+    ])
+    const root = node(1, ProjectElement.create(), [common, firstApp, secondApp])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationComponents.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toContain('unavailable Component')
+  })
+
+  it('rejects a Component Move when an App Entry loses its Component', () => {
+    const source = node(3, {
+      kind: 'component', componentId: 'entry-component', id: 'Main',
+    })
+    const sourceComponents = node(2, { kind: 'components' }, [source])
+    const entry = node(4, {
+      kind: 'entry', componentId: 'entry-component', propBindings: [],
+    })
+    const firstApp = node(5, { kind: 'app', appId: 'first-app', id: 'first' }, [
+      sourceComponents,
+      entry,
+    ])
+    const destinationComponents = node(7, { kind: 'components' })
+    const secondApp = node(6, { kind: 'app', appId: 'second-app', id: 'second' }, [
+      destinationComponents,
+    ])
+    const root = node(1, ProjectElement.create(), [firstApp, secondApp])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationComponents.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toContain('Entry refers to an unavailable Component')
   })
 
   it('moves a Style subtree atomically while preserving every identity', async () => {
