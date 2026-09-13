@@ -180,6 +180,7 @@
         class:ancestor={selectionRelations.ancestorIds.has(row.node.id)}
         class:sibling={selectionRelations.siblingIds.has(row.node.id)}
         class:editing={isEditingNode(row)}
+        class:disabled-self={row.node.disabled === true}
         class:disabled-descendant={row.disabledDescendant}
         class:destination-unavailable={destinationActive && !destinationCandidate}
         class:destination-candidate={destinationCandidate}
@@ -312,7 +313,8 @@
     to { background-color: rgba(250, 204, 21, 0.5); }
   }
 
-  .tree-row.disabled-descendant :global(.element-tree-label) {
+  .tree-row.disabled-self :global(.element-label-content),
+  .tree-row.disabled-descendant :global(.element-label-content) {
     opacity: 0.6;
   }
 

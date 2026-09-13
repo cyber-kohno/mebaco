@@ -48,6 +48,7 @@ namespace ExpressionVerifier {
         node.id,
         source.mode,
         false,
+        source.eventType,
       )
       const options: MebacoInjection.AnalysisOptions = {
         injectionSource,

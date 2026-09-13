@@ -509,6 +509,37 @@ describe('ElementUpdateTransaction', () => {
     expect(get(ExpressionVerificationStore.entries)).toEqual({})
   })
 
+  it('allows a Loop Item to repair unresolved references and resets verification', () => {
+    const child = node(8, { kind: 'if', condition: '$var.cell != null' })
+    const loop = node(5, {
+      kind: 'loop',
+      mode: 'collection',
+      collectionSource: '[]',
+      itemId: 'item',
+      indexId: 'index',
+    }, [child])
+    const root = node(1, { kind: 'project' }, [loop])
+    ExpressionVerificationStore.setResult(child, {
+      status: 'error',
+      messages: ["Cannot find '$var.cell'."],
+    })
+    const previousElement = loop.element as Extract<MebacoElement.Element, { kind: 'loop' }>
+    if (previousElement.mode !== 'collection') throw new Error('Fixture is invalid.')
+
+    const result = ElementUpdateTransaction.commit(root, loop.id, previousElement, {
+      ...previousElement,
+      itemId: 'cell',
+    })
+
+    const nextLoop = findNode(get(TreeStore.rootNode), loop.id)
+    expect(nextLoop?.element).toMatchObject({ kind: 'loop', itemId: 'cell' })
+    expect((nextLoop?.children[0]?.element as { condition: string }).condition)
+      .toBe('$var.cell != null')
+    expect(result.updatedReferenceNodeIds).toEqual([])
+    expect(result.verificationReset).toBe(true)
+    expect(get(ExpressionVerificationStore.entries)).toEqual({})
+  })
+
   it('keeps broken Item expressions and resets verification after a forced Count change', () => {
     const child = node(8, { kind: 'if', condition: '$var.item != null' })
     const loop = node(5, {

@@ -14,6 +14,7 @@ import FunctionScope from '../../element/kind/function/function-scope'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
 import StateScope from '../../element/kind/variable/store/state-scope'
 import ScopedVariableResolver from './scoped-variable-resolver'
+import ConstantScope from '../../element/kind/declare/constant-scope'
 
 namespace ReferenceGraph {
   export type ReferenceSourceType = 'structural' | 'expression'
@@ -298,6 +299,7 @@ namespace ReferenceGraph {
     if (element.kind === 'tag' && key === 'attributes') return 'attribute'
     if (element.kind === 'tag' && key === 'styles') return 'style'
     if (element.kind === 'variable' && key === 'source') return 'initial'
+    if (element.kind === 'constant' && key === 'source') return 'initial'
     if (element.kind === 'state' && key === 'initial') return 'initial'
     if (element.kind === 'component-use' && key === 'propBindings') return 'prop'
     if (element.kind === 'slot-use' && key === 'propBindings') return 'prop'
@@ -418,6 +420,16 @@ namespace ReferenceGraph {
       if (kinds == null) return
       let candidates: readonly Target[]
       switch (root) {
+        case '$const': {
+          const resolved = ConstantScope.resolve(rootNode, sourceNode.id, property)
+          candidates = resolved == null
+            ? []
+            : targets.filter((target) => (
+                target.kind === 'constant'
+                && target.nodeId === resolved.node.id
+              ))
+          break
+        }
         case '$fn': {
           const resolved = FunctionScope.resolveFunction(
             rootNode,
@@ -778,6 +790,17 @@ namespace ReferenceGraph {
     dependencies: readonly SemanticDependency[]
   }
 
+  const mergeDependencies = (
+    dependencies: readonly SemanticDependency[],
+  ): Dependency[] => [...new Map(dependencies.map((dependency) => [
+    `${dependency.sourceNodeId}:${dependency.targetNodeId}:${dependency.targetLabel}`,
+    {
+      sourceNodeId: dependency.sourceNodeId,
+      targetNodeId: dependency.targetNodeId,
+      targetLabel: dependency.targetLabel,
+    },
+  ])).values()]
+
   const collectEdges = (
     rootNode: TreeNode.Node,
   ): Edges => {
@@ -831,16 +854,11 @@ namespace ReferenceGraph {
     sourceNodeIds: readonly number[],
   ): readonly Dependency[] => {
     const sourceNodeIdSet = new Set(sourceNodeIds)
-    return collectEdges(rootNode).dependencies
-      .filter((dependency) => sourceNodeIdSet.has(dependency.sourceNodeId))
+    return mergeDependencies(collectEdges(rootNode).dependencies
+      .filter((dependency) => sourceNodeIdSet.has(dependency.sourceNodeId)))
       .sort((left, right) => left.sourceNodeId - right.sourceNodeId
         || left.targetNodeId - right.targetNodeId
         || left.targetLabel.localeCompare(right.targetLabel))
-      .map(({ sourceNodeId, targetNodeId, targetLabel }) => ({
-        sourceNodeId,
-        targetNodeId,
-        targetLabel,
-      }))
   }
 
   export const collectSemanticDependencies = (
@@ -871,26 +889,22 @@ namespace ReferenceGraph {
 
     return {
       canHaveReferences: selectedTarget?.canBeReferenced === true,
-      canHaveDependencies: hasPotentialDependency(selectedNode.element),
+      canHaveDependencies: selectedNode.element.kind !== 'style-param'
+        && hasPotentialDependency(selectedNode.element),
       references: edges.references
         .filter((reference) => (
           selectedTarget?.canBeReferenced === true
           && reference.targetNodeId === selectedNodeId
         ))
         .sort((left, right) => left.sourceNodeId - right.sourceNodeId || left.sourceLabel.localeCompare(right.sourceLabel)),
-      dependencies: edges.dependencies
+      dependencies: mergeDependencies(edges.dependencies
         .filter((dependency) => dependency.sourceNodeId === selectedNodeId)
         .filter((dependency) => !(
           selectedNode.element.kind === 'function'
           && dependency.sourceNodeId === dependency.targetNodeId
           && dependency.targetLabel.startsWith('function-parameter.')
-        ))
-        .sort((left, right) => left.targetNodeId - right.targetNodeId || left.targetLabel.localeCompare(right.targetLabel))
-        .map(({ sourceNodeId, targetNodeId, targetLabel }) => ({
-          sourceNodeId,
-          targetNodeId,
-          targetLabel,
-        })),
+        )))
+        .sort((left, right) => left.targetNodeId - right.targetNodeId || left.targetLabel.localeCompare(right.targetLabel)),
     }
   }
 

@@ -13,6 +13,7 @@ import ExpressionReferenceSyntax from './expression-reference-syntax'
 import ScopedVariableResolver from './scoped-variable-resolver'
 import TypeCatalog from '../../element/kind/type/type-catalog'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
+import ConstantScope from '../../element/kind/declare/constant-scope'
 
 namespace ExpressionReferenceRenamer {
   export type Result = {
@@ -129,6 +130,8 @@ namespace ExpressionReferenceRenamer {
   ): TreeNode.Node | null => {
     const path = findPath(rootNode, sourceNode.id) ?? []
     switch (expressionRoot) {
+      case '$const':
+        return ConstantScope.resolve(rootNode, sourceNode.id, id)?.node ?? null
       case '$state':
         return resolveState(rootNode, sourceNode, id)
       case '$var':

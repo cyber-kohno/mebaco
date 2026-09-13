@@ -3,10 +3,19 @@ import TypeCatalog from '../element/kind/type/type-catalog'
 import TypeExpression from '../element/kind/type/type-expression'
 import FormulaContext from './formula/formula-context'
 import FormulaEvaluator from './formula/formula-evaluator'
+import RuntimeStateDependency from './runtime-state-dependency'
 import type RuntimeTree from './runtime-tree'
 import type TreeNode from '../tree/tree-node'
 
 namespace RuntimeState {
+  export type WriteHandler = (
+    dependencies: readonly RuntimeStateDependency.Dependency[],
+  ) => void
+
+  export type Options = {
+    onWrite?: WriteHandler
+  }
+
   const getDefaultScalarValue = (
     state: StateElement.Element,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
@@ -79,6 +88,7 @@ namespace RuntimeState {
     $state: Record<string, unknown>,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
     $launch: Record<string, unknown>,
+    $const: Readonly<Record<string, unknown>>,
   ): unknown => {
     switch (state.initial.type) {
       case 'literal':
@@ -86,7 +96,7 @@ namespace RuntimeState {
       case 'formula': {
         const result = FormulaEvaluator.evaluateExpression(
           state.initial.source,
-          FormulaContext.create({ $state, $launch }),
+          FormulaContext.create({ $state, $launch, $const }),
         )
 
         if (result.ok) return result.value
@@ -111,40 +121,113 @@ namespace RuntimeState {
     ? coerceLiteralValue(item, item.initial.value, projectNode)
     : getDefaultValue(item, projectNode)
 
+  const notifyWrite = (
+    sourceId: string,
+    property: PropertyKey,
+    options: Options,
+  ) => {
+    const dependency = RuntimeStateDependency.createDependency(sourceId, property)
+    const allDependency = RuntimeStateDependency.createDependency(sourceId, '*')
+    const dependencies = [dependency, allDependency]
+      .filter((item): item is RuntimeStateDependency.Dependency => item != null)
+    if (dependencies.length > 0) options.onWrite?.(dependencies)
+  }
+
+  const createRootState = (
+    localState: Record<string, unknown>,
+    options: Options,
+  ): Record<string, unknown> => {
+    const sourceId = RuntimeStateDependency.createSourceId()
+    return new Proxy(localState, {
+      get: (target, property, receiver) => {
+        RuntimeStateDependency.trackRead(sourceId, property)
+        return Reflect.get(target, property, receiver)
+      },
+      set: (target, property, value, receiver) => {
+        const previous = Reflect.get(target, property, receiver)
+        const changed = !Object.is(previous, value)
+        const ok = Reflect.set(target, property, value, receiver)
+        if (ok && changed) notifyWrite(sourceId, property, options)
+        return ok
+      },
+      has: (target, property) => {
+        RuntimeStateDependency.trackRead(sourceId, property)
+        return Reflect.has(target, property)
+      },
+      ownKeys: (target) => {
+        RuntimeStateDependency.trackRead(sourceId, '*')
+        return Reflect.ownKeys(target)
+      },
+      deleteProperty: (target, property) => {
+        const existed = Reflect.has(target, property)
+        const ok = Reflect.deleteProperty(target, property)
+        if (ok && existed) notifyWrite(sourceId, property, options)
+        return ok
+      },
+    })
+  }
+
   const createLayeredState = (
     parentState: Record<string, unknown>,
     localState: Record<string, unknown>,
-  ): Record<string, unknown> => new Proxy(localState, {
-    get: (target, property, receiver) => (
-      Reflect.has(target, property)
-        ? Reflect.get(target, property, receiver)
-        : Reflect.get(parentState, property)
-    ),
+    options: Options,
+  ): Record<string, unknown> => {
+    const sourceId = RuntimeStateDependency.createSourceId()
+    return new Proxy(localState, {
+    get: (target, property, receiver) => {
+      if (Reflect.has(target, property)) {
+        RuntimeStateDependency.trackRead(sourceId, property)
+        return Reflect.get(target, property, receiver)
+      }
+      return Reflect.get(parentState, property)
+    },
     set: (target, property, value, receiver) => {
       if (Reflect.has(target, property) || !Reflect.has(parentState, property)) {
-        return Reflect.set(target, property, value, receiver)
+        const previous = Reflect.get(target, property, receiver)
+        const changed = !Object.is(previous, value)
+        const ok = Reflect.set(target, property, value, receiver)
+        if (ok && changed) notifyWrite(sourceId, property, options)
+        return ok
       }
       return Reflect.set(parentState, property, value)
     },
-    has: (target, property) => Reflect.has(target, property) || Reflect.has(parentState, property),
-    ownKeys: (target) => [...new Set([
-      ...Reflect.ownKeys(parentState),
-      ...Reflect.ownKeys(target),
-    ])],
+    has: (target, property) => {
+      if (Reflect.has(target, property)) {
+        RuntimeStateDependency.trackRead(sourceId, property)
+        return true
+      }
+      return Reflect.has(parentState, property)
+    },
+    ownKeys: (target) => {
+      RuntimeStateDependency.trackRead(sourceId, '*')
+      return [...new Set([
+        ...Reflect.ownKeys(parentState),
+        ...Reflect.ownKeys(target),
+      ])]
+    },
     getOwnPropertyDescriptor: (target, property) => (
       Reflect.getOwnPropertyDescriptor(target, property)
       ?? Reflect.getOwnPropertyDescriptor(parentState, property)
     ),
+    deleteProperty: (target, property) => {
+      if (!Reflect.has(target, property)) return true
+      const ok = Reflect.deleteProperty(target, property)
+      if (ok) notifyWrite(sourceId, property, options)
+      return ok
+    },
   })
+  }
 
   export const createComponentState = (
     projectNode: RuntimeTree.AppRuntime['projectNode'],
     parentState: Record<string, unknown>,
     stateNodes: readonly TreeNode.Node[],
     launchValues: Record<string, unknown> = {},
+    $const: Readonly<Record<string, unknown>> = {},
+    options: Options = {},
   ): Record<string, unknown> => {
     const localState: Record<string, unknown> = {}
-    const state = createLayeredState(parentState, localState)
+    const state = createLayeredState(parentState, localState, options)
 
     stateNodes.forEach((node) => {
       if (node.element.kind !== 'state') return
@@ -153,7 +236,13 @@ namespace RuntimeState {
 
     stateNodes.forEach((node) => {
       if (node.element.kind !== 'state') return
-      localState[node.element.id] = evaluateInitialValue(node.element, state, projectNode, launchValues)
+      localState[node.element.id] = evaluateInitialValue(
+        node.element,
+        state,
+        projectNode,
+        launchValues,
+        $const,
+      )
     })
 
     return state
@@ -162,21 +251,25 @@ namespace RuntimeState {
   export const createState = (
     runtime: RuntimeTree.AppRuntime,
     launchValues: Record<string, unknown> = {},
+    $const: Readonly<Record<string, unknown>> = {},
+    options: Options = {},
   ): Record<string, unknown> => {
-    const $state: Record<string, unknown> = {}
+    const stateValues: Record<string, unknown> = {}
+    const $state = createRootState(stateValues, options)
 
     runtime.stateNodes.forEach((node) => {
       if (node.element.kind !== 'state') return
-      $state[node.element.id] = getDefaultValue(node.element, runtime.projectNode)
+      stateValues[node.element.id] = getDefaultValue(node.element, runtime.projectNode)
     })
 
     runtime.stateNodes.forEach((node) => {
       if (node.element.kind !== 'state') return
-      $state[node.element.id] = evaluateInitialValue(
+      stateValues[node.element.id] = evaluateInitialValue(
         node.element,
         $state,
         runtime.projectNode,
         launchValues,
+        $const,
       )
     })
 

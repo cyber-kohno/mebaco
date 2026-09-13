@@ -4,6 +4,7 @@ import DeclaresElement from '../element/kind/declare/declares-element'
 import FunctionsElement from '../element/kind/declare/functions-element'
 import TypesElement from '../element/kind/declare/types-element'
 import StylesElement from '../element/kind/declare/styles-element'
+import ConstantsElement from '../element/kind/declare/constants-element'
 import AppsElement from '../element/kind/project/apps-element'
 import CommonElement from '../element/kind/project/common-element'
 import LaunchersElement from '../element/kind/project/launchers-element'
@@ -85,6 +86,12 @@ namespace TreeNode {
             element: DeclaresElement.create(),
             isOpen: true,
             children: [
+              {
+                id: 20,
+                element: ConstantsElement.create(),
+                isOpen: true,
+                children: [],
+              },
               {
                 id: 6,
                 element: StylesElement.create(),

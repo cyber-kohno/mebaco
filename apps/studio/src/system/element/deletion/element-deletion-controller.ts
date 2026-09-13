@@ -58,6 +58,7 @@ namespace ElementDeletionController {
       .map((node) => node.id)
     const scopedDefinition = request.node.element.kind === 'state'
       || request.node.element.kind === 'variable'
+      || request.node.element.kind === 'constant'
     const scopedNodeIds = scopedDefinition
       ? ExpressionVerificationScope.collectVisibleNodeIds(
           request.rootNode,

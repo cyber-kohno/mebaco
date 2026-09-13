@@ -10,11 +10,15 @@
   import RenderContent from './RenderContent.svelte'
   import RetentionResolver from '../retention/retention-resolver'
   import RuntimeTree from '../runtime-tree'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
   import type ScriptErrorValue from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeRefKey from '../ref/runtime-ref-key'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import RuntimePartialKey from '../partial/runtime-partial-key'
+  import RuntimePartialRegistry from '../partial/runtime-partial-registry'
   import { getRenderInstanceKey } from './render-instance-scope'
 
   type Props = {
@@ -24,6 +28,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptErrorValue.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -36,6 +42,8 @@
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
@@ -44,20 +52,35 @@
   const tag = $derived(RuntimeTree.isTagNode(node) ? node.element : null)
   let tagDomElement = $state<HTMLElement | null>(null)
   let refRegistrationError = $state<ScriptErrorValue.Value | null>(null)
+  let partialRegistrationError = $state<ScriptErrorValue.Value | null>(null)
+  let partialRevision = $state(0)
   const renderInstanceKey = getRenderInstanceKey(untrack(() => node.id))
+  const scopedRenderRevision = $derived(renderRevision + partialRevision)
 
   const retentionResult = $derived.by(() => {
-    renderRevision
-    return RetentionResolver.resolve(node, formulaContext, projectNode)
+    scopedRenderRevision
+    return trackStateDependencies(() => RetentionResolver.resolve(node, formulaContext, projectNode))
   })
 
   const refKeyResult = $derived.by(() => {
-    renderRevision
-    return RuntimeRefKey.resolve(tag?.refKey, retentionResult.context)
+    scopedRenderRevision
+    return trackStateDependencies(() => RuntimeRefKey.resolve(tag?.refKey, retentionResult.context))
+  })
+
+  const partialKeyResult = $derived.by(() => {
+    scopedRenderRevision
+    return trackStateDependencies(() => RuntimePartialKey.resolve(
+      tag?.partialKey,
+      retentionResult.context,
+    ))
   })
 
   const runtimeError = $derived(
-    retentionResult.error ?? refKeyResult.error ?? refRegistrationError,
+    retentionResult.error
+    ?? refKeyResult.error
+    ?? partialKeyResult.error
+    ?? refRegistrationError
+    ?? partialRegistrationError,
   )
 
   $effect(() => {
@@ -81,11 +104,27 @@
     )
   })
 
+  $effect(() => {
+    partialRegistrationError = null
+    if (partialKeyResult.key == null) return
+
+    return RuntimePartialRegistry.register(
+      retentionResult.context.$invalidate,
+      partialKeyResult.key,
+      () => { partialRevision += 1 },
+      (message) => {
+        partialRegistrationError = message == null
+          ? null
+          : ScriptError.create('runtime', message)
+      },
+    )
+  })
+
   const styleResult = $derived.by(() => {
-    renderRevision
-    return tag == null
+    scopedRenderRevision
+    return trackStateDependencies(() => tag == null
       ? { declarations: [], errors: [] }
-      : styleCatalog.resolve(tag.styles, retentionResult.context)
+      : styleCatalog.resolve(tag.styles, retentionResult.context))
   })
 
   $effect(() => {
@@ -151,11 +190,11 @@
     }
 
     setActionError(node.id, null)
-    invalidateRuntime()
   }
 
   const elementAttributes = $derived.by(() => {
-    renderRevision
+    scopedRenderRevision
+    return trackStateDependencies(() => {
     if (tag == null) return {}
 
     const attrs: Record<string, unknown> = {}
@@ -180,6 +219,7 @@
       ? `${attrs.class} ${internalClass}`
       : internalClass
     return attrs
+    })
   })
 </script>
 
@@ -188,7 +228,9 @@
     <svelte:element this={tag.tagName} {...elementAttributes} bind:this={tagDomElement}>
       <RenderContent hostNode={node} {projectNode} {styleCatalog}
         formulaContext={retentionResult.context} evaluateRetention={false}
-        {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} {componentStack} />
+        renderRevision={scopedRenderRevision} {invalidateRuntime} {trackStateDependencies}
+        {invalidateStateDependencies}
+        {setActionError} {setStyleResult} {componentStack} />
     </svelte:element>
   {:else}
     <svelte:element this={tag.tagName} {...elementAttributes} bind:this={tagDomElement} />

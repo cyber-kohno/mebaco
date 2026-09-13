@@ -15,4 +15,11 @@ describe('ScriptPolicy', () => {
     expect(ScriptPolicy.validate('// return is documented', { forbidReturn: true }))
       .toEqual([])
   })
+
+  it('reports browser globals that are not provided by the script runtime', () => {
+    expect(ScriptPolicy.validate('document.body'))
+      .toEqual(['Mebaco script runtime does not provide document.'])
+    expect(ScriptPolicy.validate('$state.document'))
+      .toEqual([])
+  })
 })

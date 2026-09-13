@@ -154,7 +154,7 @@ namespace StyleDeclarationResolver {
   }
 
   const runtimeFormulaRoots = new Set([
-    '$args', '$event', '$fn', '$launch', '$props', '$resource', '$state',
+    '$args', '$const', '$event', '$fn', '$launch', '$props', '$resource', '$state',
     '$storage', '$system', '$transition', '$var',
   ])
 

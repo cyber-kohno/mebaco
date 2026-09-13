@@ -14,6 +14,33 @@ const node = (
 })
 
 describe('ReferenceGraph', () => {
+  it('tracks scoped $const references', () => {
+    const constant = node(5, {
+      kind: 'constant', id: 'divisions', typeSetting: { type: 'inferred' }, source: '4',
+    })
+    const state = node(10, {
+      kind: 'state', id: 'cells', valueType: { type: 'number' }, nullable: false,
+      initial: { type: 'formula', source: '$const.divisions * $const.divisions' },
+    })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(3, { kind: 'declares' }, [node(4, { kind: 'constants' }, [constant])]),
+      ]),
+      node(6, { kind: 'apps' }, [
+        node(7, { kind: 'app', appId: 'app-id', id: 'app' }, [
+          node(8, { kind: 'store' }, [node(9, { kind: 'states' }, [state])]),
+        ]),
+      ]),
+    ])
+
+    expect(ReferenceGraph.build(root, constant.id).references).toEqual([{
+      sourceNodeId: state.id,
+      sourceLabel: 'state#initial',
+      targetNodeId: constant.id,
+      targetLabel: 'constant.divisions',
+      sourceType: 'expression',
+    }])
+  })
   it('tracks Style animation references to local Keyframes by stable UUID', () => {
     const keyframes = node(4, {
       kind: 'style-keyframes', keyframesId: 'keyframes-uuid', id: 'fade', frames: [],
@@ -183,6 +210,59 @@ describe('ReferenceGraph', () => {
         targetLabel: 'loop.index',
       },
     ])
+  })
+
+  it('tracks formula dependencies from Text sources', () => {
+    const state = node(3, {
+      kind: 'state', id: 'title',
+      initial: { type: 'literal', value: 'Hello' },
+    })
+    const textNode = node(21, {
+      kind: 'text',
+      source: { type: 'formula', source: '$state.title' },
+    })
+    const root = node(1, { kind: 'project' }, [state, textNode])
+
+    expect(ReferenceGraph.build(root, state.id).references).toEqual([{
+      sourceNodeId: textNode.id,
+      sourceLabel: 'text#source',
+      targetNodeId: state.id,
+      targetLabel: 'state.title',
+      sourceType: 'expression',
+    }])
+    expect(ReferenceGraph.build(root, textNode.id).dependencies).toEqual([{
+      sourceNodeId: textNode.id,
+      targetNodeId: state.id,
+      targetLabel: 'state.title',
+    }])
+  })
+
+  it('merges Dependencies that reach the same target through separate fields', () => {
+    const state = node(3, {
+      kind: 'state', id: 'data',
+      initial: JSON.stringify({ type: 'formula', source: '0' }),
+    })
+    const tag = node(21, {
+      kind: 'tag', tagName: 'div', comment: '', styles: '[]',
+      refKey: JSON.stringify({ type: 'formula', source: '$state.data' }),
+      attributes: JSON.stringify([{
+        type: 'attribute', name: 'data-value',
+        value: { type: 'formula', source: '$state.data' },
+      }]),
+    })
+    const root = node(1, { kind: 'project' }, [state, tag])
+
+    expect(ReferenceGraph.build(root, state.id).references).toHaveLength(2)
+    expect(ReferenceGraph.build(root, tag.id).dependencies).toEqual([{
+      sourceNodeId: tag.id,
+      targetNodeId: state.id,
+      targetLabel: 'state.data',
+    }])
+    expect(ReferenceGraph.collectDependencies(root, [tag.id])).toEqual([{
+      sourceNodeId: tag.id,
+      targetNodeId: state.id,
+      targetLabel: 'state.data',
+    }])
   })
 
   it('collects App references from transition accessors', () => {
@@ -367,6 +447,11 @@ describe('ReferenceGraph', () => {
       .toEqual([
         expect.objectContaining({ sourceNodeId: otherStyle.id, targetNodeId: otherParameter.id }),
       ])
+
+    const parameterGraph = ReferenceGraph.build(root, baseParameter.id)
+    expect(parameterGraph.canHaveReferences).toBe(true)
+    expect(parameterGraph.canHaveDependencies).toBe(false)
+    expect(parameterGraph.dependencies).toEqual([])
   })
 
   it('resolves $props references only within the owning Component', () => {

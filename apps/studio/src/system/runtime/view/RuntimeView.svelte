@@ -1,8 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { SvelteMap } from 'svelte/reactivity'
   import RenderContent from '../render/RenderContent.svelte'
   import FormulaContext from '../formula/formula-context'
   import RuntimeState from '../runtime-state'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import RuntimeConstant from '../runtime-constant'
   import RuntimeTree from '../runtime-tree'
   import ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
@@ -12,6 +15,7 @@
   import RuntimeLaunch from '../runtime-launch'
   import type AppElement from '../../element/kind/app/app-element'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import RuntimePartialRegistry from '../partial/runtime-partial-registry'
   import PreviewController from '../preview/preview-controller'
   import FunctionRunner from '../function/function-runner'
   import RuntimeErrorScreen from './RuntimeErrorScreen.svelte'
@@ -35,6 +39,7 @@
   let { appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues }: Props = $props()
 
   let renderRevision = $state(0)
+  const stateRevisions = new SvelteMap<RuntimeStateDependency.Dependency, number>()
   let actionError = $state<{
     nodeId: number
     error: ScriptError.Value
@@ -63,6 +68,7 @@
     requestRender: () => invalidateRuntime(),
     reportError: (nodeId, error) => setActionError(nodeId, error),
   })
+  const runtimeInvalidate = RuntimePartialRegistry.create()
   const runtimeTransition = $derived(TransitionNamespace.create(
     projectNode,
     appNode,
@@ -74,17 +80,36 @@
   const runtimeStorage = $derived(storageSession.getNamespace(appNode))
 
   const runtime = $derived(RuntimeTree.createAppRuntime(appNode, projectNode))
+  const runtimeConstants = $derived(RuntimeConstant.create(projectNode, appNode.id))
+  const invalidateStateDependencies: RuntimeState.WriteHandler = (dependencies) => {
+    if (dependencies.length === 0) return
+    dependencies.forEach((dependency) => {
+      const revision = untrack(() => stateRevisions.get(dependency)) ?? 0
+      stateRevisions.set(dependency, revision + 1)
+    })
+  }
+  const trackStateDependencies: RuntimeStateDependency.Tracker = (evaluate) => {
+    const tracked = RuntimeStateDependency.track(evaluate)
+    tracked.dependencies.forEach((dependency) => {
+      stateRevisions.get(dependency)
+    })
+    return tracked.value
+  }
   const runtimeState = $derived(RuntimeState.createState(
     runtime,
     launchValues == null ? {} : { ...launchValues },
+    runtimeConstants.values,
+    { onWrite: invalidateStateDependencies },
   ))
   const entryComponentNode = $derived(RuntimeTree.getEntryComponentNode(runtime))
   const baseFormulaContext = $derived(FormulaContext.create({
     $state: runtimeState,
+    $const: runtimeConstants.values,
     $resource: runtimeResources,
     $storage: runtimeStorage,
     logSession,
     $system: runtimeSystem,
+    $invalidate: runtimeInvalidate,
     $transition: runtimeTransition,
     requestTransition,
     reportError: (nodeId, error) => setActionError(nodeId, error),
@@ -97,7 +122,12 @@
     launchValues,
     baseContext: baseFormulaContext,
   }))
-  const effectiveRuntimeState = $derived(RuntimeState.createState(runtime, launchResult.values))
+  const effectiveRuntimeState = $derived(RuntimeState.createState(
+    runtime,
+    launchResult.values,
+    runtimeConstants.values,
+    { onWrite: invalidateStateDependencies },
+  ))
   let entryStateFrame: {
     componentNode: TreeNode.Node
     parentState: Record<string, unknown>
@@ -117,6 +147,8 @@
       effectiveRuntimeState,
       RuntimeTree.getComponentStateNodes(entryComponentNode),
       launchResult.values,
+      runtimeConstants.values,
+      { onWrite: invalidateStateDependencies },
     )
     entryStateFrame = {
       componentNode: entryComponentNode,
@@ -133,7 +165,7 @@
       $state: effectiveRuntimeState,
       $system: runtimeSystem,
     })
-    context.$fn = FunctionRunner.createNamespace(
+    context.$fn = FunctionRunner.createAppNamespace(
       projectNode,
       appNode.id,
       context,
@@ -143,11 +175,11 @@
   const entryProps = $derived(
     entryComponentNode == null
       ? RuntimeProps.empty()
-      : RuntimeProps.resolveEntry(
+      : trackStateDependencies(() => RuntimeProps.resolveEntry(
           runtime,
           entryComponentNode,
           appFormulaContext,
-        ),
+        )),
   )
   const formulaContext = $derived.by(() => {
     const context = FormulaContext.create({
@@ -174,6 +206,13 @@
       return result.errors.map((error) => ({ nodeId, error }))
     })[0] ?? null)
   const derivedRuntimeFailure = $derived.by(() => {
+    if (runtimeConstants.errors.length > 0) {
+      const failure = runtimeConstants.errors[0]
+      return RuntimeError.fromScriptError(failure.error, {
+        nodeId: failure.nodeId,
+        elementKind: 'constant',
+      })
+    }
     if (launchResult.errors.length > 0) {
       return RuntimeError.unexpected(launchResult.errors[0], { nodeId: appNode.id })
     }
@@ -238,6 +277,7 @@
   })
 
   $effect(() => () => RuntimeRefRegistry.dispose(runtimeSystem))
+  $effect(() => () => RuntimePartialRegistry.dispose(runtimeInvalidate))
   $effect(() => {
     return resourceSession.attachRequestRender(() => invalidateRuntime())
   })
@@ -364,6 +404,7 @@
     <RenderContent hostNode={entryComponentNode} contentNodes={rootViewNodes}
       {projectNode} {styleCatalog}
       {formulaContext} {renderRevision} {invalidateRuntime}
+      {trackStateDependencies} {invalidateStateDependencies}
       {setActionError} {setStyleResult}
       componentStack={[entryComponentNode.id]} />
   {/if}

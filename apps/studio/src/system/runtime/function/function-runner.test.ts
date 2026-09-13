@@ -412,6 +412,53 @@ describe('FunctionRunner', () => {
     )()).toThrow('returned an incompatible value')
   })
 
+  it('exposes Common Functions to App and Retention runtime scopes', () => {
+    nextNodeId = 1
+    const comparePos = fn('comparePos', [], [
+      node({ kind: 'function-return', source: '1' }),
+    ])
+    const callCommon = fn('callCommon', [], [
+      node({ kind: 'function-return', source: '$fn.comparePos()' }),
+    ])
+    const appOnly = fn('appOnly', [], [
+      node({ kind: 'function-return', source: '2' }),
+    ])
+    const callApp = fn('callApp', [], [
+      node({ kind: 'function-return', source: '$fn.appOnly()' }),
+    ])
+    const root = project([callCommon, appOnly])
+    const commonFunctions = root.children
+      .find((child) => child.element.kind === 'common')
+      ?.children.find((child) => child.element.kind === 'declares')
+      ?.children.find((child) => child.element.kind === 'functions')
+    const appNode = root.children
+      .find((child) => child.element.kind === 'apps')
+      ?.children[0]
+    commonFunctions?.children.push(comparePos, callApp)
+    const context = FormulaContext.createEmpty()
+    context.$fn = FunctionRunner.createAppNamespace(
+      root,
+      appNode?.id ?? root.id,
+      context,
+    )
+
+    expect((context.$fn.comparePos as () => number)()).toBe(1)
+    expect(FunctionRunner.run(callCommon, [], context, root))
+      .toEqual({ ok: true, value: 1 })
+    expect(() => (context.$fn.callApp as () => number)())
+      .toThrow('$fn.appOnly is not a function')
+
+    const retention = node({ kind: 'retention' })
+    appNode?.children.push(retention)
+    const retentionContext = FormulaContext.create({ ...context })
+    retentionContext.$fn = FunctionRunner.createNamespace(
+      root,
+      retention.id,
+      retentionContext,
+    )
+    expect((retentionContext.$fn.comparePos as () => number)()).toBe(1)
+  })
+
   it('supports nested Function closures over the parent invocation frame', () => {
     nextNodeId = 1
     const add = fn('add', [argument('amount')], [

@@ -336,6 +336,8 @@ namespace TreeStore {
             ),
           )
         }
+      } else if (changed && parentNode?.element.kind === 'constants') {
+        verificationImpact = ExpressionVerificationImpact.all()
       }
       return changed ? nextRoot : root
     })

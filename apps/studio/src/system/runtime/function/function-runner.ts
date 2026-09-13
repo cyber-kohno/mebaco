@@ -524,6 +524,29 @@ namespace FunctionRunner {
     return namespace
   }
 
+  export const createAppNamespace = (
+    projectNode: TreeNode.Node,
+    appNodeId: number,
+    definitionContext: FormulaContext.Value,
+  ): Record<string, (...args: unknown[]) => unknown> => {
+    const commonNode = projectNode.children.find(
+      (node) => node.element.kind === 'common',
+    )
+    if (commonNode != null) {
+      const commonContext = FormulaContextValue.create({
+        ...definitionContext,
+        $fn: definitionContext.$fn,
+      })
+      commonContext.$fn = createNamespace(
+        projectNode,
+        commonNode.id,
+        commonContext,
+      )
+      definitionContext.$fn = commonContext.$fn
+    }
+    return createNamespace(projectNode, appNodeId, definitionContext)
+  }
+
   export const run = (
     functionNode: TreeNode.Node,
     argumentValues: readonly unknown[],

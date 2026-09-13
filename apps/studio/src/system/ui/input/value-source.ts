@@ -1,16 +1,11 @@
+import type ResolvableValue from '../../element/kind/shared/resolvable-value'
+
 namespace ValueSource {
   export type Value =
     | {
         type: 'default'
       }
-    | {
-        type: 'literal'
-        value: string
-      }
-    | {
-        type: 'formula'
-        source: string
-      }
+    | ResolvableValue.Value<string>
 
   export const createDefault = (): Value => ({
     type: 'default',

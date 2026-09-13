@@ -6,6 +6,7 @@ import SwitchValueType from '../../element/kind/directive/switch-value-type'
 import type TreeNode from '../../tree/tree-node'
 import ElementExpressionFields from '../../analysis/reference/element-expression-fields'
 import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
+import TagEventCatalog from '../../element/kind/view/tag/tag-event-catalog'
 
 namespace ExpressionSourceCatalog {
   export type Mode = 'expression' | 'action' | 'code'
@@ -17,6 +18,7 @@ namespace ExpressionSourceCatalog {
     expectedTypeText?: string
     allowAwait?: boolean
     functionParameters?: readonly { name: string; typeText: string }[]
+    eventType?: string
   }
 
   export type Result = {
@@ -54,6 +56,7 @@ namespace ExpressionSourceCatalog {
   ): string | undefined => {
     const key = path[0]
     const element = node.element as unknown as Record<string, unknown>
+    const constantTypeSetting = element.typeSetting as Record<string, unknown> | undefined
 
     if (
       (element.kind === 'if' || element.kind === 'else-if' || element.kind === 'control-conditional')
@@ -66,7 +69,10 @@ namespace ExpressionSourceCatalog {
     }
 
     if (element.kind === 'text' && key === 'source') return 'string'
-    if (element.kind === 'tag' && key === 'refKey') return 'string'
+    if (
+      element.kind === 'tag'
+      && (key === 'refKey' || key === 'partialKey')
+    ) return 'string'
 
     if (element.kind === 'promise' && key === 'source') {
       const resultType = element.resultType
@@ -80,12 +86,21 @@ namespace ExpressionSourceCatalog {
     }
 
     if (
-      (element.kind === 'state' || element.kind === 'variable')
-      && (key === 'initial' || (element.kind === 'variable' && key === 'source'))
-      && element.valueType != null
-      && typeof element.valueType === 'object'
+      (element.kind === 'state' || element.kind === 'variable' || element.kind === 'constant')
+      && (key === 'initial' || ((element.kind === 'variable' || element.kind === 'constant') && key === 'source'))
+      && (
+        element.kind === 'constant'
+          ? constantTypeSetting?.type === 'explicit'
+          : element.valueType != null && typeof element.valueType === 'object'
+      )
     ) {
-      return `${getTypeText(rootNode, element.valueType as TypeExpression.Expression)}${element.nullable === true ? ' | null' : ''}`
+      const valueType = element.kind === 'constant'
+        ? (element.typeSetting as { valueType: TypeExpression.Expression }).valueType
+        : element.valueType as TypeExpression.Expression
+      const nullable = element.kind === 'constant'
+        ? (element.typeSetting as { nullable: boolean }).nullable
+        : element.nullable === true
+      return `${getTypeText(rootNode, valueType)}${nullable ? ' | null' : ''}`
     }
 
     if (
@@ -195,6 +210,7 @@ namespace ExpressionSourceCatalog {
       path: readonly string[],
       mode: Mode,
       value: Record<string, unknown>,
+      eventType?: string,
     ) => {
       sources.push({
         source,
@@ -203,13 +219,18 @@ namespace ExpressionSourceCatalog {
         expectedTypeText: getExpectedTypeText(rootNode, node, path),
         allowAwait: getAllowAwait(rootNode, node, mode),
         functionParameters: getFunctionParameters(rootNode, node, mode),
+        eventType,
       })
       if (value.type === 'formula' || value.type === 'script') {
         hasExpressionField = true
       }
     }
 
-    const visit = (value: unknown, path: readonly string[]) => {
+    const visit = (
+      value: unknown,
+      path: readonly string[],
+      eventType?: string,
+    ) => {
       const fieldKey = path[path.length - 1]
       if (fieldKey != null && expressionFields.has(fieldKey)) {
         hasExpressionField = true
@@ -221,10 +242,16 @@ namespace ExpressionSourceCatalog {
         if (expressionFields.has(key)) hasExpressionField = true
         const parsed = jsonFields.has(key) ? parseJson(value) : null
         if (parsed != null) {
-          visit(parsed, path)
+          visit(parsed, path, eventType)
         } else if (expressionFields.has(key)) {
           const mode = getMode(node, { type: node.element.kind === 'action' ? 'script' : 'formula' })
-          addSource(value, path, mode, { type: mode === 'action' ? 'script' : 'formula' })
+          addSource(
+            value,
+            path,
+            mode,
+            { type: mode === 'action' ? 'script' : 'formula' },
+            eventType,
+          )
         }
         return
       }
@@ -233,7 +260,7 @@ namespace ExpressionSourceCatalog {
       visited.add(value)
 
       if (Array.isArray(value)) {
-        value.forEach((item) => visit(item, path))
+        value.forEach((item) => visit(item, path, eventType))
         return
       }
       if (!isObject(value)) return
@@ -245,8 +272,14 @@ namespace ExpressionSourceCatalog {
           : typeof value.value === 'string'
             ? value.value
             : null
-        if (source != null) addSource(source, path, getMode(node, value), value)
+        if (source != null) addSource(source, path, getMode(node, value), value, eventType)
       }
+
+      const childEventType = node.element.kind === 'tag'
+        && value.type === 'event'
+        && typeof value.name === 'string'
+        ? TagEventCatalog.getEventType(value.name, node.element.tagName)
+        : eventType
 
       Object.entries(value).forEach(([key, child]) => {
         if (key === 'id' || key === 'typeId' || key === 'referenceId') return
@@ -254,7 +287,7 @@ namespace ExpressionSourceCatalog {
           (value.type === 'formula' || value.type === 'script')
           && (key === 'source' || key === 'value')
         ) return
-        visit(child, [...path, key])
+        visit(child, [...path, key], childEventType)
       })
     }
 

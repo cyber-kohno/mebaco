@@ -14,6 +14,33 @@ const node = (
 })
 
 describe('ExpressionReferenceRenamer', () => {
+  it('renames scoped $const references', () => {
+    const constant = node(5, {
+      kind: 'constant', id: 'divisions', typeSetting: { type: 'inferred' }, source: '4',
+    })
+    const state = node(10, {
+      kind: 'state', id: 'cells', valueType: { type: 'number' }, nullable: false,
+      initial: { type: 'formula', source: '$const.divisions * 2' },
+    })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(3, { kind: 'declares' }, [node(4, { kind: 'constants' }, [constant])]),
+      ]),
+      node(6, { kind: 'apps' }, [
+        node(7, { kind: 'app', appId: 'app-id', id: 'app' }, [
+          node(8, { kind: 'store' }, [node(9, { kind: 'states' }, [state])]),
+        ]),
+      ]),
+    ])
+
+    const result = ExpressionReferenceRenamer.rename(root, constant.id, 'gridSize')
+    const nextConstant = result.rootNode.children[0].children[0].children[0].children[0]
+    const nextState = result.rootNode.children[1].children[0].children[0].children[0].children[0]
+
+    expect((nextConstant.element as { id: string }).id).toBe('gridSize')
+    expect((nextState.element as { initial: { source: string } }).initial.source)
+      .toBe('$const.gridSize * 2')
+  })
   it('renames ordered Style Local references without touching another Style', () => {
     const local = node(4, {
       kind: 'variable', id: 'value', binding: 'const',

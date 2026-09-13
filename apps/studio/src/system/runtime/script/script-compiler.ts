@@ -32,6 +32,7 @@ namespace ScriptCompiler {
     '$args',
     '$launch',
     '$state',
+    '$const',
     '$param',
     '$local',
     '$props',
@@ -44,6 +45,12 @@ namespace ScriptCompiler {
     '$event',
   ]
 
+  const getContextNames = (
+    mode: ScriptCache.Mode,
+  ): string[] => mode === 'action' || mode === 'async-action'
+    ? [...commonContextNames, '$invalidate']
+    : [...commonContextNames]
+
   const createWrappedSource = (
     mode: ScriptCache.Mode,
     source: string,
@@ -55,7 +62,7 @@ namespace ScriptCompiler {
       ? 'async '
       : ''
     if (code) {
-      const contextNames = commonContextNames.filter((name) => name !== '$args')
+      const contextNames = getContextNames(mode).filter((name) => name !== '$args')
       const parameterNames = options.parameterNames ?? []
       const bodyParameters = [...contextNames, ...parameterNames]
         .map((name) => `${name}: unknown`)
@@ -77,7 +84,7 @@ namespace ScriptCompiler {
       }
     }
     const contextNames = [
-      ...commonContextNames.filter((name) => (
+      ...getContextNames(mode).filter((name) => (
         !expression || (name !== '$resource' && name !== '$storage' && name !== '$log')
       )),
       ...(expression ? [] : ['$transition']),

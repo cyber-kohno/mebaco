@@ -3,6 +3,8 @@
   import type ScriptError from '../script/script-error'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
   import ElementDispatcher from './ElementDispatcher.svelte'
 
   type Props = {
@@ -12,6 +14,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -24,6 +28,8 @@
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
@@ -33,5 +39,6 @@
 {#each node.children as childNode (childNode.id)}
   <ElementDispatcher node={childNode} {projectNode} {styleCatalog}
     {formulaContext} {renderRevision} {invalidateRuntime}
+    {trackStateDependencies} {invalidateStateDependencies}
     {setActionError} {setStyleResult} {componentStack} />
 {/each}

@@ -9,6 +9,7 @@
     expectedTypeText?: string
     allowAwait?: boolean
     functionParameters?: readonly MonacoInjection.FunctionParameter[]
+    fillAvailable?: boolean
   }
 
   let {
@@ -18,6 +19,7 @@
     expectedTypeText,
     allowAwait = false,
     functionParameters = [],
+    fillAvailable = false,
   }: Props = $props()
 </script>
 
@@ -30,5 +32,6 @@
   {expectedTypeText}
   {allowAwait}
   {functionParameters}
+  {fillAvailable}
   {onValueChange}
 />

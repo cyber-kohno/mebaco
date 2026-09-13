@@ -10,6 +10,7 @@
   import TagStyleMonitorEditor from '../../runtime/style/TagStyleMonitorEditor.svelte'
   import TagAttributesEditor from '../../element/kind/view/tag/TagAttributesEditor.svelte'
   import TagRefKeyEditor from '../../element/kind/view/tag/TagRefKeyEditor.svelte'
+  import TagPartialKeyEditor from '../../element/kind/view/tag/TagPartialKeyEditor.svelte'
   import ColorSwatch from '../../ui/color/ColorSwatch.svelte'
   import FormulaField from '../../ui/formula/FormulaField.svelte'
   import ActionField from '../../ui/script/ActionField.svelte'
@@ -39,6 +40,7 @@
   import ConfirmDialogController from '../../feedback/confirm/confirm-dialog-controller'
   import BundleDefinitionEditor from '../../element/kind/release/BundleDefinitionEditor.svelte'
   import StyleKeyframesEditor from '../../element/kind/view/style/StyleKeyframesEditor.svelte'
+  import TextSourceEditor from '../../element/kind/view/text/TextSourceEditor.svelte'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -138,6 +140,8 @@
         return ElementEditSchema.validateScript(field, value)
       case 'code':
         return ElementEditSchema.validateCode(field, value)
+      case 'textSource':
+        return ElementEditSchema.validateTextSource(field, value)
       case 'valueSource':
         return ElementEditSchema.validateValueSource(field, value, values)
       case 'valueType':
@@ -166,6 +170,11 @@
         return ElementEditSchema.validateTagAttributes(value)
       case 'tagRefKey':
         return ElementEditSchema.validateTagRefKey(
+          value,
+          getInjectionSource('expression'),
+        )
+      case 'tagPartialKey':
+        return ElementEditSchema.validateTagPartialKey(
           value,
           getInjectionSource('expression'),
         )
@@ -379,6 +388,7 @@
         || field.type === 'storageImports'
         || field.type === 'resourceBindings'
         || field.type === 'bundleDefinition'
+        || field.type === 'code'
       ))}
     >
       <h2>{title}</h2>
@@ -406,6 +416,23 @@
         {@const issue = touched[field.key] === true && error != null ? ValidationIssue.fromMessage(error) : null}
         {#if field.type === 'heading'}
           <div class="field-heading">{field.label}</div>
+        {:else if field.type === 'textSource'}
+          <div class="field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <TextSourceEditor
+              value={values[field.key] ?? field.defaultValue ?? ''}
+              injectionSource={getInjectionSource('expression')}
+              maxLiteralLength={field.maxLiteralLength}
+              errorMessage={touched[field.key] === true ? error : null}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
         {:else if field.type === 'styleProps'}
           <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
             <span class="field-label">
@@ -519,6 +546,7 @@
             </span>
             <TagAttributesEditor
               value={values[field.key] ?? '[]'}
+              tagName={values[field.tagNameKey] ?? ''}
               formulaInjectionSource={getInjectionSource('expression')}
               getActionInjectionSource={(eventType) => getInjectionSource('action', eventType)}
               onValueChange={(nextValue) => {
@@ -534,6 +562,22 @@
               {#if issue != null}<FieldValidationIndicator {issue} />{/if}
             </span>
             <TagRefKeyEditor
+              value={values[field.key] ?? ''}
+              injectionSource={getInjectionSource('expression')}
+              errorMessage={touched[field.key] === true ? error : null}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'tagPartialKey'}
+          <div class="field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <TagPartialKeyEditor
               value={values[field.key] ?? ''}
               injectionSource={getInjectionSource('expression')}
               errorMessage={touched[field.key] === true ? error : null}
@@ -761,7 +805,7 @@
             />
           </div>
         {:else if field.type === 'code'}
-          <div class="field" data-validation-severity={issue?.severity}>
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
             <span class="field-label">
               {field.label}
               {#if issue != null}<FieldValidationIndicator {issue} />{/if}
@@ -772,6 +816,7 @@
               expectedTypeText={field.getExpectedTypeText(values)}
               functionParameters={field.getFunctionParameters(values)}
               allowAwait={getAllowAwait(field)}
+              fillAvailable
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

@@ -22,6 +22,7 @@ import type DevelopInteractionMode from '../../area/develop/interaction/develop-
 import RetentionElement from '../../element/kind/component/definition/retention-element'
 import StyleElement from '../../element/kind/view/style/style-element'
 import type TreeNode from '../tree-node'
+import TreeTransferValidator from '../transfer/tree-transfer-validator'
 import TreeDestinationOperation from './tree-destination-operation'
 
 const node = (
@@ -54,6 +55,7 @@ describe('TreeDestinationOperation', () => {
     expect(plan.selectedNodeId).toBe(copied.id)
     expect(plan.preserveVerificationNodeIds).toEqual([])
     expect(plan.invalidateVerification).toBe(false)
+    expect(plan.warnings).toEqual([])
   })
 
   it('moves a Style through the shared destination transaction without requesting a name', async () => {
@@ -86,6 +88,7 @@ describe('TreeDestinationOperation', () => {
     expect(plan.selectedNodeId).toBe(source.id)
     expect(plan.preserveVerificationNodeIds).toEqual([])
     expect(plan.invalidateVerification).toBe(true)
+    expect(plan.warnings).toEqual([])
   })
 
   it('copies a Tag without requesting or assigning a name', async () => {
@@ -174,6 +177,58 @@ describe('TreeDestinationOperation', () => {
     })
     expect(plan.selectedNodeId).toBe(source.id)
     expect(plan.invalidateVerification).toBe(true)
+  })
+
+  it('returns expression reference and verification problems as Move warnings', async () => {
+    const source = node(3, StyleElement.create('card', [], [], 'style-id'))
+    const styles = node(2, { kind: 'styles' }, [source])
+    const destination = node(4, RetentionElement.create())
+    const root = node(1, { kind: 'project' }, [styles, destination])
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: source.id,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: destination.id,
+    }
+    vi.mocked(TreeTransferValidator.validateMoveReferenceTargets)
+      .mockImplementation((_previous, _candidate, sourceType) => (
+        sourceType === 'expression' ? 'The expression reference target would change.' : null
+      ))
+    vi.mocked(TreeTransferValidator.validateMoveExpressionScope)
+      .mockResolvedValueOnce('The moved expression is invalid in this scope.')
+
+    const plan = await TreeDestinationOperation.createPlan(root, session, '')
+
+    expect(plan.warnings).toEqual([
+      'The expression reference target would change.',
+      'The moved expression is invalid in this scope.',
+    ])
+  })
+
+  it('still rejects a Move that changes a structural reference target', async () => {
+    const source = node(3, StyleElement.create('card', [], [], 'style-id'))
+    const styles = node(2, { kind: 'styles' }, [source])
+    const destination = node(4, RetentionElement.create())
+    const root = node(1, { kind: 'project' }, [styles, destination])
+    const session: DevelopInteractionMode.DestinationTransaction = {
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: source.id,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: destination.id,
+    }
+    vi.mocked(TreeTransferValidator.validateMoveReferenceTargets)
+      .mockImplementationOnce((_previous, _candidate, sourceType) => (
+        sourceType === 'structural' ? 'A structural reference would change.' : null
+      ))
+
+    await expect(TreeDestinationOperation.createPlan(root, session, ''))
+      .rejects.toThrow('A structural reference would change.')
   })
 
   it('leaves Extract signature naming to the developer', () => {

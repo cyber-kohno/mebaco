@@ -13,6 +13,8 @@
 import type SlotContentElement from '../../element/kind/component/reference/slot/slot-content-element'
 import type SlotElement from '../../element/kind/component/definition/slot/slot-element'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import RuntimePartialRegistry from '../partial/runtime-partial-registry'
 
   type Props = {
     node: TreeNode.Node
@@ -21,6 +23,8 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     formulaContext: FormulaContextType.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptErrorType.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -33,18 +37,27 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
   }: Props = $props()
 
-  const stateFrames = new WeakMap<TreeNode.Node, FormulaContextType.Value['$state']>()
+  let stateFrame: {
+    componentNode: TreeNode.Node
+    parentState: FormulaContextType.Value['$state']
+    launchValues: FormulaContextType.Value['$launch']
+    state: FormulaContextType.Value['$state']
+  } | null = null
   const componentSystem = RuntimeRefRegistry.createSystem({
     requestRender: () => invalidateRuntime(),
     reportError: (nodeId, error) => setActionError(nodeId, error),
   })
+  const componentInvalidate = RuntimePartialRegistry.create()
 
   $effect(() => () => RuntimeRefRegistry.dispose(componentSystem))
+  $effect(() => () => RuntimePartialRegistry.dispose(componentInvalidate))
 
   const componentUse = $derived(RuntimeTree.isComponentUseNode(node) ? node.element : null)
   const componentNode = $derived(
@@ -59,6 +72,7 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
   )
   const propsResult = $derived.by(() => {
     renderRevision
+    return trackStateDependencies(() => {
     if (componentUse == null || componentNode == null || recursiveError != null) {
       return RuntimeProps.empty()
     }
@@ -68,6 +82,7 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
       formulaContext,
       projectNode,
     )
+    })
   })
   const nextContext = $derived(FormulaContext.create({
     ...formulaContext,
@@ -94,21 +109,33 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
   })
   const componentState = $derived.by(() => {
     if (componentNode == null) return formulaContext.$state
-    const existing = stateFrames.get(componentNode)
-    if (existing != null) return existing
+    if (
+      stateFrame?.componentNode === componentNode
+      && stateFrame.parentState === formulaContext.$state
+      && stateFrame.launchValues === formulaContext.$launch
+    ) return stateFrame.state
+
     const created = RuntimeState.createComponentState(
       projectNode,
       formulaContext.$state,
       RuntimeTree.getComponentStateNodes(componentNode),
       formulaContext.$launch,
+      formulaContext.$const,
+      { onWrite: invalidateStateDependencies },
     )
-    stateFrames.set(componentNode, created)
+    stateFrame = {
+      componentNode,
+      parentState: formulaContext.$state,
+      launchValues: formulaContext.$launch,
+      state: created,
+    }
     return created
   })
   const componentContext = $derived(FormulaContext.create({
     ...nextContext,
     $state: componentState,
     $system: componentSystem,
+    $invalidate: componentInvalidate,
   }))
   const error = $derived.by(() => {
     if (componentUse?.componentId == null) {
@@ -139,6 +166,8 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     formulaContext={componentContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {slotContents}

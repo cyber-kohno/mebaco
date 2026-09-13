@@ -21,11 +21,17 @@
     : element.refKey.type === 'literal'
       ? element.refKey.value
       : `ƒ ${element.refKey.source}`)
+  const partialKeyText = $derived(element.partialKey == null
+    ? null
+    : element.partialKey.type === 'literal'
+      ? element.partialKey.value
+      : `ƒ ${element.partialKey.source}`)
   const hasDetails = $derived(
     element.comment.length > 0
     || styleNames.length > 0
     || attributeNames.length > 0
-    || refKeyText != null,
+    || refKeyText != null
+    || partialKeyText != null,
   )
 </script>
 
@@ -56,6 +62,9 @@
       {/if}
       {#if refKeyText != null}
         <span class="tag-ref">ref: {refKeyText}</span>
+      {/if}
+      {#if partialKeyText != null}
+        <span class="tag-ref">partial: {partialKeyText}</span>
       {/if}
     </span>
   {/if}

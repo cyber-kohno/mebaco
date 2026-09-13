@@ -129,6 +129,30 @@ describe('LoopReferenceRefactor', () => {
     })).toThrow(LoopReferenceRefactor.ReferenceCaptureError)
   })
 
+  it('allows a new Item Id to resolve an already unresolved reference', () => {
+    const child = node(3, { kind: 'if', condition: '$var.cell != null' })
+    const previous: LoopElement.CollectionElement = {
+      kind: 'loop',
+      mode: 'collection',
+      collectionSource: '[]',
+      itemId: 'item',
+      indexId: 'index',
+    }
+    const loop = node(2, previous, [child])
+    const root = node(1, { kind: 'project' }, [loop])
+
+    const plan = LoopReferenceRefactor.plan(root, loop.id, previous, {
+      ...previous,
+      itemId: 'cell',
+    })
+
+    expect((findNode(plan.rootNode, child.id)?.element as { condition: string }).condition)
+      .toBe('$var.cell != null')
+    expect(plan.changedNodeIds).toEqual([])
+    expect(plan.updatedOccurrenceCount).toBe(0)
+    expect(plan.verificationReset).toBe(true)
+  })
+
   it('does not rewrite a nested Loop variable with the same Id', () => {
     const nestedChild = node(5, { kind: 'if', condition: '$var.item != null' })
     const nestedLoop = node(4, {

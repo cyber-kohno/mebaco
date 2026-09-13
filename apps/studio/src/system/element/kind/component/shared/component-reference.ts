@@ -1,9 +1,8 @@
 import type ValuePropElement from '../definition/value-prop-element'
+import type ResolvableValue from '../../shared/resolvable-value'
 
 namespace ComponentReference {
-  export type ValueBindingSource =
-    | { type: 'literal'; value: string }
-    | { type: 'formula'; source: string }
+  export type ValueBindingSource = ResolvableValue.Value<string>
 
   export type ValueBinding = {
     propId: string

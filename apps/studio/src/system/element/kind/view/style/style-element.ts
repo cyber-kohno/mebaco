@@ -1,5 +1,6 @@
 import type ElementDefinition from '../../../element-definition'
 import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
+import type ResolvableValue from '../../shared/resolvable-value'
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import StyleTreeLabel from './StyleTreeLabel.svelte'
@@ -23,17 +24,9 @@ namespace StyleElement {
     bases: Base[]
   }
 
-  export type FormulaSource = {
-    type: 'formula'
-    source: string
-  }
+  export type FormulaSource = ResolvableValue.Formula
 
-  export type ParameterValue =
-    | {
-        type: 'literal'
-        value: string | number | boolean
-      }
-    | FormulaSource
+  export type ParameterValue = ResolvableValue.Value<string | number | boolean>
 
   export type ArgumentBinding =
     | {
@@ -72,12 +65,7 @@ namespace StyleElement {
 
   export type Rule = DeclarationRule | StateRule
 
-  export type StyleValue =
-    | {
-        type: 'literal'
-        value: string
-      }
-    | FormulaSource
+  export type StyleValue = ResolvableValue.Value<string>
 
   export type DeclarationRule = {
     type: 'declaration'

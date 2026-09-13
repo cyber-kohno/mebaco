@@ -4,6 +4,8 @@
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
   import ConditionalResolver from '../conditional/conditional-resolver'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
   import RenderContent from './RenderContent.svelte'
 
   type Props = {
@@ -13,6 +15,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -25,6 +29,8 @@
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
@@ -32,7 +38,7 @@
 
   const result = $derived.by(() => {
     renderRevision
-    return ConditionalResolver.resolve(node, formulaContext)
+    return trackStateDependencies(() => ConditionalResolver.resolve(node, formulaContext))
   })
 
   $effect(() => {
@@ -44,5 +50,7 @@
 
 {#if result.branchNode != null}
   <RenderContent hostNode={result.branchNode} {projectNode} {styleCatalog} {formulaContext}
-    {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult} {componentStack} />
+    {renderRevision} {invalidateRuntime} {trackStateDependencies}
+    {invalidateStateDependencies}
+    {setActionError} {setStyleResult} {componentStack} />
 {/if}

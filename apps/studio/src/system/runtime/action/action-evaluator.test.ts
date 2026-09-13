@@ -5,6 +5,27 @@ import ActionEvaluator from './action-evaluator'
 import RuntimeLog from '../log/runtime-log'
 
 describe('ActionEvaluator transition scope', () => {
+  it('exposes Partial invalidation to Actions but not expressions', () => {
+    const invalidate = vi.fn()
+    const context = FormulaContext.create({ $invalidate: invalidate })
+
+    const actionResult = ActionEvaluator.executeScript(
+      "$invalidate('task-3')",
+      context,
+    )
+    const expressionResult = FormulaEvaluator.evaluateExpression(
+      "$invalidate('task-3')",
+      context,
+    )
+
+    expect(actionResult.ok).toBe(true)
+    expect(invalidate).toHaveBeenCalledWith('task-3')
+    expect(expressionResult.ok).toBe(false)
+    if (!expressionResult.ok) {
+      expect(expressionResult.message).toContain('$invalidate is not defined')
+    }
+  })
+
   it('exposes the transition namespace to Actions', () => {
     const transition = vi.fn()
     const context = FormulaContext.create({

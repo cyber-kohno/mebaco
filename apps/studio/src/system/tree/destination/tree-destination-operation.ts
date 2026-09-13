@@ -20,6 +20,7 @@ namespace TreeDestinationOperation {
     selectedNodeId: number
     preserveVerificationNodeIds: readonly number[]
     invalidateVerification: boolean
+    warnings: readonly string[]
   }
 
   export const getPresentation = (
@@ -157,6 +158,7 @@ namespace TreeDestinationOperation {
         selectedNodeId: plan.copiedNodeId,
         preserveVerificationNodeIds: [],
         invalidateVerification: false,
+        warnings: [],
       }
     }
 
@@ -172,22 +174,30 @@ namespace TreeDestinationOperation {
         plan.movedNodeId,
       )
       if (structureError != null) throw new Error(structureError)
-      const referenceError = TreeTransferValidator.validateMoveReferenceTargets(
+      const structuralReferenceError = TreeTransferValidator.validateMoveReferenceTargets(
         previousRoot,
         plan.rootNode,
+        'structural',
       )
-      if (referenceError != null) throw new Error(referenceError)
+      if (structuralReferenceError != null) throw new Error(structuralReferenceError)
+      const referenceWarning = TreeTransferValidator.validateMoveReferenceTargets(
+        previousRoot,
+        plan.rootNode,
+        'expression',
+      )
       const expressionError = await TreeTransferValidator.validateMoveExpressionScope(
         previousRoot,
         plan.rootNode,
         plan.movedNodeId,
       )
-      if (expressionError != null) throw new Error(expressionError)
       return {
         rootNode: plan.rootNode,
         selectedNodeId: plan.movedNodeId,
         preserveVerificationNodeIds: [],
         invalidateVerification: true,
+        warnings: [referenceWarning, expressionError].filter(
+          (warning): warning is string => warning != null,
+        ),
       }
     }
 
@@ -202,6 +212,7 @@ namespace TreeDestinationOperation {
       selectedNodeId: plan.signatureNodeId,
       preserveVerificationNodeIds: [plan.functionNodeId],
       invalidateVerification: false,
+      warnings: [],
     }
   }
 }

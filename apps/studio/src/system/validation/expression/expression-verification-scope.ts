@@ -3,6 +3,7 @@ import type TreeNode from '../../tree/tree-node'
 import StateScope from '../../element/kind/variable/store/state-scope'
 import ExpressionSourceCatalog from './expression-source-catalog'
 import StyleLocalScope from '../../element/kind/view/style/style-local-scope'
+import ConstantScope from '../../element/kind/declare/constant-scope'
 
 namespace ExpressionVerificationScope {
   const findNode = (
@@ -58,6 +59,20 @@ namespace ExpressionVerificationScope {
         .filter((candidate) => (
           candidate.id !== definitionNodeId
           && StateScope.resolve(
+            rootNode,
+            candidate.id,
+            definitionId,
+          )?.node.id === definitionNodeId
+        ))
+        .map((candidate) => candidate.id)
+    }
+
+    if (definitionNode.element.kind === 'constant') {
+      const definitionId = definitionNode.element.id
+      return collectCandidates(rootNode)
+        .filter((candidate) => (
+          candidate.id !== definitionNodeId
+          && ConstantScope.resolve(
             rootNode,
             candidate.id,
             definitionId,

@@ -10,6 +10,7 @@ import TagTreeLabel from './TagTreeLabel.svelte'
 import TreeStore from '../../../../store/tree-store'
 import type StyleElement from '../style/style-element'
 import StyleParameterCatalog from '../style/style-parameter-catalog'
+import type ResolvableValue from '../../shared/resolvable-value'
 
 namespace TagElement {
   export type Kind = 'tag'
@@ -21,19 +22,14 @@ namespace TagElement {
     tagName: TagName
     comment: string
     refKey?: RefKey
+    partialKey?: PartialKey
     styles: StyleApplication[]
     attributes: Attribute[]
   }
 
-  export type RefKey =
-    | {
-      type: 'literal'
-      value: string
-    }
-    | {
-      type: 'formula'
-      source: string
-    }
+  export type RefKey = ResolvableValue.Value<string>
+
+  export type PartialKey = RefKey
 
   export type StyleArgumentBinding = Exclude<
     StyleElement.ArgumentBinding,
@@ -81,14 +77,7 @@ namespace TagElement {
     | {
       type: 'empty'
     }
-    | {
-      type: 'literal'
-      value: string
-    }
-    | {
-      type: 'formula'
-      source: string
-    }
+    | ResolvableValue.Value<string>
     | {
       type: 'boolean'
       value: boolean
@@ -105,11 +94,13 @@ namespace TagElement {
     styles: StyleApplication[] = [],
     attributes: Attribute[] = [],
     refKey?: RefKey,
+    partialKey?: PartialKey,
   ): Element => ({
     kind: 'tag',
     tagName,
     comment,
     ...(refKey == null ? {} : { refKey }),
+    ...(partialKey == null ? {} : { partialKey }),
     styles,
     attributes,
   })
@@ -133,6 +124,10 @@ namespace TagElement {
     }
     return undefined
   }
+
+  export const parsePartialKey = (
+    source: string,
+  ): PartialKey | undefined => parseRefKey(source)
 
   const parseTagName = (value: string): TagName => {
     if (TagCatalog.isTagName(value)) return value
@@ -182,6 +177,13 @@ namespace TagElement {
         defaultValue: '',
       },
       {
+        type: 'tagPartialKey',
+        tab: 'info',
+        key: 'partialKey',
+        label: 'Partial',
+        defaultValue: '',
+      },
+      {
         type: 'styleApplications',
         tab: 'style',
         key: 'styles',
@@ -208,6 +210,7 @@ namespace TagElement {
         key: 'attributes',
         label: 'Attributes',
         defaultValue: '[]',
+        tagNameKey: 'tagName',
       },
     ],
     createPreview: () => create('div', '...'),
@@ -215,6 +218,7 @@ namespace TagElement {
       tagName: element.tagName,
       comment: element.comment,
       refKey: element.refKey == null ? '' : JSON.stringify(element.refKey),
+      partialKey: element.partialKey == null ? '' : JSON.stringify(element.partialKey),
       styles: JSON.stringify(element.styles),
       attributes: JSON.stringify(element.attributes ?? []),
     }),
@@ -224,15 +228,22 @@ namespace TagElement {
       parseStyleApplications(values.styles),
       parseAttributes(values.attributes),
       parseRefKey(values.refKey ?? ''),
+      parsePartialKey(values.partialKey ?? ''),
     ),
     update: (element, values) => {
-      const { refKey: _currentRefKey, ...base } = element
+      const {
+        refKey: _currentRefKey,
+        partialKey: _currentPartialKey,
+        ...base
+      } = element
       const refKey = parseRefKey(values.refKey ?? '')
+      const partialKey = parsePartialKey(values.partialKey ?? '')
       return {
         ...base,
         tagName: parseTagName(values.tagName),
         comment: values.comment,
         ...(refKey == null ? {} : { refKey }),
+        ...(partialKey == null ? {} : { partialKey }),
         styles: parseStyleApplications(values.styles),
         attributes: parseAttributes(values.attributes),
       }

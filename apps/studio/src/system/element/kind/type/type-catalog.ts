@@ -510,6 +510,14 @@ namespace TypeCatalog {
           node.element.typeSetting.valueType,
         ).includes(objectTypeId)
       }
+      if (
+        node.element.kind === 'constant'
+        && node.element.typeSetting.type === 'explicit'
+      ) {
+        referenced ||= TypeExpression.getReferenceIds(
+          node.element.typeSetting.valueType,
+        ).includes(objectTypeId)
+      }
       if (!referenced) node.children.forEach(visit)
     }
     visit(rootNode)
@@ -564,6 +572,14 @@ namespace TypeCatalog {
       }
       if (
         node.element.kind === 'variable'
+        && node.element.typeSetting.type === 'explicit'
+      ) {
+        referenced ||= TypeExpression.getNamedTypeIds(
+          node.element.typeSetting.valueType,
+        ).includes(namedTypeId)
+      }
+      if (
+        node.element.kind === 'constant'
         && node.element.typeSetting.type === 'explicit'
       ) {
         referenced ||= TypeExpression.getNamedTypeIds(

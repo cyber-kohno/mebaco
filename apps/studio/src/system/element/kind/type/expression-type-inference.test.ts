@@ -39,4 +39,17 @@ describe('ExpressionTypeInference.validateExpectedType', () => {
       true,
     )).toBe('Expression must return number.')
   })
+
+  it('uses the standard ES2020 library for array methods', () => {
+    const source = [
+      '(() => {',
+      '  const rows: number[][] = [];',
+      '  rows.push([]);',
+      '  return rows;',
+      '})()',
+    ].join('\n')
+
+    expect(ExpressionTypeInference.validateExpectedType('', source, 'number[][]'))
+      .toBeNull()
+  })
 })

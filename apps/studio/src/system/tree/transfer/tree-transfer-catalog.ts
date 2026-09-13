@@ -16,6 +16,9 @@ namespace TreeTransferCatalog {
     | 'function'
     | 'component'
     | 'tag'
+    | 'loop'
+    | 'conditional'
+    | 'switch'
 
   export type MovableKind =
     | 'style'
@@ -25,6 +28,9 @@ namespace TreeTransferCatalog {
     | 'function'
     | 'component'
     | 'tag'
+    | 'loop'
+    | 'conditional'
+    | 'switch'
 
   export type TransferableElement = Extract<
     MebacoElement.Element,
@@ -46,6 +52,9 @@ namespace TreeTransferCatalog {
     'function',
     'component',
     'tag',
+    'loop',
+    'conditional',
+    'switch',
   ])
 
   const movableKinds = new Set<MebacoElement.Kind>([
@@ -56,6 +65,9 @@ namespace TreeTransferCatalog {
     'function',
     'component',
     'tag',
+    'loop',
+    'conditional',
+    'switch',
   ])
 
   export const isTransferableKind = (
@@ -98,7 +110,7 @@ namespace TreeTransferCatalog {
 
   const isTypeKind = (
     kind: MebacoElement.Kind,
-  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag'> => (
+  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag' | 'loop' | 'conditional' | 'switch'> => (
     kind === 'object-type'
     || kind === 'union-type'
     || kind === 'signature-type'
@@ -137,7 +149,12 @@ namespace TreeTransferCatalog {
       return destinationNode.element.kind === 'bundles'
     }
 
-    if (sourceKind === 'tag') {
+    if (
+      sourceKind === 'tag'
+      || sourceKind === 'loop'
+      || sourceKind === 'conditional'
+      || sourceKind === 'switch'
+    ) {
       return ContentPlacement.canAcceptViewChild(rootNode, destinationNode)
     }
 
@@ -206,6 +223,9 @@ namespace TreeTransferCatalog {
       && sourceNode.element.kind !== 'function'
       && sourceNode.element.kind !== 'component'
       && sourceNode.element.kind !== 'tag'
+      && sourceNode.element.kind !== 'loop'
+      && sourceNode.element.kind !== 'conditional'
+      && sourceNode.element.kind !== 'switch'
       && !isTypeKind(sourceNode.element.kind)
     ) return false
     return canContainKind(rootNode, destinationNode, sourceNode.element.kind)
@@ -270,6 +290,9 @@ namespace TreeTransferCatalog {
     sourceKind: TransferableKind,
     name: string,
   ): string | null => sourceKind === 'tag'
+    || sourceKind === 'loop'
+    || sourceKind === 'conditional'
+    || sourceKind === 'switch'
     ? null
     : ElementEditSchema.validateText({
       type: 'text',
@@ -291,6 +314,9 @@ namespace TreeTransferCatalog {
   export const requiresName = (
     kind: TransferableKind,
   ): boolean => kind !== 'tag'
+    && kind !== 'loop'
+    && kind !== 'conditional'
+    && kind !== 'switch'
 
   export const getInsertIndex = (
     _destinationNode: TreeNode.Node,

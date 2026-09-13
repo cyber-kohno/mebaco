@@ -5,6 +5,7 @@ import type DevelopInteractionMode from '../../area/develop/interaction/develop-
 import { developInteractionStore } from '../../area/develop/interaction/develop-interaction-store'
 import TreeStore from '../../store/tree-store'
 import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
+import ConfirmDialogController from '../../feedback/confirm/confirm-dialog-controller'
 import TreeNode from '../tree-node'
 import TreeTransferCatalog from '../transfer/tree-transfer-catalog'
 import TreeDestinationActionId from './tree-destination-action-id'
@@ -14,6 +15,7 @@ namespace TreeDestinationController {
   export type CommitResult = {
     ok: boolean
     error?: string
+    cancelled?: boolean
   }
 
   const insertBeforeDelete = (
@@ -188,6 +190,21 @@ namespace TreeDestinationController {
     try {
       const previousRoot = get(TreeStore.rootNode)
       const plan = await TreeDestinationOperation.createPlan(previousRoot, mode, name)
+      if (plan.warnings.length > 0) {
+        const confirmed = await ConfirmDialogController.open({
+          tone: 'warning',
+          title: 'Move with expression errors?',
+          message: [
+            ...plan.warnings,
+            'The move can be saved, but affected expressions may need to be repaired and verified.',
+          ],
+          choices: [
+            { label: 'Cancel', role: 'cancel' },
+            { label: 'Move Anyway', role: 'proceed' },
+          ],
+        })
+        if (!confirmed) return { ok: false, cancelled: true }
+      }
       const entries = get(ExpressionVerificationStore.entries)
       const preserved = plan.preserveVerificationNodeIds.flatMap((nodeId) => {
         const node = TreeNode.findNode(previousRoot, nodeId)

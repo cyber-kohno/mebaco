@@ -3,98 +3,63 @@ import type ElementEditSchema from '../../../../element-dialog/element-edit-sche
 import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import TextTreeLabel from './TextTreeLabel.svelte'
+import ResolvableValue from '../../shared/resolvable-value'
 
 namespace TextElement {
   export type Kind = 'text'
 
-  export type Source =
-    | {
-      type: 'plain'
-      value: string
-    }
-    | {
-      type: 'formula'
-      value: string
-    }
+  export type Source = ResolvableValue.Value<string>
 
   export type Element = {
     kind: Kind
     source: Source
   }
 
-  export const createPlain = (
+  export const createLiteral = (
     value: string,
   ): Element => ({
     kind: 'text',
-    source: {
-      type: 'plain',
-      value,
-    },
+    source: ResolvableValue.createLiteral(value),
   })
 
   export const createFormula = (
-    value: string,
+    source: string,
   ): Element => ({
     kind: 'text',
-    source: {
-      type: 'formula',
-      value,
-    },
+    source: ResolvableValue.createFormula(source),
   })
+
+  export const parseSource = (source: string): Source | null => (
+    ResolvableValue.parseJson(source, (value): value is string => typeof value === 'string')
+  )
+
+  export const stringifySource = (source: Source): string => ResolvableValue.stringify(source)
 
   export const createSchema = (): ElementEditSchema.Schema<Element> => ({
     createTitle: 'Create Text',
     updateTitle: 'Update Text',
     fields: [
       {
-        type: 'select',
-        key: 'sourceType',
-        label: 'Source',
-        required: true,
-        defaultValue: 'plain',
-        options: [
-          { value: 'plain', label: 'Plain text' },
-          { value: 'formula', label: 'Formula' },
-        ],
-      },
-      {
-        type: 'text',
-        key: 'plainValue',
+        type: 'textSource',
+        key: 'source',
         label: 'Text',
-        charset: 'any',
-        maxLength: 200,
-        visibleWhen: {
-          key: 'sourceType',
-          value: 'plain',
-        },
-      },
-      {
-        type: 'formula',
-        key: 'formulaValue',
-        label: 'Formula',
-        maxLength: 4000,
-        visibleWhen: {
-          key: 'sourceType',
-          value: 'formula',
-        },
+        defaultValue: stringifySource(ResolvableValue.createLiteral('')),
+        maxLiteralLength: 200,
+        maxFormulaLength: 4000,
       },
     ],
-    createPreview: () => createPlain('...'),
+    createPreview: () => createLiteral('...'),
     getInitialValues: (element) => ({
-      sourceType: element.source.type,
-      plainValue: element.source.type === 'plain' ? element.source.value : '',
-      formulaValue: element.source.type === 'formula' ? element.source.value : '',
+      source: stringifySource(element.source),
     }),
-    create: (values) => (
-      values.sourceType === 'formula'
-        ? createFormula(values.formulaValue)
-        : createPlain(values.plainValue)
-    ),
-    update: (_element, values) => (
-      values.sourceType === 'formula'
-        ? createFormula(values.formulaValue)
-        : createPlain(values.plainValue)
-    ),
+    create: (values) => ({
+      kind: 'text',
+      source: parseSource(values.source) ?? ResolvableValue.createLiteral(''),
+    }),
+    update: (element, values) => ({
+      ...element,
+      source: parseSource(values.source) ?? element.source,
+    }),
   })
 
   export const definition = {

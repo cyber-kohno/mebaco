@@ -5,6 +5,8 @@
   import type TreeNode from '../../tree/tree-node'
   import RenderLoopIteration from './RenderLoopIteration.svelte'
   import LoopResolver from '../loop/loop-resolver'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
 
   type Props = {
     node: TreeNode.Node
@@ -13,6 +15,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -25,6 +29,8 @@
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
@@ -32,7 +38,7 @@
 
   const result = $derived.by(() => {
     renderRevision
-    return LoopResolver.resolve(node, formulaContext)
+    return trackStateDependencies(() => LoopResolver.resolve(node, formulaContext))
   })
 
   $effect(() => {
@@ -46,5 +52,6 @@
   <RenderLoopIteration loopNodeId={node.id} iterationIndex={iteration.index}
     {node} {projectNode} {styleCatalog}
     formulaContext={iteration.context} {renderRevision} {invalidateRuntime}
+    {trackStateDependencies} {invalidateStateDependencies}
     {setActionError} {setStyleResult} {componentStack} />
 {/each}

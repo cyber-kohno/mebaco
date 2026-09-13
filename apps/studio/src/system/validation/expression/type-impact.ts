@@ -35,6 +35,12 @@ namespace TypeImpact {
                 typeSetting: element.typeSetting,
               },
         )
+      case 'constant':
+        return stringify(
+          element.typeSetting.type === 'inferred'
+            ? { typeSetting: element.typeSetting, source: element.source }
+            : { typeSetting: element.typeSetting },
+        )
       case 'function':
         return stringify({
           id: element.id,

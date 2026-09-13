@@ -7,15 +7,19 @@
 
   let { element }: Props = $props()
 
-  const plainPreview = $derived(element.source.value)
+  const literalPreview = $derived(
+    element.source.type === 'literal' ? element.source.value : '',
+  )
   const formulaPreview = $derived.by(() => {
-    const source = element.source.value.replace(/\s*\r?\n\s*/g, ' ')
+    const source = element.source.type === 'formula'
+      ? element.source.source.replace(/\s*\r?\n\s*/g, ' ')
+      : ''
     return source.length > 32 ? `${source.slice(0, 32)}...` : source
   })
   const hasValue = $derived(
     element.source.type === 'formula'
       ? formulaPreview.length > 0
-      : plainPreview.length > 0,
+      : literalPreview.length > 0,
   )
 </script>
 
@@ -29,7 +33,7 @@
         <span class="formula-return">return</span>
         <span>{formulaPreview}</span>
       {:else}
-        <span>{plainPreview}</span>
+        <span>{literalPreview}</span>
       {/if}
     </span>
   {/if}

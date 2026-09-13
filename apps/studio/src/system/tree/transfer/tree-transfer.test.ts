@@ -24,6 +24,15 @@ import StyleElement from '../../element/kind/view/style/style-element'
 import StyleKeyframesElement from '../../element/kind/view/style/style-keyframes-element'
 import StyleParamElement from '../../element/kind/view/style/style-param-element'
 import TagElement from '../../element/kind/view/tag/tag-element'
+import LoopElement from '../../element/kind/directive/loop-element'
+import ConditionalElement from '../../element/kind/directive/conditional-element'
+import IfElement from '../../element/kind/directive/if-element'
+import ElseElement from '../../element/kind/directive/else-element'
+import SwitchElement from '../../element/kind/directive/switch-element'
+import SwitchValueType from '../../element/kind/directive/switch-value-type'
+import CaseElement from '../../element/kind/directive/case-element'
+import DefaultElement from '../../element/kind/directive/default-element'
+import TextElement from '../../element/kind/view/text/text-element'
 import type MebacoElement from '../../element/element'
 import TreeNode from '../tree-node'
 import TreeTransferCatalog from './tree-transfer-catalog'
@@ -133,6 +142,12 @@ describe('TreeTransfer', () => {
     })
     const movableFunction = node(15, inlineFunction('calculate'))
     const tag = node(12, TagElement.create('div', ''))
+    const loop = node(16, LoopElement.createCount('4', 'index'))
+    const conditional = node(17, ConditionalElement.create())
+    const switchNode = node(18, SwitchElement.create(
+      SwitchValueType.createPrimitive('string'),
+      "'a'",
+    ))
     const styles = node(2, StylesElement.create(), [style])
     const retention = node(6, RetentionElement.create())
     const root = node(1, ProjectElement.create(), [styles, object, retention])
@@ -143,6 +158,9 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.isMovableKind(signature.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(movableFunction.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(tag.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(loop.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(conditional.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(switchNode.element.kind)).toBe(true)
     expect(TreeTransferCatalog.canPasteTo(root, style, retention, 'move')).toBe(true)
     expect(TreeTransferCatalog.canPasteTo(root, style, styles, 'move')).toBe(false)
     expect(TreeTransferCatalog.canPasteTo(root, object, retention, 'move')).toBe(true)
@@ -250,6 +268,63 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, source, retainedElements, 'move')).toBe(true)
     expect(TreeTransferCatalog.canPasteTo(root, source, voidTag, 'move')).toBe(false)
     expect(TreeTransferCatalog.canPasteTo(root, source, retentionBlock, 'move')).toBe(false)
+  })
+
+  it('offers the same View content destinations for a Loop as a Tag', () => {
+    const source = node(3, LoopElement.createCount('4', 'index'))
+    const containerTag = node(4, TagElement.create('div', 'container'))
+    const retainedElements = node(7, { kind: 'elements' })
+    const retainedLoop = node(5, LoopElement.createCount('2', 'innerIndex'), [
+      node(6, { kind: 'retention' }),
+      retainedElements,
+    ])
+    const voidTag = node(8, TagElement.create('img', 'void'))
+    const viewBlock = node(9, BlockElement.create())
+    const elements = node(2, { kind: 'elements' }, [
+      source,
+      containerTag,
+      retainedLoop,
+      voidTag,
+      viewBlock,
+    ])
+    const retentionBlock = node(11, BlockElement.create())
+    const retention = node(10, RetentionElement.create(), [retentionBlock])
+    const root = node(1, ProjectElement.create(), [elements, retention])
+
+    expect(TreeTransferCatalog.canPasteTo(root, source, elements, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, containerTag, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retainedLoop, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retainedElements, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, voidTag, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, viewBlock, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retentionBlock, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, containerTag, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, retainedElements, 'move')).toBe(true)
+  })
+
+  it('offers View content destinations for Conditional and Switch', () => {
+    const conditional = node(3, ConditionalElement.create(), [
+      node(4, IfElement.create()),
+    ])
+    const switchNode = node(5, SwitchElement.create(
+      SwitchValueType.createPrimitive('string'),
+      "'a'",
+    ))
+    const containerTag = node(6, TagElement.create('div', 'container'))
+    const elements = node(2, { kind: 'elements' }, [
+      conditional,
+      switchNode,
+      containerTag,
+    ])
+    const root = node(1, ProjectElement.create(), [elements])
+
+    for (const source of [conditional, switchNode]) {
+      expect(TreeTransferCatalog.requiresName(source.element.kind as 'conditional' | 'switch'))
+        .toBe(false)
+      expect(TreeTransferCatalog.canPasteTo(root, source, elements, 'copy')).toBe(true)
+      expect(TreeTransferCatalog.canPasteTo(root, source, containerTag, 'copy')).toBe(true)
+      expect(TreeTransferCatalog.canPasteTo(root, source, containerTag, 'move')).toBe(true)
+    }
   })
 
   it('copies a Style subtree with fresh owned identities and preserved external references', () => {
@@ -707,6 +782,16 @@ describe('TreeTransfer', () => {
 
     expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
       .toContain('would change a reference target')
+    expect(TreeTransferValidator.validateMoveReferenceTargets(
+      root,
+      plan.rootNode,
+      'expression',
+    )).toContain('would change a reference target')
+    expect(TreeTransferValidator.validateMoveReferenceTargets(
+      root,
+      plan.rootNode,
+      'structural',
+    )).toBeNull()
   })
 
   it('moves an Object Type while preserving its Type and Property identities', async () => {
@@ -1320,6 +1405,16 @@ describe('TreeTransfer', () => {
 
     expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode))
       .toContain(`node-${source.id}`)
+    expect(TreeTransferValidator.validateMoveReferenceTargets(
+      root,
+      plan.rootNode,
+      'expression',
+    )).toContain(`node-${source.id}`)
+    expect(TreeTransferValidator.validateMoveReferenceTargets(
+      root,
+      plan.rootNode,
+      'structural',
+    )).toBeNull()
   })
 
   it('rejects a Function Move when its referenced Signature is unavailable there', () => {
@@ -1368,6 +1463,7 @@ describe('TreeTransfer', () => {
         },
       ],
       { type: 'literal', value: 'saveButton' },
+      { type: 'literal', value: 'savePartial' },
     ))
     const elements = node(5, { kind: 'elements' }, [source])
     const root = node(1, ProjectElement.create(), [
@@ -1383,6 +1479,7 @@ describe('TreeTransfer', () => {
       tagName: 'button',
       comment: 'Save',
       refKey: { type: 'literal', value: 'saveButton' },
+      partialKey: { type: 'literal', value: 'savePartial' },
       attributes: source.element.kind === 'tag' ? source.element.attributes : [],
     })
     expect(copied.element.styles[0]).toMatchObject({
@@ -1399,7 +1496,153 @@ describe('TreeTransfer', () => {
     )).toBeNull()
   })
 
-  it('moves a Tag with its identity and Ref key without statically resolving Ref collisions', async () => {
+  it('copies an unnamed Loop and refreshes owned identities in its subtree', () => {
+    const localProperty = TypeExpression.createProperty(
+      'label',
+      TypeExpression.createPrimitive('string'),
+      'loop-item-property',
+    )
+    const localType = node(5, ObjectTypeElement.create(
+      'LoopItem',
+      'loop-item-type',
+      [localProperty],
+    ))
+    const source = node(3, LoopElement.createCount('4', 'index'), [
+      node(4, { kind: 'retention' }, [localType]),
+      node(6, { kind: 'elements' }, [
+        node(7, TextElement.createFormula('$var.index.toString()')),
+      ]),
+    ])
+    const elements = node(2, { kind: 'elements' }, [source])
+    const root = node(1, ProjectElement.create(), [elements])
+
+    const plan = TreeTransferPlanner.copy(root, source.id, elements.id, null)
+    const copied = TreeNode.findNode(plan.rootNode, plan.copiedNodeId)
+    const copiedType = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localType.id) ?? -1,
+    )
+    if (copied?.element.kind !== 'loop' || copiedType?.element.kind !== 'object-type') {
+      throw new Error('Expected a copied Loop subtree.')
+    }
+
+    expect(copied.element).toEqual(source.element)
+    expect(copiedType.element.typeId).not.toBe('loop-item-type')
+    expect(copiedType.element.properties[0].propertyId).not.toBe('loop-item-property')
+    expect(copiedType.element.properties[0].valueType).toEqual({ type: 'string' })
+    expect(TreeTransferValidator.validateStructure(plan.rootNode, copied.id)).toBeNull()
+    expect(TreeTransferValidator.validateReferenceTargets(
+      root,
+      plan.rootNode,
+      plan.nodeIds,
+    )).toBeNull()
+  })
+
+  it('rejects a copied Loop with an incomplete Retention structure', () => {
+    const source = node(3, LoopElement.createCount('4', 'index'), [
+      node(4, { kind: 'retention' }),
+    ])
+    const elements = node(2, { kind: 'elements' }, [source])
+    const root = node(1, ProjectElement.create(), [elements])
+
+    const plan = TreeTransferPlanner.copy(root, source.id, elements.id, null)
+
+    expect(TreeTransferValidator.validateStructure(plan.rootNode, plan.copiedNodeId))
+      .toBe('Loop has an invalid Retention structure.')
+  })
+
+  it('moves a Loop while preserving its node and owned identities', () => {
+    const localType = node(5, ObjectTypeElement.create('LoopItem', 'loop-item-type'))
+    const source = node(3, LoopElement.createCount('4', 'index'), [
+      node(4, { kind: 'retention' }, [localType]),
+      node(6, { kind: 'elements' }),
+    ])
+    const sourceElements = node(2, { kind: 'elements' }, [source])
+    const destinationElements = node(7, { kind: 'elements' })
+    const root = node(1, ProjectElement.create(), [sourceElements, destinationElements])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationElements.id)
+    const moved = TreeNode.findNode(plan.rootNode, source.id)
+    const movedType = TreeNode.findNode(plan.rootNode, localType.id)
+
+    expect(plan.rootNode.children[0].children).toEqual([])
+    expect(plan.rootNode.children[1].children[0].id).toBe(source.id)
+    expect(moved?.element).toEqual(source.element)
+    expect(movedType?.element).toEqual(localType.element)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toBeNull()
+    expect(TreeTransferValidator.validateMoveReferenceTargets(root, plan.rootNode)).toBeNull()
+  })
+
+  it('copies a Conditional subtree and refreshes owned identities', () => {
+    const localType = node(6, ObjectTypeElement.create('BranchData', 'branch-data-type'))
+    const source = node(3, ConditionalElement.create(), [
+      node(4, IfElement.create('$state.ready'), [
+        node(5, { kind: 'retention' }, [localType]),
+        node(7, { kind: 'elements' }, [node(8, TagElement.create('div', 'Ready'))]),
+      ]),
+      node(9, ElseElement.create(), [node(10, TagElement.create('div', 'Waiting'))]),
+    ])
+    const elements = node(2, { kind: 'elements' }, [source])
+    const root = node(1, ProjectElement.create(), [elements])
+
+    const plan = TreeTransferPlanner.copy(root, source.id, elements.id, null)
+    const copied = TreeNode.findNode(plan.rootNode, plan.copiedNodeId)
+    const copiedType = TreeNode.findNode(
+      plan.rootNode,
+      plan.nodeIds.get(localType.id) ?? -1,
+    )
+    if (copied?.element.kind !== 'conditional' || copiedType?.element.kind !== 'object-type') {
+      throw new Error('Expected a copied Conditional subtree.')
+    }
+
+    expect(copied.children.map((child) => child.element.kind)).toEqual(['if', 'else'])
+    expect(copiedType.element.typeId).not.toBe('branch-data-type')
+    expect(TreeTransferValidator.validateStructure(plan.rootNode, copied.id)).toBeNull()
+    expect(TreeTransferValidator.validateReferenceTargets(
+      root,
+      plan.rootNode,
+      plan.nodeIds,
+    )).toBeNull()
+  })
+
+  it('copies and moves a Switch subtree with its Cases', () => {
+    const source = node(3, SwitchElement.create(
+      SwitchValueType.createPrimitive('string'),
+      '$state.mode',
+    ), [
+      node(4, CaseElement.create({ type: 'string', value: 'a' }), [
+        node(5, TagElement.create('div', 'A')),
+      ]),
+      node(6, DefaultElement.create(), [node(7, TagElement.create('div', 'Other'))]),
+    ])
+    const sourceElements = node(2, { kind: 'elements' }, [source])
+    const destinationElements = node(8, { kind: 'elements' })
+    const root = node(1, ProjectElement.create(), [sourceElements, destinationElements])
+
+    const copyPlan = TreeTransferPlanner.copy(root, source.id, destinationElements.id, null)
+    const copied = TreeNode.findNode(copyPlan.rootNode, copyPlan.copiedNodeId)
+    expect(copied?.children.map((child) => child.element.kind)).toEqual(['case', 'default'])
+    expect(TreeTransferValidator.validateStructure(
+      copyPlan.rootNode,
+      copyPlan.copiedNodeId,
+    )).toBeNull()
+
+    const movePlan = TreeTransferPlanner.move(root, source.id, destinationElements.id)
+    const moved = TreeNode.findNode(movePlan.rootNode, source.id)
+    expect(moved?.element).toEqual(source.element)
+    expect(moved?.children.map((child) => child.id)).toEqual([4, 6])
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      movePlan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('moves a Tag with its identity and runtime keys without statically resolving collisions', async () => {
     const source = node(4, TagElement.create(
       'button',
       'Save',
@@ -1412,6 +1655,7 @@ describe('TreeTransfer', () => {
         action: { type: 'script', source: "$system.getRef('saveButton')?.focus()" },
       }],
       { type: 'literal', value: 'saveButton' },
+      { type: 'literal', value: 'savePartial' },
     ), [node(5, TagElement.create('span', 'Label'))])
     const existing = node(7, TagElement.create(
       'div',
@@ -1419,6 +1663,7 @@ describe('TreeTransfer', () => {
       [],
       [],
       { type: 'literal', value: 'saveButton' },
+      { type: 'literal', value: 'savePartial' },
     ))
     const sourceElements = node(3, { kind: 'elements' }, [source])
     const destinationElements = node(6, { kind: 'elements' }, [existing])
@@ -1446,7 +1691,7 @@ describe('TreeTransfer', () => {
     )).toBeNull()
   })
 
-  it('still validates ordinary dependencies used by a moved Tag Ref key formula', () => {
+  it('still validates ordinary dependencies used by moved Tag key formulas', () => {
     const prop = (id: number, propId: string) => node(id, {
       kind: 'value-prop',
       propId,
@@ -1459,6 +1704,7 @@ describe('TreeTransfer', () => {
       'Save',
       [],
       [],
+      { type: 'formula', source: '$props.refName' },
       { type: 'formula', source: '$props.refName' },
     ))
     const sourceElements = node(5, { kind: 'elements' }, [source])

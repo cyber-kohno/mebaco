@@ -10,6 +10,8 @@
   import RenderBlock from './RenderBlock.svelte'
   import RenderSlotUse from './RenderSlotUse.svelte'
   import RuntimeTree from '../runtime-tree'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
   import type ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
 
@@ -20,6 +22,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -35,6 +39,8 @@
     formulaContext,
     renderRevision,
     invalidateRuntime,
+    trackStateDependencies,
+    invalidateStateDependencies,
     setActionError,
     setStyleResult,
     componentStack = [],
@@ -54,12 +60,14 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}
   />
 {:else if RuntimeTree.isTextNode(node)}
-  <RenderText {node} {formulaContext} {renderRevision} />
+  <RenderText {node} {formulaContext} {renderRevision} {trackStateDependencies} />
 {:else if RuntimeTree.isComponentUseNode(node)}
   <RenderComponentUse
     {node}
@@ -68,6 +76,8 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}
@@ -75,7 +85,8 @@
 {:else if RuntimeTree.isSlotUseNode(node)}
   <RenderSlotUse
     {node} {projectNode} {styleCatalog} {formulaContext} {renderRevision}
-    {invalidateRuntime} {setActionError} {setStyleResult} {componentStack}
+    {invalidateRuntime} {trackStateDependencies} {invalidateStateDependencies}
+    {setActionError} {setStyleResult} {componentStack}
     {slotContents} {slotDefinitions} {slotCallerContext}
   />
 {:else if RuntimeTree.isConditionalNode(node)}
@@ -86,6 +97,8 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}
@@ -98,6 +111,8 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}
@@ -110,6 +125,8 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}
@@ -122,6 +139,8 @@
     {formulaContext}
     {renderRevision}
     {invalidateRuntime}
+    {trackStateDependencies}
+    {invalidateStateDependencies}
     {setActionError}
     {setStyleResult}
     {componentStack}

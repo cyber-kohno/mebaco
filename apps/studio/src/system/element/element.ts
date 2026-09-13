@@ -34,6 +34,8 @@ import DeclaresElement from './kind/declare/declares-element'
 import FunctionsElement from './kind/declare/functions-element'
 import TypesElement from './kind/declare/types-element'
 import StylesElement from './kind/declare/styles-element'
+import ConstantsElement from './kind/declare/constants-element'
+import ConstantElement from './kind/declare/constant-element'
 import AppsElement from './kind/project/apps-element'
 import CommonElement from './kind/project/common-element'
 import LaunchersElement from './kind/project/launchers-element'
@@ -134,6 +136,8 @@ namespace MebacoElement {
     | UnionTypeElement.Kind
     | SignatureTypeElement.Kind
     | StylesElement.Kind
+    | ConstantsElement.Kind
+    | ConstantElement.Kind
     | VariableElement.Kind
     | ActionElement.Kind
     | TransitionElement.Kind
@@ -214,6 +218,8 @@ namespace MebacoElement {
     | UnionTypeElement.Element
     | SignatureTypeElement.Element
     | StylesElement.Element
+    | ConstantsElement.Element
+    | ConstantElement.Element
     | VariableElement.Element
     | ActionElement.Element
     | TransitionElement.Element

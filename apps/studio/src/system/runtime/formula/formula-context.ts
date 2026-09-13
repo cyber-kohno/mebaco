@@ -22,10 +22,13 @@ namespace FormulaContext {
     afterRender: (callback: () => void) => () => void
   }
 
+  export type Invalidate = (partialKey: string) => void
+
   export type Value = {
     $args: Record<string, unknown>
     $launch: Record<string, unknown>
     $state: Record<string, unknown>
+    $const: Readonly<Record<string, unknown>>
     $param: Record<string, unknown>
     $local: Record<string, unknown>
     $props: Record<string, unknown>
@@ -35,6 +38,7 @@ namespace FormulaContext {
     $resource: Readonly<Record<string, unknown>>
     $storage: Readonly<Record<string, unknown>>
     $system: SystemValue
+    $invalidate: Invalidate
     $transition: TransitionValue
     $event?: Event
     requestTransition: TransitionRequest
@@ -56,6 +60,9 @@ namespace FormulaContext {
   const unavailableTransition: TransitionRequest = () => {
     throw new Error('App transition is not available in this runtime context.')
   }
+  const unavailableInvalidate: Invalidate = () => {
+    throw new Error('$invalidate() is not available in this runtime context.')
+  }
 
   export const create = (
     options: CreateOptions = {},
@@ -65,6 +72,7 @@ namespace FormulaContext {
       $args: options.$args ?? {},
       $launch: options.$launch ?? {},
       $state: options.$state ?? {},
+      $const: options.$const ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
       $param: options.$param ?? {},
       $local: options.$local ?? {},
       $props: options.$props ?? {},
@@ -74,6 +82,7 @@ namespace FormulaContext {
       $resource: options.$resource ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
       $storage: options.$storage ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
       $system: options.$system ?? emptySystem,
+      $invalidate: options.$invalidate ?? unavailableInvalidate,
       $transition: options.$transition ?? emptyTransition,
       $event: options.$event,
       requestTransition: options.requestTransition ?? unavailableTransition,

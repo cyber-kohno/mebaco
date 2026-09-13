@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => {
     selectedNodeId,
     commitRootChange: vi.fn((root: unknown) => rootNode.set(root)),
     beginDestinationTransaction: vi.fn(),
+    confirmOpen: vi.fn(() => Promise.resolve(true)),
     operation: {
       getPresentation: vi.fn(() => ({
         modeLabel: 'Extract signature',
@@ -57,6 +58,9 @@ vi.mock('../../area/develop/interaction/develop-interaction-controller', () => (
   default: {
     beginDestinationTransaction: mocks.beginDestinationTransaction,
   },
+}))
+vi.mock('../../feedback/confirm/confirm-dialog-controller', () => ({
+  default: { open: mocks.confirmOpen },
 }))
 vi.mock('./tree-destination-operation', () => ({
   default: mocks.operation,
@@ -116,6 +120,39 @@ describe('TreeDestinationController', () => {
       operation: { type: 'copy', sourceKind: 'tag' },
       sourceNodeId: tag.id,
       sourceLabel: '<div>',
+    })
+  })
+
+  it('adds unnamed Copy and Move transactions to a Loop', () => {
+    const loop = node(5, {
+      kind: 'loop', mode: 'count', countSource: '4', indexId: 'index',
+    })
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const copyItems = TreeDestinationController.addCopyAction(items, loop)
+    const moveItems = TreeDestinationController.addMoveAction(items, loop)
+    expect(copyItems.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    expect(moveItems.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const copy = copyItems[1]
+    const move = moveItems[1]
+    if (copy.type !== 'action' || move.type !== 'action') {
+      throw new Error('Expected Loop transfer actions.')
+    }
+    copy.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'copy', sourceKind: 'loop' },
+      sourceNodeId: loop.id,
+      sourceLabel: 'loop',
+    })
+    move.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'move', sourceKind: 'loop' },
+      sourceNodeId: loop.id,
+      sourceLabel: 'loop',
     })
   })
 
@@ -365,6 +402,8 @@ describe('TreeDestinationController', () => {
       rootNode: nextRoot,
       selectedNodeId: signature.id,
       preserveVerificationNodeIds: [previousFunction.id],
+      invalidateVerification: false,
+      warnings: [],
     })
 
     expect(await TreeDestinationController.commit('CalculateSignature')).toEqual({ ok: true })
@@ -397,9 +436,76 @@ describe('TreeDestinationController', () => {
       selectedNodeId: 5,
       preserveVerificationNodeIds: [],
       invalidateVerification: true,
+      warnings: [],
     })
 
     expect(await TreeDestinationController.commit('')).toEqual({ ok: true })
     expect(get(ExpressionVerificationStore.entries)).toEqual({})
+  })
+
+  it('confirms Move warnings before committing the candidate tree', async () => {
+    const previousRoot = node(1, { kind: 'project' })
+    const nextRoot = node(1, { kind: 'project' }, [
+      node(5, StyleElement.create('card', [], [], 'style-id')),
+    ])
+    mocks.rootNode.set(previousRoot)
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: 5,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: 6,
+    })
+    mocks.operation.createPlan.mockResolvedValue({
+      rootNode: nextRoot,
+      selectedNodeId: 5,
+      preserveVerificationNodeIds: [],
+      invalidateVerification: true,
+      warnings: ['Moving this element would change an expression reference target.'],
+    })
+
+    expect(await TreeDestinationController.commit('')).toEqual({ ok: true })
+    expect(mocks.confirmOpen).toHaveBeenCalledWith(expect.objectContaining({
+      tone: 'warning',
+      title: 'Move with expression errors?',
+      choices: [
+        { label: 'Cancel', role: 'cancel' },
+        { label: 'Move Anyway', role: 'proceed' },
+      ],
+    }))
+    expect(mocks.commitRootChange).toHaveBeenCalledWith(nextRoot)
+  })
+
+  it('keeps the Move transaction open when its warning is cancelled', async () => {
+    const previousRoot = node(1, { kind: 'project' })
+    const nextRoot = node(1, { kind: 'project' })
+    mocks.rootNode.set(previousRoot)
+    developInteractionStore.set({
+      type: 'destination-transaction',
+      operation: { type: 'move', sourceKind: 'style' },
+      phase: 'confirm',
+      sourceNodeId: 5,
+      sourceLabel: 'card',
+      originViewRootNodeId: null,
+      destinationNodeId: 6,
+    })
+    mocks.operation.createPlan.mockResolvedValue({
+      rootNode: nextRoot,
+      selectedNodeId: 5,
+      preserveVerificationNodeIds: [],
+      invalidateVerification: true,
+      warnings: ['The moved expression is invalid.'],
+    })
+    mocks.confirmOpen.mockResolvedValueOnce(false)
+
+    expect(await TreeDestinationController.commit(''))
+      .toEqual({ ok: false, cancelled: true })
+    expect(mocks.commitRootChange).not.toHaveBeenCalled()
+    expect(get(developInteractionStore)).toMatchObject({
+      type: 'destination-transaction',
+      phase: 'confirm',
+    })
   })
 })

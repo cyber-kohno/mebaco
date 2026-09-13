@@ -14,6 +14,24 @@ const node = (
 })
 
 describe('ExpressionSourceCatalog', () => {
+  it('collects Text formulas with a string expectation', () => {
+    const textNode = node(2, {
+      kind: 'text',
+      source: { type: 'formula', source: '$state.title' },
+    })
+    const root = node(1, { kind: 'project' }, [textNode])
+
+    expect(ExpressionSourceCatalog.collect(root, textNode).sources).toEqual([{
+      source: '$state.title',
+      mode: 'expression',
+      label: 'source',
+      expectedTypeText: 'string',
+      allowAwait: false,
+      functionParameters: undefined,
+      eventType: undefined,
+    }])
+  })
+
   it('requires a Promise expression matching the declared resolved type', () => {
     const promise = node(2, {
       kind: 'promise', id: 'users',
@@ -32,6 +50,7 @@ describe('ExpressionSourceCatalog', () => {
       expectedTypeText: 'Promise<string[]>',
       allowAwait: false,
       functionParameters: undefined,
+      eventType: undefined,
     }])
   })
 
@@ -69,6 +88,29 @@ describe('ExpressionSourceCatalog', () => {
       mode: 'expression',
       label: 'attributes.value',
     })
+  })
+
+  it('narrows value event targets to the owning form element', () => {
+    const tag = node(22, {
+      kind: 'tag',
+      tagName: 'input',
+      attributes: JSON.stringify([{
+        type: 'event',
+        name: 'change',
+        action: { type: 'script', source: '$state.name = $event.target.value' },
+      }]),
+      styles: '[]',
+    })
+
+    const result = ExpressionSourceCatalog.collect(tag, tag)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '$state.name = $event.target.value',
+        mode: 'action',
+        eventType: 'Event & { readonly target: HTMLInputElement; readonly currentTarget: HTMLInputElement }',
+      }),
+    ])
   })
 
   it('marks action sources as actions and forbids await unless function is async', () => {

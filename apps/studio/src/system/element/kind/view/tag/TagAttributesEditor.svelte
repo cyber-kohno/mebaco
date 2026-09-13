@@ -11,6 +11,7 @@
 
   type Props = {
     value: string
+    tagName: string
     formulaInjectionSource?: string
     getActionInjectionSource?: (eventType: string) => string | undefined
     onValueChange: (value: string) => void
@@ -18,6 +19,7 @@
 
   let {
     value,
+    tagName,
     formulaInjectionSource,
     getActionInjectionSource,
     onValueChange,
@@ -30,7 +32,9 @@
 
   const getActionInjectionSourceForEvent = (
     eventName: string,
-  ): string | undefined => getActionInjectionSource?.(TagEventCatalog.getEventType(eventName))
+  ): string | undefined => getActionInjectionSource?.(
+    TagEventCatalog.getEventType(eventName, tagName),
+  )
 
   const parseAttributes = (
     source: string,

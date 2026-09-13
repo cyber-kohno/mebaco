@@ -4,6 +4,8 @@
   import type ScriptError from '../script/script-error'
   import type TreeNode from '../../tree/tree-node'
   import RuntimeProps from '../runtime-props'
+  import RuntimeStateDependency from '../runtime-state-dependency'
+  import type RuntimeState from '../runtime-state'
   import ScriptErrorFactory from '../script/script-error'
   import FormulaContextFactory from '../formula/formula-context'
   import RenderContent from './RenderContent.svelte'
@@ -17,6 +19,8 @@
     formulaContext: FormulaContext.Value
     renderRevision: number
     invalidateRuntime: () => void
+    trackStateDependencies: RuntimeStateDependency.Tracker
+    invalidateStateDependencies: RuntimeState.WriteHandler
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
     setStyleResult: (instanceKey: string, nodeId: number, result: StyleDeclarationResolver.Result | null) => void
     componentStack?: readonly number[]
@@ -27,7 +31,8 @@
 
   let {
     node, projectNode, styleCatalog, formulaContext, renderRevision,
-    invalidateRuntime, setActionError, setStyleResult, componentStack = [],
+    invalidateRuntime, trackStateDependencies, invalidateStateDependencies,
+    setActionError, setStyleResult, componentStack = [],
     slotContents, slotDefinitions, slotCallerContext = formulaContext,
   }: Props = $props()
 
@@ -38,12 +43,12 @@
       ?.map((child) => child.element)
       .filter((element): element is ValuePropElement.Element => element.kind === 'value-prop') ?? [],
   )
-  const propsResult = $derived(RuntimeProps.resolveBindingsForProps(
+  const propsResult = $derived.by(() => trackStateDependencies(() => RuntimeProps.resolveBindingsForProps(
     slotProps,
     node.element.propBindings ?? [],
     formulaContext,
     projectNode,
-  ))
+  )))
   const contentContext = $derived(FormulaContextFactory.create({
     ...slotCallerContext,
     $props: propsResult.values,
@@ -63,7 +68,9 @@
     hostNode={content}
     {projectNode} {styleCatalog}
     formulaContext={contentContext}
-    {renderRevision} {invalidateRuntime} {setActionError} {setStyleResult}
+    {renderRevision} {invalidateRuntime}
+    {trackStateDependencies} {invalidateStateDependencies}
+    {setActionError} {setStyleResult}
     {componentStack}
   />
 {/if}

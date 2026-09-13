@@ -22,6 +22,7 @@ import type DirectoryResourceElement from '../../element/kind/resource/directory
 import type TextResourceElement from '../../element/kind/resource/text-resource-element'
 import type SqliteResourceElement from '../../element/kind/resource/sqlite-resource-element'
 import StorageImportCatalog from '../../element/kind/app/import/storage-import-catalog'
+import ConstantScope from '../../element/kind/declare/constant-scope'
 
 namespace MebacoInjectionSource {
   export type CreateOptions = {
@@ -140,6 +141,43 @@ namespace MebacoInjectionSource {
       fields,
       '};',
     ].join('\n')
+  }
+
+  const createConstantDeclaration = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    baseDeclarations: readonly string[],
+  ): string | null => {
+    const fields = new Map<string, string>()
+    const createDeclaration = () => fields.size === 0
+      ? ''
+      : [
+          'declare var $const: {',
+          ...[...fields].map(([id, typeText]) => `  readonly ${id}: ${typeText};`),
+          '};',
+        ].join('\n')
+
+    ConstantScope.collectVisible(rootNode, targetNodeId).forEach((entry) => {
+      let typeText: string
+      if (entry.element.typeSetting.type === 'explicit') {
+        typeText = `${TypeExpression.getTypeText(
+          entry.element.typeSetting.valueType,
+          (id) => TypeCatalog.resolveTypeScriptName(rootNode, id),
+        )}${entry.element.typeSetting.nullable ? ' | null' : ''}`
+      } else {
+        const inferred = ExpressionTypeInference.inferType(
+          [...baseDeclarations, createDeclaration()].join('\n'),
+          entry.element.source,
+          false,
+          false,
+        )
+        typeText = inferred.ok ? inferred.typeText : 'unknown'
+      }
+      fields.set(entry.element.id, typeText)
+    })
+
+    const declaration = createDeclaration()
+    return declaration.length === 0 ? null : declaration
   }
 
   const createLaunchDeclaration = (
@@ -628,6 +666,11 @@ namespace MebacoInjectionSource {
       collectScopedStates(targetNode, rootNode),
       rootNode,
     )
+    const constantDeclaration = createConstantDeclaration(
+      rootNode,
+      targetNodeId,
+      [typeDeclarations],
+    )
     const launchDeclaration = createLaunchDeclaration(
       getLaunchArguments(findOwnerApp(rootNode, targetNodeId)),
       rootNode,
@@ -638,32 +681,38 @@ namespace MebacoInjectionSource {
     )
     const declarations: Array<string | null> = [
       typeDeclarations,
-      launchDeclaration,
-      stateDeclaration,
-      styleParameterDeclaration,
-      createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
-      mode === 'code' ? null : createArgumentsDeclaration(rootNode, targetNodeId),
-      createFunctionsDeclaration(rootNode, targetNodeId),
-      mode === 'action' || mode === 'code'
-        ? createResourceDeclaration(rootNode, targetNodeId)
-        : null,
-      mode === 'action' || mode === 'code'
-        ? createStorageDeclaration(rootNode, targetNodeId)
-        : null,
-      mode === 'action' || mode === 'code'
-        ? createLogDeclaration()
-        : null,
-      mode === 'action' ? transitionDeclaration : null,
-      mode === 'action'
-        ? [
-            'declare var $system: {',
-            '  getRef(refKey: string): HTMLElement | null;',
-            ...(options.eventType != null
-              ? ['  afterRender(callback: () => void): () => void;']
-              : []),
-            '};',
-          ].join('\n')
-        : null,
+      constantDeclaration,
+      ...(targetNode?.element.kind === 'constant' ? [] : [
+        launchDeclaration,
+        stateDeclaration,
+        styleParameterDeclaration,
+        createPropsDeclaration(collectValueProps(ownerComponentNode), rootNode),
+        mode === 'code' ? null : createArgumentsDeclaration(rootNode, targetNodeId),
+        createFunctionsDeclaration(rootNode, targetNodeId),
+        mode === 'action' || mode === 'code'
+          ? createResourceDeclaration(rootNode, targetNodeId)
+          : null,
+        mode === 'action' || mode === 'code'
+          ? createStorageDeclaration(rootNode, targetNodeId)
+          : null,
+        mode === 'action' || mode === 'code'
+          ? createLogDeclaration()
+          : null,
+        mode === 'action' ? transitionDeclaration : null,
+        mode === 'action'
+          ? 'declare var $invalidate: (partialKey: string) => void;'
+          : null,
+        mode === 'action'
+          ? [
+              'declare var $system: {',
+              '  getRef(refKey: string): HTMLElement | null;',
+              ...(options.eventType != null
+                ? ['  afterRender(callback: () => void): () => void;']
+                : []),
+              '};',
+            ].join('\n')
+          : null,
+      ]),
     ]
 
     const availableDeclarations = declarations.filter(

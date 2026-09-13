@@ -93,6 +93,14 @@ namespace TagEventCatalog {
     definition.eventType,
   ]))
 
+  const valueTargetTypes: Readonly<Record<string, string>> = {
+    input: 'HTMLInputElement',
+    textarea: 'HTMLTextAreaElement',
+    select: 'HTMLSelectElement',
+  }
+
+  const valueEventNames = new Set(['input', 'beforeinput', 'change'])
+
   export const options = definitions.map((definition) => ({
     value: definition.name,
     label: definition.name,
@@ -100,9 +108,16 @@ namespace TagEventCatalog {
     title: `${definition.group}: ${definition.eventType}`,
   })) satisfies readonly ElementEditSchema.SelectOption[]
 
-  export const getEventType = (eventName: string): string => (
-    eventTypes.get(eventName) ?? 'Event'
-  )
+  export const getEventType = (
+    eventName: string,
+    tagName?: string,
+  ): string => {
+    const eventType = eventTypes.get(eventName) ?? 'Event'
+    const targetType = tagName == null ? undefined : valueTargetTypes[tagName]
+    if (targetType == null || !valueEventNames.has(eventName)) return eventType
+
+    return `${eventType} & { readonly target: ${targetType}; readonly currentTarget: ${targetType} }`
+  }
 
   export const isKnown = (eventName: string): boolean => eventTypes.has(eventName)
 }

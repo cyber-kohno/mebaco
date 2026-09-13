@@ -43,7 +43,9 @@
     submitError = null
     const result = await TreeDestinationController.commit(name)
     busy = false
-    if (!result.ok) submitError = result.error ?? presentation.failureMessage
+    if (!result.ok && !result.cancelled) {
+      submitError = result.error ?? presentation.failureMessage
+    }
   }
 
   const handleKeydown = (event: KeyboardEvent) => {

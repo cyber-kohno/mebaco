@@ -185,6 +185,37 @@ describe('ElementEditSchema Tag Ref key', () => {
   })
 })
 
+describe('ElementEditSchema Tag Partial key', () => {
+  const injectionSource = 'declare var $var: { index: number; };'
+
+  it('accepts disabled, literal, and formula values', () => {
+    expect(ElementEditSchema.validateTagPartialKey('', injectionSource)).toBeNull()
+    expect(ElementEditSchema.validateTagPartialKey(
+      JSON.stringify({ type: 'literal', value: 'task-3' }),
+      injectionSource,
+    )).toBeNull()
+    expect(ElementEditSchema.validateTagPartialKey(
+      JSON.stringify({ type: 'formula', source: '`task-${$var.index}`' }),
+      injectionSource,
+    )).toBeNull()
+  })
+
+  it('requires an enabled key without statically resolving its formula', () => {
+    expect(ElementEditSchema.validateTagPartialKey(
+      JSON.stringify({ type: 'literal', value: '' }),
+      injectionSource,
+    )).toBe('Enter a Partial key.')
+    expect(ElementEditSchema.validateTagPartialKey(
+      JSON.stringify({ type: 'formula', source: ' \n\t' }),
+      injectionSource,
+    )).toBe('Enter a Partial key formula.')
+    expect(ElementEditSchema.validateTagPartialKey(
+      JSON.stringify({ type: 'formula', source: '$var.index' }),
+      injectionSource,
+    )).toBeNull()
+  })
+})
+
 describe('ElementEditSchema related text fields', () => {
   it('validates strict lowercase kebab identifiers by segment', () => {
     const textField: ElementEditSchema.TextField = {
@@ -199,6 +230,27 @@ describe('ElementEditSchema related text fields', () => {
       .toBe('Use lowercase kebab-case. Start each segment with a letter.')
     expect(ElementEditSchema.validateText(textField, 'app--test'))
       .toBe('Use lowercase kebab-case. Start each segment with a letter.')
+  })
+
+  it('validates uppercase snake case constant identifiers', () => {
+    const textField: ElementEditSchema.TextField = {
+      type: 'text',
+      key: 'id',
+      label: 'Id',
+      charset: 'constantIdentifier',
+    }
+
+    expect(ElementEditSchema.validateText(textField, 'PUZZLE_SIZE')).toBeNull()
+    expect(ElementEditSchema.validateText(textField, 'GRID4_SIZE')).toBeNull()
+    expect(ElementEditSchema.validateText(textField, 'GRID_4')).toBeNull()
+    expect(ElementEditSchema.validateText(textField, 'puzzleSize'))
+      .toBe('Use UPPER_SNAKE_CASE letters and numbers. Start with an uppercase letter.')
+    expect(ElementEditSchema.validateText(textField, 'PUZZLE__SIZE'))
+      .toBe('Use UPPER_SNAKE_CASE letters and numbers. Start with an uppercase letter.')
+    expect(ElementEditSchema.validateText(textField, '_PUZZLE_SIZE'))
+      .toBe('Use UPPER_SNAKE_CASE letters and numbers. Start with an uppercase letter.')
+    expect(ElementEditSchema.validateText(textField, 'PUZZLE_SIZE_'))
+      .toBe('Use UPPER_SNAKE_CASE letters and numbers. Start with an uppercase letter.')
   })
 
   it('rejects duplicate local variable names', () => {

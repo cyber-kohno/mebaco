@@ -11,6 +11,7 @@ import StorageImportsElement from '../element/kind/app/import/storage-imports-el
 import StorageElement from '../element/kind/storage/storage-element'
 import ReleaseElement from '../element/kind/release/release-element'
 import BundlesElement from '../element/kind/release/bundles-element'
+import ConstantsElement from '../element/kind/declare/constants-element'
 import NativeDialogController from '../ui/native-dialog-controller'
 import TauriFileSystem from '../infra/tauri/filesystem'
 
@@ -102,6 +103,18 @@ namespace ProjectFile {
       migrationApplied = true
     }
     const migrate = (node: TreeNode.Node) => {
+      if (node.element.kind === 'declares') {
+        if (!node.children.some((child) => child.element.kind === 'constants')) {
+          node.children.unshift({
+            id: nextNodeId,
+            element: ConstantsElement.create(),
+            isOpen: true,
+            children: [],
+          })
+          nextNodeId += 1
+          migrationApplied = true
+        }
+      }
       if (node.element.kind === 'app') {
         const imports = node.children.find((child) => child.element.kind === 'imports')
         if (

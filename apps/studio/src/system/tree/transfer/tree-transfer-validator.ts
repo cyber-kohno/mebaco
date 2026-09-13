@@ -17,6 +17,18 @@ import ExpressionVerificationScope from '../../validation/expression/expression-
 import TreeNode from '../tree-node'
 
 namespace TreeTransferValidator {
+  const validateOptionalRetentionStructure = (
+    node: TreeNode.Node,
+    label: string,
+  ): string | null => {
+    const hasStructuredChild = node.children.some((child) => (
+      child.element.kind === 'retention' || child.element.kind === 'elements'
+    ))
+    return hasStructuredChild && !ContentHost.usesRetention(node)
+      ? `${label} has an invalid Retention structure.`
+      : null
+  }
+
   const validateTag = (
     rootNode: TreeNode.Node,
     node: TreeNode.Node & { element: Extract<TreeNode.Node['element'], { kind: 'tag' }> },
@@ -24,12 +36,11 @@ namespace TreeTransferValidator {
     if (!TagCatalog.canHaveChildren(node.element.tagName) && node.children.length > 0) {
       return `Tag '<${node.element.tagName}>' cannot have children.`
     }
-    const hasStructuredChild = node.children.some((child) => (
-      child.element.kind === 'retention' || child.element.kind === 'elements'
-    ))
-    if (hasStructuredChild && !ContentHost.usesRetention(node)) {
-      return `Tag '<${node.element.tagName}>' has an invalid Retention structure.`
-    }
+    const retentionError = validateOptionalRetentionStructure(
+      node,
+      `Tag '<${node.element.tagName}>'`,
+    )
+    if (retentionError != null) return retentionError
 
     const catalog = StyleParameterCatalog.createCatalog(rootNode)
     for (const application of node.element.styles) {
@@ -43,6 +54,36 @@ namespace TreeTransferValidator {
       )
       if (argumentError != null) return argumentError
     }
+    return null
+  }
+
+  const validateConditional = (node: TreeNode.Node): string | null => {
+    const branchKinds = node.children.map((child) => child.element.kind)
+    const elseIndex = branchKinds.indexOf('else')
+    if (
+      branchKinds[0] !== 'if'
+      || branchKinds.filter((kind) => kind === 'if').length !== 1
+      || branchKinds.some((kind) => !['if', 'else-if', 'else'].includes(kind))
+      || branchKinds.filter((kind) => kind === 'else').length > 1
+      || (elseIndex >= 0 && elseIndex !== branchKinds.length - 1)
+    ) return 'Conditional has an invalid branch structure.'
+    return null
+  }
+
+  const validateSwitch = (node: TreeNode.Node): string | null => {
+    const branchKinds = node.children.map((child) => child.element.kind)
+    const defaultIndex = branchKinds.indexOf('default')
+    const caseValues = node.children.flatMap((child) => (
+      child.element.kind === 'case'
+        ? [JSON.stringify(child.element.value)]
+        : []
+    ))
+    if (
+      branchKinds.some((kind) => kind !== 'case' && kind !== 'default')
+      || branchKinds.filter((kind) => kind === 'default').length > 1
+      || (defaultIndex >= 0 && defaultIndex !== branchKinds.length - 1)
+      || new Set(caseValues).size !== caseValues.length
+    ) return 'Switch has an invalid Case structure.'
     return null
   }
 
@@ -198,6 +239,18 @@ namespace TreeTransferValidator {
       }
       case 'tag':
         return validateTag(rootNode, node as Parameters<typeof validateTag>[1])
+      case 'loop':
+        return validateOptionalRetentionStructure(node, 'Loop')
+      case 'conditional':
+        return validateConditional(node)
+      case 'switch':
+        return validateSwitch(node)
+      case 'if':
+      case 'else-if':
+      case 'else':
+      case 'case':
+      case 'default':
+        return validateOptionalRetentionStructure(node, node.element.kind)
       case 'component-use':
         return validateComponentUse(
           rootNode,
@@ -229,6 +282,9 @@ namespace TreeTransferValidator {
       && copiedNode.element.kind !== 'function'
       && copiedNode.element.kind !== 'component'
       && copiedNode.element.kind !== 'tag'
+      && copiedNode.element.kind !== 'loop'
+      && copiedNode.element.kind !== 'conditional'
+      && copiedNode.element.kind !== 'switch'
     ) return 'This element cannot be copied.'
 
     const visit = (node: TreeNode.Node): string | null => {
@@ -343,9 +399,14 @@ namespace TreeTransferValidator {
   export const validateMoveReferenceTargets = (
     previousRoot: TreeNode.Node,
     candidateRoot: TreeNode.Node,
+    sourceType?: ReferenceGraph.ReferenceSourceType,
   ): string | null => {
-    const previous = ReferenceGraph.collectSemanticDependencies(previousRoot)
-    const candidate = ReferenceGraph.collectSemanticDependencies(candidateRoot)
+    const selectDependencies = (rootNode: TreeNode.Node) => (
+      ReferenceGraph.collectSemanticDependencies(rootNode)
+        .filter((dependency) => sourceType == null || dependency.sourceType === sourceType)
+    )
+    const previous = selectDependencies(previousRoot)
+    const candidate = selectDependencies(candidateRoot)
     const previousKeys = new Set(previous.map(dependencyKey))
     const candidateKeys = new Set(candidate.map(dependencyKey))
     const removed = previous.find((dependency) => !candidateKeys.has(dependencyKey(dependency)))

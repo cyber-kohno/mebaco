@@ -10,6 +10,7 @@ import StatesElement from '../variable/store/states-element'
 import StoreElement from '../variable/store/store-element'
 import TypesElement from '../declare/types-element'
 import StylesElement from '../declare/styles-element'
+import ConstantsElement from '../declare/constants-element'
 import AppTreeLabel from './AppTreeLabel.svelte'
 import LaunchOptionsElement from './launch/launch-options-element'
 import ImportsElement from './import/imports-element'
@@ -90,6 +91,9 @@ namespace AppElement {
       {
         element: DeclaresElement.create(),
         children: [
+          {
+            element: ConstantsElement.create(),
+          },
           {
             element: StylesElement.create(),
           },

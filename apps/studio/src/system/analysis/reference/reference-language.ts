@@ -2,6 +2,7 @@ namespace ReferenceLanguage {
   export type Kind =
     | 'app'
     | 'component'
+    | 'constant'
     | 'function'
     | 'function-parameter'
     | 'launch-argument'
@@ -46,6 +47,7 @@ namespace ReferenceLanguage {
 
   export const expressionRoots: Readonly<Record<string, readonly Kind[]>> = {
     $args: ['function-parameter'],
+    $const: ['constant'],
     $fn: ['function'],
     $launch: ['launch-argument'],
     $local: ['variable'],

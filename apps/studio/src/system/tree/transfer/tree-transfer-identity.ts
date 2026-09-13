@@ -97,6 +97,7 @@ namespace TreeTransferIdentity {
         }
         break
       case 'variable':
+      case 'constant':
         if (element.typeSetting.type === 'explicit') {
           collectTypeExpression(element.typeSetting.valueType, maps)
         }
@@ -311,6 +312,7 @@ namespace TreeTransferIdentity {
         }
         break
       case 'variable':
+      case 'constant':
         if (clone.typeSetting.type === 'explicit') {
           remapTypeExpression(clone.typeSetting.valueType, maps)
         }

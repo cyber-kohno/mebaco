@@ -25,21 +25,24 @@
 
 <span class="element-tree-label">
 {#if disabled}<span class="disabled-label">× Disabled</span>{/if}
-{#if element.kind === 'store'}
-  <StoreTreeLabel {parentNode} />
-{:else if treeLabel.type === 'static'}
-  <NodeLabel
-    tone={treeLabel.tone}
-    kindText={treeLabel.kindText}
-    valueText={staticValueText}
-  />
-{:else if TreeLabelComponent != null}
-  <TreeLabelComponent {element} {parentNode} {rootNode} />
-{/if}
+<span class="element-label-content">
+  {#if element.kind === 'store'}
+    <StoreTreeLabel {parentNode} />
+  {:else if treeLabel.type === 'static'}
+    <NodeLabel
+      tone={treeLabel.tone}
+      kindText={treeLabel.kindText}
+      valueText={staticValueText}
+    />
+  {:else if TreeLabelComponent != null}
+    <TreeLabelComponent {element} {parentNode} {rootNode} />
+  {/if}
+</span>
 </span>
 
 <style>
   .element-tree-label { display: inline-flex; align-items: center; min-width: 0; }
+  .element-label-content { display: inline-flex; align-items: center; min-width: 0; }
   .disabled-label {
     display: inline-flex;
     align-items: center;

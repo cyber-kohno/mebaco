@@ -15,9 +15,16 @@ import StyleArgumentContract from '../../element/kind/view/style/style-argument-
 import StyleParameterValue from '../../element/kind/view/style/style-parameter-value'
 import AppId from '../../element/kind/app/app-id'
 import CodeMemberIdentifier from '../../element/code-member-identifier'
+import ResolvableValue from '../../element/kind/shared/resolvable-value'
 
 namespace ElementEditSchema {
-  export type TextCharset = 'identifier' | 'strictKebabIdentifier' | 'pascalIdentifier' | 'jsIdentifier' | 'any'
+  export type TextCharset =
+    | 'identifier'
+    | 'strictKebabIdentifier'
+    | 'pascalIdentifier'
+    | 'jsIdentifier'
+    | 'constantIdentifier'
+    | 'any'
 
   export type FieldVisibility = {
     key: string
@@ -247,10 +254,27 @@ namespace ElementEditSchema {
     key: string
     label: string
     defaultValue?: string
+    tagNameKey: string
+  } & FieldBase
+
+  export type TextSourceField = {
+    type: 'textSource'
+    key: string
+    label: string
+    defaultValue?: string
+    maxLiteralLength?: number
+    maxFormulaLength?: number
   } & FieldBase
 
   export type TagRefKeyField = {
     type: 'tagRefKey'
+    key: string
+    label: string
+    defaultValue?: string
+  } & FieldBase
+
+  export type TagPartialKeyField = {
+    type: 'tagPartialKey'
     key: string
     label: string
     defaultValue?: string
@@ -401,7 +425,9 @@ namespace ElementEditSchema {
     | StyleMonitorField
     | TagStyleMonitorField
     | TagAttributesField
+    | TextSourceField
     | TagRefKeyField
+    | TagPartialKeyField
     | ObjectShapeField
     | UnionDefinitionField
     | SignatureDefinitionField
@@ -453,6 +479,13 @@ namespace ElementEditSchema {
     if (field.charset === 'jsIdentifier' && value.length > 0) {
       const identifierError = CodeMemberIdentifier.validate(value)
       if (identifierError != null) return identifierError
+    }
+    if (
+      field.charset === 'constantIdentifier'
+      && value.length > 0
+      && !/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/.test(value)
+    ) {
+      return 'Use UPPER_SNAKE_CASE letters and numbers. Start with an uppercase letter.'
     }
     if (field.reservedNames?.includes(value) === true) {
       return 'Already exists.'
@@ -559,6 +592,34 @@ namespace ElementEditSchema {
     }
   }
 
+  export const validateTagPartialKey = (
+    value: string,
+    _injectionSource?: string,
+  ): string | null => {
+    if (value.length === 0) return null
+
+    try {
+      const parsed = JSON.parse(value) as {
+        type?: unknown
+        value?: unknown
+        source?: unknown
+      } | null
+      if (parsed == null || typeof parsed !== 'object') return 'Select a valid Partial key.'
+      if (parsed.type === 'literal') {
+        return typeof parsed.value === 'string' && parsed.value.length > 0
+          ? null
+          : 'Enter a Partial key.'
+      }
+      if (parsed.type !== 'formula' || typeof parsed.source !== 'string') {
+        return 'Select a valid Partial key.'
+      }
+      if (parsed.source.trim().length === 0) return 'Enter a Partial key formula.'
+      return null
+    } catch {
+      return 'Select a valid Partial key.'
+    }
+  }
+
   export const validateScript = (field: ScriptField, value: string): string | null => {
     if (field.required === true && value.length === 0) return 'Required.'
     if (field.maxLength != null && value.length > field.maxLength) {
@@ -572,6 +633,29 @@ namespace ElementEditSchema {
     if (field.maxLength != null && value.length > field.maxLength) {
       return `Must be ${field.maxLength} characters or fewer.`
     }
+    return null
+  }
+
+  export const validateTextSource = (
+    field: TextSourceField,
+    value: string,
+  ): string | null => {
+    const source = ResolvableValue.parseJson(
+      value,
+      (candidate): candidate is string => typeof candidate === 'string',
+    )
+    if (source == null) return 'Select a valid text source.'
+
+    if (
+      source.type === 'literal'
+      && field.maxLiteralLength != null
+      && source.value.length > field.maxLiteralLength
+    ) return `Must be ${field.maxLiteralLength} characters or fewer.`
+    if (
+      source.type === 'formula'
+      && field.maxFormulaLength != null
+      && source.source.length > field.maxFormulaLength
+    ) return `Must be ${field.maxFormulaLength} characters or fewer.`
     return null
   }
 

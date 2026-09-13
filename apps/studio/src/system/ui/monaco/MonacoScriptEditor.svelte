@@ -335,7 +335,7 @@
       pattern: `**/user-${uid}.ts`,
       exclusive: true,
     }, {
-      triggerCharacters: ['.', '{', '"', "'"],
+      triggerCharacters: ['.', '"', "'"],
       provideCompletionItems: async (model, position) => {
         if (
           monaco == null
@@ -379,13 +379,15 @@
         }
 
         return {
-          suggestions: completions?.entries?.map((entry) => ({
-            label: entry.name,
-            kind: toCompletionKind(entry.kind),
-            insertText: entry.name,
-            sortText: entry.sortText,
-            range,
-          })) ?? [],
+          suggestions: completions?.entries
+            ?.filter((entry) => !entry.name.startsWith('__mebaco'))
+            .map((entry) => ({
+              label: entry.name,
+              kind: toCompletionKind(entry.kind),
+              insertText: entry.name,
+              sortText: entry.sortText,
+              range,
+            })) ?? [],
         }
       },
     })

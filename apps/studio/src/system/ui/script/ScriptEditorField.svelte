@@ -17,6 +17,7 @@
     allowAwait?: boolean
     functionParameters?: readonly MonacoInjection.FunctionParameter[]
     onDiagnosticsChange?: (messages: string[]) => void
+    fillAvailable?: boolean
   }
 
   let {
@@ -31,12 +32,13 @@
     allowAwait = false,
     functionParameters = [],
     onDiagnosticsChange,
+    fillAvailable = false,
   }: Props = $props()
 
   let isExpanded = $state(false)
 </script>
 
-<div class="script-editor-field">
+<div class="script-editor-field" class:fill-available={fillAvailable}>
   <div class="script-toolbar">
     <span>{title}</span>
     <IconButton
@@ -53,7 +55,7 @@
   <MonacoScriptEditor
     {value}
     {mode}
-    height="120px"
+    height={fillAvailable ? '100%' : '120px'}
     {injectionSource}
     {expectedType}
     {expectedTypeText}
@@ -91,6 +93,12 @@
     border-radius: 6px;
     background: #ffffff;
     overflow: hidden;
+  }
+
+  .script-editor-field.fill-available {
+    grid-template-rows: min-content minmax(0, 1fr);
+    min-height: 0;
+    height: 100%;
   }
 
   .script-toolbar {

@@ -8,6 +8,7 @@ namespace ElementExpressionFields {
     'propBindings',
     'properties',
     'refKey',
+    'partialKey',
     'rules',
     'source',
     'styles',
@@ -31,6 +32,7 @@ namespace ElementExpressionFields {
     'propBindings',
     'properties',
     'refKey',
+    'partialKey',
     'rules',
     'source',
     'styles',
@@ -42,6 +44,7 @@ namespace ElementExpressionFields {
     'attributes',
     'propBindings',
     'refKey',
+    'partialKey',
     'rules',
     'styles',
   ])

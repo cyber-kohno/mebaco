@@ -32,7 +32,7 @@ const createTextNode = (id: number): TreeNode.Node => ({
   element: {
     kind: 'text',
     source: {
-      type: 'plain',
+      type: 'literal',
       value: `Text ${id}`,
     },
   },

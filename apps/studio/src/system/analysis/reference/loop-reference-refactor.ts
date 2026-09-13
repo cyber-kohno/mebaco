@@ -36,6 +36,7 @@ namespace LoopReferenceRefactor {
     value: unknown
     replacementCount: number
     removedCount: number
+    newlyBoundCount: number
     itemReferenceCount: number
     removedLabels: Readonly<Record<string, number>>
   }
@@ -107,9 +108,21 @@ namespace LoopReferenceRefactor {
     sourceNode: TreeNode.Node,
     loopNodeId: number,
     nextElement: LoopElement.Element,
-  ): { source: string; replacementCount: number; removedCount: number; itemReferenceCount: number } => {
+  ): {
+    source: string
+    replacementCount: number
+    removedCount: number
+    newlyBoundCount: number
+    itemReferenceCount: number
+  } => {
     if (source.trim().length === 0) {
-      return { source, replacementCount: 0, removedCount: 0, itemReferenceCount: 0 }
+      return {
+        source,
+        replacementCount: 0,
+        removedCount: 0,
+        newlyBoundCount: 0,
+        itemReferenceCount: 0,
+      }
     }
     const sourceFile = TypeScript.createSourceFile(
       'mebaco-loop-reference-refactor.ts',
@@ -120,6 +133,7 @@ namespace LoopReferenceRefactor {
     )
     const replacements: Array<{ start: number; end: number; text: string }> = []
     let removedCount = 0
+    let newlyBoundCount = 0
     let itemReferenceCount = 0
 
     const visit = (node: TypeScript.Node) => {
@@ -165,7 +179,11 @@ namespace LoopReferenceRefactor {
             isTargetBinding(nextBinding, loopNodeId)
             && !sameBinding(previousBinding, nextBinding)
           ) {
-            throw new ReferenceCaptureError(sourceNode.id, member.id)
+            if (previousBinding == null) {
+              newlyBoundCount += 1
+            } else {
+              throw new ReferenceCaptureError(sourceNode.id, member.id)
+            }
           }
         }
       }
@@ -181,6 +199,7 @@ namespace LoopReferenceRefactor {
       source: nextSource,
       replacementCount: replacements.length,
       removedCount,
+      newlyBoundCount,
       itemReferenceCount,
     }
   }
@@ -225,6 +244,7 @@ namespace LoopReferenceRefactor {
           value,
           replacementCount: 0,
           removedCount: 0,
+          newlyBoundCount: 0,
           itemReferenceCount: 0,
           removedLabels: {},
         }
@@ -241,6 +261,7 @@ namespace LoopReferenceRefactor {
         value: rewritten.source,
         replacementCount: rewritten.replacementCount,
         removedCount: rewritten.removedCount,
+        newlyBoundCount: rewritten.newlyBoundCount,
         itemReferenceCount: rewritten.itemReferenceCount,
         removedLabels: rewritten.removedCount > 0
           ? { [sourceLabel.length > 0 ? sourceLabel : key]: rewritten.removedCount }
@@ -250,6 +271,7 @@ namespace LoopReferenceRefactor {
     if (Array.isArray(value)) {
       let replacementCount = 0
       let removedCount = 0
+      let newlyBoundCount = 0
       let itemReferenceCount = 0
       const removedLabels: Record<string, number> = {}
       const result = value.map((item) => {
@@ -265,6 +287,7 @@ namespace LoopReferenceRefactor {
         )
         replacementCount += rewritten.replacementCount
         removedCount += rewritten.removedCount
+        newlyBoundCount += rewritten.newlyBoundCount
         itemReferenceCount += rewritten.itemReferenceCount
         addRemovedLabels(removedLabels, rewritten.removedLabels)
         return rewritten.value
@@ -273,6 +296,7 @@ namespace LoopReferenceRefactor {
         value: replacementCount > 0 ? result : value,
         replacementCount,
         removedCount,
+        newlyBoundCount,
         itemReferenceCount,
         removedLabels,
       }
@@ -282,6 +306,7 @@ namespace LoopReferenceRefactor {
         value,
         replacementCount: 0,
         removedCount: 0,
+        newlyBoundCount: 0,
         itemReferenceCount: 0,
         removedLabels: {},
       }
@@ -289,6 +314,7 @@ namespace LoopReferenceRefactor {
 
     let replacementCount = 0
     let removedCount = 0
+    let newlyBoundCount = 0
     let itemReferenceCount = 0
     const removedLabels: Record<string, number> = {}
     const result: Record<string, unknown> = { ...value }
@@ -306,6 +332,7 @@ namespace LoopReferenceRefactor {
       if (rewritten.replacementCount > 0) result[childKey] = rewritten.value
       replacementCount += rewritten.replacementCount
       removedCount += rewritten.removedCount
+      newlyBoundCount += rewritten.newlyBoundCount
       itemReferenceCount += rewritten.itemReferenceCount
       addRemovedLabels(removedLabels, rewritten.removedLabels)
     })
@@ -313,6 +340,7 @@ namespace LoopReferenceRefactor {
       value: replacementCount > 0 ? result : value,
       replacementCount,
       removedCount,
+      newlyBoundCount,
       itemReferenceCount,
       removedLabels,
     }
@@ -342,6 +370,7 @@ namespace LoopReferenceRefactor {
     const removedReferences = new Map<string, RemovedReference>()
     let updatedOccurrenceCount = 0
     let removedOccurrenceCount = 0
+    let newlyBoundOccurrenceCount = 0
     let itemReferenceCount = 0
 
     const visit = (previousNode: TreeNode.Node) => {
@@ -373,6 +402,7 @@ namespace LoopReferenceRefactor {
         })
         removedOccurrenceCount += rewritten.removedCount
       }
+      newlyBoundOccurrenceCount += rewritten.newlyBoundCount
       itemReferenceCount += rewritten.itemReferenceCount
       previousNode.children.forEach(visit)
     }
@@ -391,6 +421,7 @@ namespace LoopReferenceRefactor {
       removedOccurrenceCount,
       verificationReset: (
         removedOccurrenceCount > 0
+        || newlyBoundOccurrenceCount > 0
         || (collectionSourceChanged && itemReferenceCount > 0)
       ),
     }

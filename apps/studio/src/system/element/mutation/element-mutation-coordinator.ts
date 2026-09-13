@@ -155,6 +155,9 @@ namespace ElementMutationCoordinator {
       impactPreviousElement.kind === 'state'
       && nextElement.kind === 'state'
     ) || (
+      impactPreviousElement.kind === 'constant'
+      && nextElement.kind === 'constant'
+    ) || (
       impactPreviousElement.kind === 'variable'
       && nextElement.kind === 'variable'
     )
@@ -254,6 +257,7 @@ namespace ElementMutationCoordinator {
     )
     const scopedDefinition = removedNode.element.kind === 'state'
       || removedNode.element.kind === 'variable'
+      || removedNode.element.kind === 'constant'
     const scopedNodeIds = scopedDefinition
       ? ExpressionVerificationScope.collectVisibleNodeIds(rootNode, removedNode.id)
       : []

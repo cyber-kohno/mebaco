@@ -32,6 +32,48 @@ const referFunction = (
 })
 
 describe('MebacoInjectionSource Loop variables', () => {
+  it('injects readonly Common and App constants in declaration order', () => {
+    const first = node(9, {
+      kind: 'constant', id: 'divisions',
+      typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+      source: '4',
+    })
+    const second = node(10, {
+      kind: 'constant', id: 'pieceSize',
+      typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+      source: '$const.puzzleSize / $const.divisions',
+    })
+    const state = node(13, {
+      kind: 'state', id: 'pieces', valueType: { type: 'number' }, nullable: false,
+      initial: { type: 'formula', source: '$const.pieceSize' },
+    })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'common' }, [
+        node(3, { kind: 'declares' }, [node(4, { kind: 'constants' }, [
+          node(5, {
+            kind: 'constant', id: 'puzzleSize',
+            typeSetting: { type: 'explicit', valueType: { type: 'number' }, nullable: false },
+            source: '640',
+          }),
+        ])]),
+      ]),
+      node(6, { kind: 'apps' }, [
+        node(7, { kind: 'app', appId: 'app-id', id: 'app' }, [
+          node(8, { kind: 'declares' }, [node(11, { kind: 'constants' }, [first, second])]),
+          node(12, { kind: 'store' }, [node(14, { kind: 'states' }, [state])]),
+        ]),
+      ]),
+    ])
+
+    const constantSource = MebacoInjectionSource.createForNode(root, second.id, 'expression')
+    expect(constantSource).toContain('readonly puzzleSize: number;')
+    expect(constantSource).toContain('readonly divisions: number;')
+    expect(constantSource).not.toContain('readonly pieceSize: number;')
+    expect(constantSource).not.toContain('declare var $state:')
+
+    const stateSource = MebacoInjectionSource.createForNode(root, state.id, 'expression')
+    expect(stateSource).toContain('readonly pieceSize: number;')
+  })
   it('injects Promise result and error bindings only into their own branches', () => {
     const thenAction = node(6, { kind: 'action', comment: '', source: '$var.result' })
     const catchAction = node(8, { kind: 'action', comment: '', source: '$var.error' })
@@ -214,6 +256,7 @@ describe('MebacoInjectionSource Loop variables', () => {
 
     expect(source).not.toContain('declare var $event:')
     expect(source).toContain('getRef(refKey: string): HTMLElement | null;')
+    expect(source).toContain('declare var $invalidate: (partialKey: string) => void;')
     expect(source).not.toContain('afterRender(callback: () => void)')
   })
 
@@ -237,6 +280,7 @@ describe('MebacoInjectionSource Loop variables', () => {
       '$var',
       '$fn',
       '$system',
+      '$invalidate',
       '$event',
     ]
 
@@ -246,7 +290,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('injects Launch Arguments and Component Props when available', () => {
     const textNode = node(10, {
       kind: 'text',
-      source: { type: 'formula', value: '$launch.userId + $props.offset' },
+      source: { type: 'formula', source: '$launch.userId + $props.offset' },
     })
     const componentNode = node(7, { kind: 'component', componentId: 'main-component-id', id: 'Main' }, [
       node(8, { kind: 'props' }, [
@@ -288,7 +332,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('adds ancestor Loop bindings to $var', () => {
     const textNode = node(3, {
       kind: 'text',
-      source: { type: 'formula', value: '$var.item' },
+      source: { type: 'formula', source: '$var.item' },
     })
     const loopNode = node(2, {
       kind: 'loop',
@@ -337,7 +381,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('injects Component-local States for nodes inside the component', () => {
     const textNode = node(9, {
       kind: 'text',
-      source: { type: 'formula', value: '$state.localCount' },
+      source: { type: 'formula', source: '$state.localCount' },
     })
     const componentNode = node(3, { kind: 'component', componentId: 'main-local-component-id', id: 'Main' }, [
       node(4, { kind: 'props' }),
@@ -369,7 +413,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('infers a Collection item from the project State and Object declarations', () => {
     const textNode = node(5, {
       kind: 'text',
-      source: { type: 'formula', value: '$var.user.name' },
+      source: { type: 'formula', source: '$var.user.name' },
     })
     const loopNode = node(4, {
       kind: 'loop',
@@ -415,7 +459,7 @@ describe('MebacoInjectionSource Loop variables', () => {
   it('injects ordered Retention Variables with const and let bindings', () => {
     const textNode = node(6, {
       kind: 'text',
-      source: { type: 'formula', value: '$var.label' },
+      source: { type: 'formula', source: '$var.label' },
     })
     const retentionNode = node(2, { kind: 'retention' }, [
       node(3, {
