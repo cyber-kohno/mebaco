@@ -46,7 +46,7 @@ namespace RuntimePartialRegistry {
       }
       if (registrations.length > 1) {
         throw new Error(
-          `Partial key '${key}' is ambiguous because ${registrations.length} Tags are registered.`,
+          `Partial key '${key}' is ambiguous because ${registrations.length} targets are registered.`,
         )
       }
       registrations[0].invalidate()

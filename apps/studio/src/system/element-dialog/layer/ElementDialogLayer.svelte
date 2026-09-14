@@ -41,6 +41,9 @@
   import BundleDefinitionEditor from '../../element/kind/release/BundleDefinitionEditor.svelte'
   import StyleKeyframesEditor from '../../element/kind/view/style/StyleKeyframesEditor.svelte'
   import TextSourceEditor from '../../element/kind/view/text/TextSourceEditor.svelte'
+  import ElementDialogDirty from '../element-dialog-dirty'
+  import { confirmDialogStore } from '../../feedback/confirm/confirm-dialog-state'
+  import ElementAutoVerification from '../element-auto-verification'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -99,12 +102,7 @@
     const session = $elementDialogStore
     if (session == null) return
 
-    values =
-      session.mode === 'create'
-        ? Object.fromEntries(
-            session.schema.fields.map((field) => [field.key, field.defaultValue ?? '']),
-          )
-        : session.schema.getInitialValues(session.element)
+    values = ElementDialogDirty.getInitialValues(session)
     touched = session.mode === 'create'
       ? Object.fromEntries(
           session.schema.fields
@@ -304,6 +302,7 @@
       const nodeId = TreeStore.addChildAndGetId(session.parentNodeId, element, session.insertIndex)
       ElementDialog.close()
       await session.schema.afterCreate?.(element, nodeId)
+      await ElementAutoVerification.verify(nodeId)
       return
     } else {
       try {
@@ -324,6 +323,7 @@
         )
 
         ElementDialog.close()
+        await ElementAutoVerification.verify(session.nodeId)
         const messages: string[] = []
         messages.push(...result.notices)
         if (result.updatedOccurrenceCount > 0) {
@@ -358,13 +358,34 @@
     ElementDialog.close()
   }
 
+  const requestClose = async () => {
+    const session = $elementDialogStore
+    if (session == null) return
+    if (!ElementDialogDirty.isDirty(session, values)) {
+      ElementDialog.close()
+      return
+    }
+
+    const discard = await ConfirmDialogController.open({
+      tone: 'warning',
+      title: 'Discard changes?',
+      message: 'Your changes have not been saved.',
+      choices: [
+        { label: 'Keep Editing', role: 'cancel' },
+        { label: 'Discard', role: 'proceed' },
+      ],
+    })
+    if (discard && $elementDialogStore === session) ElementDialog.close()
+  }
+
   const handleDialogKeydown = (event: KeyboardEvent) => {
     if ($elementDialogStore == null) return
     if (event.key !== 'Escape') return
+    if ($confirmDialogStore != null) return
 
     event.preventDefault()
     event.stopPropagation()
-    ElementDialog.close()
+    void requestClose()
   }
 </script>
 
@@ -388,7 +409,7 @@
     aria-label={title}
   >
     <header class="dialog-header">
-      <button type="button" onclick={ElementDialog.close}>Cancel</button>
+      <button type="button" onclick={() => { void requestClose() }}>Cancel</button>
       <button type="button" disabled={!canSubmit()} onclick={submit}>
         {$elementDialogStore.mode === 'create' ? 'Create' : 'Update'}
       </button>

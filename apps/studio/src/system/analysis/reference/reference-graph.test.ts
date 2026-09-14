@@ -88,6 +88,35 @@ describe('ReferenceGraph', () => {
     expect(snapshot.select(component.id)).toBe(componentGraph)
   })
 
+  it('always offers Component dependencies and lists them for a formula root Partial key', () => {
+    const state = node(3, {
+      kind: 'state', id: 'panelId', valueType: { type: 'string' }, nullable: false,
+      initial: { type: 'literal', value: 'main' },
+    })
+    const component = node(4, {
+      kind: 'component', componentId: 'component-uuid', id: 'Panel',
+    })
+    const root = node(1, { kind: 'project' }, [state, component])
+
+    expect(ReferenceGraph.build(root, component.id)).toMatchObject({
+      canHaveDependencies: true,
+      dependencies: [],
+    })
+
+    component.element = {
+      ...component.element,
+      partialKey: { type: 'formula', source: '$state.panelId' },
+    } as TreeNode.Node['element']
+    expect(ReferenceGraph.build(root, component.id)).toMatchObject({
+      canHaveDependencies: true,
+      dependencies: [{
+        sourceNodeId: component.id,
+        targetNodeId: state.id,
+        targetLabel: 'state.panelId',
+      }],
+    })
+  })
+
   it('resolves structured references by stable definition UUID only', () => {
     const component = node(2, {
       kind: 'component',

@@ -1,6 +1,6 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type TagElement from '../../element/kind/view/tag/tag-element'
+import type ResolvableValue from '../../element/kind/shared/resolvable-value'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
 
@@ -35,7 +35,7 @@ namespace RuntimePartialKey {
   }
 
   export const resolve = (
-    partialKey: TagElement.PartialKey | undefined,
+    partialKey: ResolvableValue.Value<string> | undefined,
     context: FormulaContext.Value,
   ): Result => {
     if (partialKey == null) return { key: null, error: null }

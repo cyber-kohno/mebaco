@@ -200,6 +200,12 @@ namespace ShortcutRegistry {
       },
     },
     {
+      id: 'prevent-space-scroll',
+      key: { key: ' ' },
+      when: () => true,
+      run: () => {},
+    },
+    {
       id: 'copy-selected-node',
       key: { key: 'c', ctrl: true },
       when: (context) => getSelectedAction(context, TreeDestinationActionId.copy) != null,

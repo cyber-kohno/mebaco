@@ -3,6 +3,7 @@ import type StyleParameterCatalog from '../../element/kind/view/style/style-para
 import type StyleElement from '../../element/kind/view/style/style-element'
 import StylePropertyName from '../../element/kind/view/style/style-property-name'
 import StylePropertyCatalog from '../../element/kind/view/style/style-property-catalog'
+import StyleValueSupport from '../../element/kind/view/style/style-value-support'
 import ValueSource from '../../ui/input/value-source'
 import TypeExpression from '../../element/kind/type/type-expression'
 import ObjectShape from '../../element/kind/type/object/object-shape'
@@ -767,6 +768,16 @@ namespace ElementEditSchema {
         .filter((item) => item.type === 'state')
         .some((item) => StylePropertyName.hasDuplicates(item.declarations))
       if (hasStateDuplicates) return 'Style property is duplicated in this state.'
+
+      const unsupported = parsed.flatMap((item) => (
+        item.type === 'state' ? item.declarations : [item]
+      )).find((declaration) => (
+        declaration.value.type === 'literal'
+        && StyleValueSupport.check(declaration.property, declaration.value.value) === 'unsupported'
+      ))
+      if (unsupported != null) {
+        return `'${unsupported.value.value}' is not supported for '${unsupported.property}' in this runtime.`
+      }
 
       return null
     } catch {

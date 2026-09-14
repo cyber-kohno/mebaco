@@ -7,7 +7,7 @@
   import ScriptError from '../script/script-error'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
-  import RenderContent from './RenderContent.svelte'
+  import RenderComponentContent from './RenderComponentContent.svelte'
   import type FormulaContextType from '../formula/formula-context'
   import type ScriptErrorType from '../script/script-error'
 import type SlotContentElement from '../../element/kind/component/reference/slot/slot-content-element'
@@ -88,9 +88,6 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
     ...formulaContext,
     $props: propsResult.values,
   }))
-  const rootViewNodes = $derived(
-    componentNode == null ? [] : RuntimeTree.getComponentRootViewNodes(componentNode),
-  )
   const slotContents = $derived.by(() => {
     const folder = node.children.find((child) => child.element.kind === 'slot-contents')
     return new Map(
@@ -158,9 +155,8 @@ import type SlotElement from '../../element/kind/component/definition/slot/slot-
 </script>
 
 {#if error == null && componentNode != null}
-  <RenderContent
-    hostNode={componentNode}
-    contentNodes={rootViewNodes}
+  <RenderComponentContent
+    {componentNode}
     {projectNode}
     {styleCatalog}
     formulaContext={componentContext}

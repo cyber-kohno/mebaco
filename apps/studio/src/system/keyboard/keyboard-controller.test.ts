@@ -74,6 +74,23 @@ describe('KeyboardController disabled shortcut', () => {
     expect(event.preventDefault).toHaveBeenCalledOnce()
   })
 
+  it('prevents the browser Space scroll outside an App', () => {
+    const selectedNode: TreeNode.Node = {
+      id: 2,
+      element: { kind: 'common' },
+      isOpen: true,
+      children: [],
+    }
+    const context = createContext(selectedNode)
+    const event = createEvent({ key: ' ' })
+
+    KeyboardController.handleKeydown(event, context)
+
+    expect(context.launchAppShortcut).not.toHaveBeenCalled()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
+  })
+
   it('runs the selected node Copy action with Ctrl+C', () => {
     const selectedNode: TreeNode.Node = {
       id: 2,

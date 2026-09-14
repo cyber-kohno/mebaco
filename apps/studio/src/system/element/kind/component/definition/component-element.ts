@@ -11,6 +11,7 @@ import TreeStore from '../../../../store/tree-store'
 import ElementDeletionController from '../../../deletion/element-deletion-controller'
 import StoreElement from '../../variable/store/store-element'
 import StatesElement from '../../variable/store/states-element'
+import ResolvableValue from '../../shared/resolvable-value'
 
 namespace ComponentElement {
   export type Kind = 'component'
@@ -20,15 +21,20 @@ namespace ComponentElement {
     componentId: string
     id: string
     local?: boolean
+    partialKey?: PartialKey
   }
+
+  export type PartialKey = ResolvableValue.Value<string>
 
   export const create = (
     id: string,
     componentId: string = crypto.randomUUID(),
+    partialKey?: PartialKey,
   ): Element => ({
     kind: 'component',
     componentId,
     id,
+    ...(partialKey == null ? {} : { partialKey }),
   })
 
   export const createLocal = (
@@ -42,6 +48,13 @@ namespace ComponentElement {
   })
 
   export const isLocal = (element: Element): boolean => element.local === true
+
+  export const parsePartialKey = (
+    source: string,
+  ): PartialKey | undefined => (
+    ResolvableValue.parseJson(source, (value): value is string => typeof value === 'string')
+      ?? undefined
+  )
 
   export type CreateSchemaOptions = {
     reservedNames?: readonly string[]
@@ -65,16 +78,32 @@ namespace ComponentElement {
         maxLength: 32,
         reservedNames: options.reservedNames,
       },
+      {
+        type: 'tagPartialKey',
+        key: 'partialKey',
+        label: 'Root Partial',
+        defaultValue: '',
+      },
     ],
     createPreview: () => (options.local === true ? createLocal('...') : create('...')),
     getInitialValues: (element) => ({
       id: element.id,
+      partialKey: element.partialKey == null ? '' : ResolvableValue.stringify(element.partialKey),
     }),
-    create: (values) => (options.local === true ? createLocal(values.id) : create(values.id)),
-    update: (element, values) => ({
-      ...element,
-      id: values.id,
-    }),
+    create: (values) => {
+      const element = options.local === true ? createLocal(values.id) : create(values.id)
+      const partialKey = parsePartialKey(values.partialKey ?? '')
+      return { ...element, ...(partialKey == null ? {} : { partialKey }) }
+    },
+    update: (element, values) => {
+      const { partialKey: _currentPartialKey, ...base } = element
+      const partialKey = parsePartialKey(values.partialKey ?? '')
+      return {
+        ...base,
+        id: values.id,
+        ...(partialKey == null ? {} : { partialKey }),
+      }
+    },
   })
 
   export const definition = {

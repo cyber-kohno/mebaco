@@ -125,6 +125,26 @@ describe('stable definition identities', () => {
       }))
   })
 
+  it('stores an optional Component root Partial key', () => {
+    const schema = ComponentElement.createSchema()
+    const created = schema.create({
+      id: 'Panel',
+      partialKey: JSON.stringify({ type: 'formula', source: '$state.panelId' }),
+    })
+
+    expect(created).toMatchObject({
+      kind: 'component',
+      id: 'Panel',
+      partialKey: { type: 'formula', source: '$state.panelId' },
+    })
+    expect(schema.getInitialValues(created).partialKey).toBe(
+      JSON.stringify({ type: 'formula', source: '$state.panelId' }),
+    )
+
+    expect(schema.update(created, { id: 'Panel', partialKey: '' }))
+      .not.toHaveProperty('partialKey')
+  })
+
   it('excludes direct and indirect recursive Component references', () => {
     const useFromA = node(8, ComponentUseElement.create())
     const useFromB = node(12, {

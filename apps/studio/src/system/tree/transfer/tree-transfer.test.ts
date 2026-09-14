@@ -270,6 +270,32 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, source, retentionBlock, 'move')).toBe(false)
   })
 
+  it('copies and moves Text between View content destinations without a name', () => {
+    const source = node(3, TextElement.createFormula('$props.title'))
+    const destination = node(4, TagElement.create('p', 'destination'))
+    const elements = node(2, { kind: 'elements' }, [source, destination])
+    const root = node(1, ProjectElement.create(), [elements])
+
+    expect(TreeTransferCatalog.isTransferable(source.element)).toBe(true)
+    expect(TreeTransferCatalog.isMovable(source.element)).toBe(true)
+    expect(TreeTransferCatalog.requiresName('text')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, destination, 'copy')).toBe(true)
+
+    const copyPlan = TreeTransferPlanner.copy(root, source.id, destination.id, null)
+    const copied = TreeNode.findNode(copyPlan.rootNode, copyPlan.copiedNodeId)
+    expect(copied?.element).toEqual(TextElement.createFormula('$props.title'))
+    expect(copied?.children).toEqual([])
+    expect(TreeTransferValidator.validateStructure(
+      copyPlan.rootNode,
+      copyPlan.copiedNodeId,
+    )).toBeNull()
+
+    const movePlan = TreeTransferPlanner.move(root, source.id, destination.id)
+    expect(TreeNode.findNode(movePlan.rootNode, source.id)?.element)
+      .toEqual(TextElement.createFormula('$props.title'))
+    expect(TreeNode.findParent(movePlan.rootNode, source.id)?.id).toBe(destination.id)
+  })
+
   it('offers the same View content destinations for a Loop as a Tag', () => {
     const source = node(3, LoopElement.createCount('4', 'index'))
     const containerTag = node(4, TagElement.create('div', 'container'))

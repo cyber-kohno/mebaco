@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import RuntimePartialRegistry from './runtime-partial-registry'
 
 describe('RuntimePartialRegistry', () => {
-  it('invalidates the registered Tag and stops after unregistering', () => {
+  it('invalidates the registered target and stops after unregistering', () => {
     const invalidate = RuntimePartialRegistry.create()
     const requestInvalidation = vi.fn()
     const unregister = RuntimePartialRegistry.register(
@@ -44,7 +44,7 @@ describe('RuntimePartialRegistry', () => {
       "Duplicate partial key 'task-3' in the current component instance.",
     )
     expect(() => invalidate('task-3')).toThrow(
-      "Partial key 'task-3' is ambiguous because 2 Tags are registered.",
+      "Partial key 'task-3' is ambiguous because 2 targets are registered.",
     )
 
     unregisterFirst()

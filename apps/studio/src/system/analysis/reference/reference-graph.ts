@@ -889,8 +889,10 @@ namespace ReferenceGraph {
 
     return {
       canHaveReferences: selectedTarget?.canBeReferenced === true,
-      canHaveDependencies: selectedNode.element.kind !== 'style-param'
-        && hasPotentialDependency(selectedNode.element),
+      canHaveDependencies: selectedNode.element.kind === 'component'
+        ? true
+        : selectedNode.element.kind !== 'style-param'
+          && hasPotentialDependency(selectedNode.element),
       references: edges.references
         .filter((reference) => (
           selectedTarget?.canBeReferenced === true

@@ -16,6 +16,7 @@ namespace TreeTransferCatalog {
     | 'function'
     | 'component'
     | 'tag'
+    | 'text'
     | 'loop'
     | 'conditional'
     | 'switch'
@@ -28,6 +29,7 @@ namespace TreeTransferCatalog {
     | 'function'
     | 'component'
     | 'tag'
+    | 'text'
     | 'loop'
     | 'conditional'
     | 'switch'
@@ -52,6 +54,7 @@ namespace TreeTransferCatalog {
     'function',
     'component',
     'tag',
+    'text',
     'loop',
     'conditional',
     'switch',
@@ -65,6 +68,7 @@ namespace TreeTransferCatalog {
     'function',
     'component',
     'tag',
+    'text',
     'loop',
     'conditional',
     'switch',
@@ -110,7 +114,7 @@ namespace TreeTransferCatalog {
 
   const isTypeKind = (
     kind: MebacoElement.Kind,
-  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag' | 'loop' | 'conditional' | 'switch'> => (
+  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag' | 'text' | 'loop' | 'conditional' | 'switch'> => (
     kind === 'object-type'
     || kind === 'union-type'
     || kind === 'signature-type'
@@ -151,6 +155,7 @@ namespace TreeTransferCatalog {
 
     if (
       sourceKind === 'tag'
+      || sourceKind === 'text'
       || sourceKind === 'loop'
       || sourceKind === 'conditional'
       || sourceKind === 'switch'
@@ -223,6 +228,7 @@ namespace TreeTransferCatalog {
       && sourceNode.element.kind !== 'function'
       && sourceNode.element.kind !== 'component'
       && sourceNode.element.kind !== 'tag'
+      && sourceNode.element.kind !== 'text'
       && sourceNode.element.kind !== 'loop'
       && sourceNode.element.kind !== 'conditional'
       && sourceNode.element.kind !== 'switch'
@@ -290,6 +296,7 @@ namespace TreeTransferCatalog {
     sourceKind: TransferableKind,
     name: string,
   ): string | null => sourceKind === 'tag'
+    || sourceKind === 'text'
     || sourceKind === 'loop'
     || sourceKind === 'conditional'
     || sourceKind === 'switch'
@@ -314,6 +321,7 @@ namespace TreeTransferCatalog {
   export const requiresName = (
     kind: TransferableKind,
   ): boolean => kind !== 'tag'
+    && kind !== 'text'
     && kind !== 'loop'
     && kind !== 'conditional'
     && kind !== 'switch'

@@ -70,6 +70,7 @@ import { developInteractionStore } from '../../area/develop/interaction/develop-
 import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
 import ObjectTypeElement from '../../element/kind/type/object/object-type-element'
 import StyleElement from '../../element/kind/view/style/style-element'
+import TextElement from '../../element/kind/view/text/text-element'
 import ExpressionVerificationStore from '../../validation/expression/expression-verification-store'
 import type TreeNode from '../tree-node'
 import TreeDestinationActionId from './tree-destination-action-id'
@@ -153,6 +154,37 @@ describe('TreeDestinationController', () => {
       operation: { type: 'move', sourceKind: 'loop' },
       sourceNodeId: loop.id,
       sourceLabel: 'loop',
+    })
+  })
+
+  it('adds unnamed Copy and Move transactions to Text', () => {
+    const text = node(5, TextElement.createLiteral('Hello'))
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const copyItems = TreeDestinationController.addCopyAction(items, text)
+    const moveItems = TreeDestinationController.addMoveAction(items, text)
+    expect(copyItems.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    expect(moveItems.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const copy = copyItems[1]
+    const move = moveItems[1]
+    if (copy.type !== 'action' || move.type !== 'action') {
+      throw new Error('Expected Text transfer actions.')
+    }
+    copy.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'copy', sourceKind: 'text' },
+      sourceNodeId: text.id,
+      sourceLabel: 'text',
+    })
+    move.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'move', sourceKind: 'text' },
+      sourceNodeId: text.id,
+      sourceLabel: 'text',
     })
   })
 

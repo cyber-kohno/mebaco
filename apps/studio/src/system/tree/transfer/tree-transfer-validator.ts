@@ -282,6 +282,7 @@ namespace TreeTransferValidator {
       && copiedNode.element.kind !== 'function'
       && copiedNode.element.kind !== 'component'
       && copiedNode.element.kind !== 'tag'
+      && copiedNode.element.kind !== 'text'
       && copiedNode.element.kind !== 'loop'
       && copiedNode.element.kind !== 'conditional'
       && copiedNode.element.kind !== 'switch'

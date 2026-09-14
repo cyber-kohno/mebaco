@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ElementEditSchema from '../../../../element-dialog/element-edit-schema'
 import StyleFixture from '../../../../test-support/style-fixture'
 import StylePropertyName from './style-property-name'
 
 describe('StylePropertyName', () => {
   beforeEach(StyleFixture.resetNodeIds)
+  afterEach(() => vi.unstubAllGlobals())
 
   it('normalizes standard properties case-insensitively', () => {
     expect(StylePropertyName.normalize(' Color ')).toBe('standard:color')
@@ -41,6 +42,21 @@ describe('StylePropertyName', () => {
     expect(ElementEditSchema.validateStyleProps(JSON.stringify([
       StyleFixture.literal('animation-duration', '1s'),
     ]))).toBe('Use the Animations tab for animation properties.')
+  })
+
+  it('rejects unsupported literal CSS values before saving', () => {
+    vi.stubGlobal('CSS', {
+      supports: (property: string, value: string) => property === 'display' && value === 'grid',
+    })
+
+    expect(ElementEditSchema.validateStyleProps(JSON.stringify([
+      StyleFixture.literal('display', 'invalid-display'),
+    ]))).toBe("'invalid-display' is not supported for 'display' in this runtime.")
+    expect(ElementEditSchema.validateStyleProps(JSON.stringify([{
+      type: 'declaration',
+      property: 'display',
+      value: { type: 'formula', source: '$state.display' },
+    }]))).toBeNull()
   })
 
   it('validates structured animations against local Keyframes options', () => {

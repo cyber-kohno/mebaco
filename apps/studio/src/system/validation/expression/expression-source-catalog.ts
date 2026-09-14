@@ -70,7 +70,7 @@ namespace ExpressionSourceCatalog {
 
     if (element.kind === 'text' && key === 'source') return 'string'
     if (
-      element.kind === 'tag'
+      (element.kind === 'tag' || element.kind === 'component')
       && (key === 'refKey' || key === 'partialKey')
     ) return 'string'
 

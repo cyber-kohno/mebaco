@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { SvelteMap } from 'svelte/reactivity'
-  import RenderContent from '../render/RenderContent.svelte'
+  import RenderComponentContent from '../render/RenderComponentContent.svelte'
   import FormulaContext from '../formula/formula-context'
   import RuntimeState from '../runtime-state'
   import RuntimeStateDependency from '../runtime-state-dependency'
@@ -267,10 +267,6 @@
     })
     return rules.join('\n')
   })
-  const rootViewNodes = $derived(entryComponentNode == null
-    ? []
-    : RuntimeTree.getComponentRootViewNodes(entryComponentNode))
-
   $effect(() => {
     if (runtimeStyleElement == null) return
     runtimeStyleElement.textContent = runtimeStyleSheet
@@ -401,7 +397,7 @@
   {#if displayedRuntimeFailure != null}
     <RuntimeErrorScreen failure={displayedRuntimeFailure} />
   {:else if entryComponentNode != null}
-    <RenderContent hostNode={entryComponentNode} contentNodes={rootViewNodes}
+    <RenderComponentContent componentNode={entryComponentNode}
       {projectNode} {styleCatalog}
       {formulaContext} {renderRevision} {invalidateRuntime}
       {trackStateDependencies} {invalidateStateDependencies}
