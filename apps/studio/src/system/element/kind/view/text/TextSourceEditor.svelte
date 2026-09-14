@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import TextElement from './text-element'
 
@@ -37,7 +37,7 @@
 <div class="text-source-editor">
   <FormulaModeToggle mode={source.type} onModeChange={changeMode} />
   {#if source.type === 'formula'}
-    <CompactFormulaField
+    <FormulaLabelField
       value={source.source}
       ariaLabel="Text formula"
       {injectionSource}

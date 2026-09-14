@@ -3,7 +3,7 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import IconButton from '../../../../ui/button/IconButton.svelte'
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import SuggestTextInput from '../../../../ui/input/SuggestTextInput.svelte'
   import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
@@ -210,7 +210,7 @@
               {#if fieldValue.type === 'literal'}
                 <SuggestTextInput value={fieldValue.value} options={field.suggestions} validationMessage={fieldValue.value.trim().length === 0 ? 'Value is required.' : StyleValueSupport.check(field.property, fieldValue.value) === 'unsupported' ? `'${fieldValue.value}' is not supported for '${field.property}' in this runtime.` : undefined} validationSeverity={StyleValueSupport.check(field.property, fieldValue.value) === 'unsupported' ? 'error' : undefined} onValueChange={(nextValue) => updateAnimation(item.referenceId, (current) => ({ ...current, [field.key]: { type: 'literal', value: nextValue } }))} />
               {:else}
-                <CompactFormulaField value={fieldValue.source} ariaLabel={`${field.label} formula`} validationMessage={fieldValue.source.trim().length === 0 ? 'Formula is required.' : undefined} injectionSource={formulaInjectionSource} expectedType="string" onValueChange={(source) => updateAnimation(item.referenceId, (current) => ({ ...current, [field.key]: { type: 'formula', source } }))} />
+                <FormulaLabelField value={fieldValue.source} ariaLabel={`${field.label} formula`} validationMessage={fieldValue.source.trim().length === 0 ? 'Formula is required.' : undefined} injectionSource={formulaInjectionSource} expectedType="string" onValueChange={(source) => updateAnimation(item.referenceId, (current) => ({ ...current, [field.key]: { type: 'formula', source } }))} />
               {/if}
             {/each}
           </div>

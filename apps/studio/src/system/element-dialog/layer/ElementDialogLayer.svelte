@@ -230,6 +230,29 @@
     ?? []
   )
 
+  const formulaLabelFieldTypes = new Set<ElementEditSchema.Field['type']>([
+    'textSource',
+    'valueSource',
+    'styleProps',
+    'styleKeyframes',
+    'styleAnimations',
+    'styleApplications',
+    'styleBases',
+    'tagRefKey',
+    'tagPartialKey',
+    'componentBindings',
+  ])
+
+  const renderedFields = () => (
+    $elementDialogStore?.schema.fields
+      .filter(isVisibleField)
+      .filter((field) => (
+        isActiveTabField(field)
+        || formulaLabelFieldTypes.has(field.type)
+      ))
+    ?? []
+  )
+
   const getSelectedOption = (
     field: ElementEditSchema.SelectField,
   ): ElementEditSchema.SelectOption | null => (
@@ -411,10 +434,14 @@
         </div>
       {/if}
 
-      {#each visibleFields() as field}
+      {#each renderedFields() as field}
         {@const error = getError(field)}
         {@const issue = touched[field.key] === true && error != null ? ValidationIssue.fromMessage(error) : null}
-        {#if field.type === 'heading'}
+        <div
+          class="dialog-field-slot"
+          class:inactive-tab-field={!isActiveTabField(field)}
+        >
+          {#if field.type === 'heading'}
           <div class="field-heading">{field.label}</div>
         {:else if field.type === 'textSource'}
           <div class="field" data-validation-severity={issue?.severity}>
@@ -1031,13 +1058,22 @@
               {/if}
             {/if}
           </label>
-        {/if}
+          {/if}
+        </div>
       {/each}
     </div>
   </section>
 {/if}
 
 <style>
+  .dialog-field-slot {
+    display: contents;
+  }
+
+  .dialog-field-slot.inactive-tab-field {
+    display: none;
+  }
+
   .scrim {
     position: absolute;
     z-index: 30;

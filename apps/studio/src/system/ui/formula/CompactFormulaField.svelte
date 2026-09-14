@@ -1,5 +1,7 @@
 <script lang="ts">
   import Maximize2 from '@lucide/svelte/icons/maximize-2'
+  import Check from '@lucide/svelte/icons/check'
+  import LoaderCircle from '@lucide/svelte/icons/loader-circle'
   import X from '@lucide/svelte/icons/x'
   import { onMount, tick } from 'svelte'
   import IconButton from '../button/IconButton.svelte'
@@ -13,8 +15,15 @@
     injectionSource?: string
     expectedType?: 'string' | 'number' | 'boolean' | 'array'
     expectedTypeText?: string
+    allowAwait?: boolean
     validationMessage?: string
     validationSeverity?: 'warning' | 'error'
+    presentation?: 'field' | 'label'
+    formulaStatus?: 'checking' | 'verified' | 'error'
+    formulaDisplayText?: string
+    formulaPlaceholder?: boolean
+    onEditorActiveChange?: (active: boolean) => void
+    onDiagnosticsChange?: (messages: string[] | null) => void
     onValueChange: (value: string) => void
   }
 
@@ -24,8 +33,15 @@
     injectionSource,
     expectedType,
     expectedTypeText,
+    allowAwait = false,
     validationMessage,
     validationSeverity,
+    presentation = 'field',
+    formulaStatus = 'checking',
+    formulaDisplayText,
+    formulaPlaceholder = false,
+    onEditorActiveChange,
+    onDiagnosticsChange,
     onValueChange,
   }: Props = $props()
 
@@ -69,11 +85,13 @@
   const openPopover = () => {
     window.dispatchEvent(new CustomEvent(openEventName, { detail: instanceId }))
     isOpen = true
+    onEditorActiveChange?.(true)
     void tick().then(updatePopupPosition)
   }
 
   const closePopover = () => {
     isOpen = false
+    onEditorActiveChange?.(false)
   }
 
   const expand = () => {
@@ -132,11 +150,33 @@
     aria-label={ariaLabel}
     aria-haspopup="dialog"
     aria-expanded={isOpen}
+    class:formula-label={presentation === 'label'}
+    data-formula-status={presentation === 'label' ? formulaStatus : undefined}
     data-validation-severity={effectiveValidationMessage == null ? undefined : validationSeverity ?? 'error'}
     title={effectiveValidationMessage ?? (value || 'Set formula')}
     onclick={openPopover}
   >
-    <span>{value || 'Set formula'}</span>
+    {#if presentation === 'label'}
+      <span
+        class="formula-status {formulaStatus}"
+        aria-label={formulaStatus === 'verified'
+          ? 'Formula is valid'
+          : formulaStatus === 'error'
+            ? 'Formula has an error'
+            : 'Checking formula'}
+      >
+        {#if formulaStatus === 'verified'}
+          <Check size={15} strokeWidth={3} />
+        {:else if formulaStatus === 'error'}
+          <X size={15} strokeWidth={3} />
+        {:else}
+          <LoaderCircle size={15} strokeWidth={2} />
+        {/if}
+      </span>
+    {/if}
+    <span class:placeholder={formulaPlaceholder} class="formula-value">
+      {formulaDisplayText ?? (value || 'Set formula')}
+    </span>
   </button>
 </div>
 
@@ -171,12 +211,15 @@
       {injectionSource}
       {expectedType}
       {expectedTypeText}
+      {allowAwait}
       autoFocus
       onDiagnosticsChange={(messages) => {
         diagnosticMessages = messages
+        onDiagnosticsChange?.(messages)
       }}
       onValueChange={(nextValue) => {
         diagnosticMessages = []
+        onDiagnosticsChange?.(null)
         onValueChange(nextValue)
       }}
     />
@@ -189,9 +232,14 @@
     {injectionSource}
     {expectedType}
     {expectedTypeText}
-    {onValueChange}
+    {allowAwait}
+    onValueChange={(nextValue) => {
+      onDiagnosticsChange?.(null)
+      onValueChange(nextValue)
+    }}
     onDiagnosticsChange={(messages) => {
       diagnosticMessages = messages
+      onDiagnosticsChange?.(messages)
     }}
     onBack={() => {
       isExpanded = false
@@ -232,12 +280,12 @@
     font-style: italic;
   }
 
-  .formula-trigger[data-validation-severity='warning'] {
+  .formula-trigger[data-validation-severity='warning']:not(.formula-label) {
     border-color: var(--mbc-color-validation-warning-strong);
     background: var(--mbc-color-validation-warning);
   }
 
-  .formula-trigger[data-validation-severity='error'] {
+  .formula-trigger[data-validation-severity='error']:not(.formula-label) {
     border-color: var(--mbc-color-validation-error-strong);
     background: var(--mbc-color-validation-error);
   }
@@ -249,6 +297,81 @@
   .formula-trigger:focus-visible {
     border-color: var(--mbc-color-primary);
     box-shadow: 0 0 0 3px rgba(78, 195, 211, 0.22);
+  }
+
+  .formula-trigger.formula-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    border-left: 3px solid #d9b77b;
+    border-radius: 0;
+    background: #fff8ed;
+    color: #714b12;
+    cursor: pointer;
+  }
+
+  .formula-trigger.formula-label:hover {
+    background: #fff0d8;
+  }
+
+  .formula-trigger.formula-label[data-formula-status='verified'] {
+    background: #f2f9e5;
+  }
+
+  .formula-trigger.formula-label[data-formula-status='verified']:hover {
+    background: #e8f4d2;
+  }
+
+  .formula-trigger.formula-label[data-formula-status='error'] {
+    background: #fff0f1;
+  }
+
+  .formula-trigger.formula-label[data-formula-status='error']:hover {
+    background: #ffe3e6;
+  }
+
+  .formula-trigger.formula-label.empty {
+    font-style: normal;
+  }
+
+  .formula-trigger.formula-label .formula-value.placeholder {
+    color: #9a7743;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .formula-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+  }
+
+  .formula-status.verified { color: #8ebc2f; }
+
+  .formula-status.error { color: #d04452; }
+
+  .formula-status.checking {
+    color: #aa741d;
+    animation: formula-status-spin 0.8s linear infinite;
+  }
+
+  @keyframes formula-status-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .formula-status.checking { animation: none; }
+  }
+
+  .formula-label .formula-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .formula-popover {

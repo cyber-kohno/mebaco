@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import TagElement from './tag-element'
 
@@ -48,7 +48,7 @@
     <span class="key-label">Key</span>
     <FormulaModeToggle mode={partialKey.type} onModeChange={changeMode} />
     {#if partialKey.type === 'formula'}
-      <CompactFormulaField
+      <FormulaLabelField
         value={partialKey.source}
         ariaLabel="Partial key formula"
         {injectionSource}

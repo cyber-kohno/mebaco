@@ -6,7 +6,7 @@
   import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
   import IconButton from '../../../../ui/button/IconButton.svelte'
   import ColorSwatch from '../../../../ui/color/ColorSwatch.svelte'
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import StyleElement from './style-element'
   import type StyleParameterCatalog from './style-parameter-catalog'
@@ -289,7 +289,7 @@
               <span>Condition</span>
             </label>
             {#if base.condition != null}
-              <CompactFormulaField
+              <FormulaLabelField
                 value={base.condition.source}
                 ariaLabel="Style condition"
                 injectionSource={formulaInjectionSource}
@@ -344,7 +344,7 @@
                         onModeChange={(type) => updateValueMode(base, parameter, type)}
                       />
                       {#if argument.binding.value.type === 'formula'}
-                        <CompactFormulaField
+                        <FormulaLabelField
                           value={argument.binding.value.source}
                           ariaLabel={`${parameter.id} formula`}
                           injectionSource={formulaInjectionSource}

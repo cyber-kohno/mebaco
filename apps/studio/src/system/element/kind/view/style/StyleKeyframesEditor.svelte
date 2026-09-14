@@ -4,7 +4,7 @@
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import IconButton from '../../../../ui/button/IconButton.svelte'
   import ColorSwatch from '../../../../ui/color/ColorSwatch.svelte'
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import SuggestTextInput from '../../../../ui/input/SuggestTextInput.svelte'
   import type StyleElement from './style-element'
@@ -374,7 +374,7 @@
                       />
                     </div>
                   {:else}
-                    <CompactFormulaField
+                    <FormulaLabelField
                       value={declaration.value.source}
                       ariaLabel={`${declaration.property || 'Keyframe property'} formula`}
                       validationMessage={valueValidation?.message}

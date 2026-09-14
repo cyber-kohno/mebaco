@@ -25,10 +25,14 @@
 
 <span class="text-label">
   <span class:has-detail={hasValue} class="text-kind">
-    {element.source.type === 'formula' ? 'Formula' : 'Text'}
+    Text
   </span>
   {#if hasValue}
-    <span class="text-value">
+    <span
+      class:formula-value={element.source.type === 'formula'}
+      class:literal-value={element.source.type === 'literal'}
+      class="text-value"
+    >
       {#if element.source.type === 'formula'}
         <span class="formula-return">return</span>
         <span>{formulaPreview}</span>
@@ -78,7 +82,14 @@
     border-left: 0;
     border-radius: 0 4px 4px 0;
     background: #14171a;
-    color: #ddeef1;
+  }
+
+  .text-value.literal-value {
+    color: #d9f5fa;
+  }
+
+  .text-value.formula-value {
+    color: #ffe0b2;
     font-style: italic;
   }
 

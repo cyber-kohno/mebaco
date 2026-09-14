@@ -4,6 +4,7 @@ import ActionMenuState from '../../../../action-menu/action-menu-state'
 import ElementDialog from '../../../../element-dialog/element-dialog-controller'
 import TextTreeLabel from './TextTreeLabel.svelte'
 import ResolvableValue from '../../shared/resolvable-value'
+import TreeStore from '../../../../store/tree-store'
 
 namespace TextElement {
   export type Kind = 'text'
@@ -79,6 +80,7 @@ namespace TextElement {
             createSchema(),
           )
         }),
+        action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),
       ]
     },
     childSlots: [],

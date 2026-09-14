@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CompactFormulaField from '../../../../ui/formula/CompactFormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../../../../ui/formula/FormulaModeToggle.svelte'
   import TypeCatalog from '../../type/type-catalog'
   import TypeExpression from '../../type/type-expression'
@@ -153,7 +153,7 @@
               {/if}
 
               {#if source.type === 'formula'}
-                <CompactFormulaField
+                <FormulaLabelField
                   value={source.source}
                   ariaLabel={`${prop.id} formula`}
                   {injectionSource}
