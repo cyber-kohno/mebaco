@@ -8,6 +8,7 @@
   import SuggestTextInput from '../../../../ui/input/SuggestTextInput.svelte'
   import TagEventCatalog from './tag-event-catalog'
   import type TagElement from './tag-element'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -27,6 +28,7 @@
 
   let attributes = $state<TagElement.Attribute[]>([])
   let lastValue = $state('')
+  let attributeArea = $state<HTMLElement | null>(null)
 
   const valueTypes = ['empty', 'literal', 'formula', 'boolean'] as const
 
@@ -136,6 +138,7 @@
       },
     ]
     emit()
+    void ScrollAfterUpdate.toEnd(() => attributeArea)
   }
 
   const addEvent = () => {
@@ -153,6 +156,7 @@
       },
     ]
     emit()
+    void ScrollAfterUpdate.toEnd(() => attributeArea)
   }
 
   const deleteAttribute = (index: number) => {
@@ -221,7 +225,7 @@
   {#if attributes.length === 0}
     <div class="empty">No attributes</div>
   {:else}
-    <div class="attribute-area">
+    <div class="attribute-area" bind:this={attributeArea}>
       {#each attributes as attribute, index}
         <section class="attribute-row" aria-label={`Attribute ${index + 1}`}>
           <div class="row-main">

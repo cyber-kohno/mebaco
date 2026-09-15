@@ -9,6 +9,7 @@
   import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
   import StyleElement from './style-element'
   import StyleValueSupport from './style-value-support'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -50,6 +51,7 @@
   let rules = $state<StyleElement.AnimationRule[]>([])
   let activeScope = $state<Scope>('default')
   let lastValue = $state('')
+  let animationList = $state<HTMLElement | null>(null)
 
   const emit = () => {
     lastValue = JSON.stringify(rules)
@@ -111,7 +113,10 @@
     replaceActiveRule({ ...activeRule, items })
   }
 
-  const addAnimation = () => setItems([...(activeRule?.items ?? []), StyleElement.createAnimation()])
+  const addAnimation = () => {
+    setItems([...(activeRule?.items ?? []), StyleElement.createAnimation()])
+    void ScrollAfterUpdate.toEnd(() => animationList)
+  }
   const removeAnimation = (referenceId: string) => setItems(
     (activeRule?.items ?? []).filter((item) => item.referenceId !== referenceId),
   )
@@ -184,7 +189,7 @@
   {:else if activeRule.items.length === 0}
     <div class="empty">No animations. Add one or choose Unspecified.</div>
   {:else}
-    <div class="animation-list">
+    <div class="animation-list" bind:this={animationList}>
       {#each activeRule.items as item, index (item.referenceId)}
         <article class="animation-card">
           <header>

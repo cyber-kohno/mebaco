@@ -4,6 +4,7 @@ import ReleasePackage from '../../release/release-package'
 import { get } from 'svelte/store'
 import { developScreenStore } from '../../area/develop/develop-screen-store'
 import { appAreaStore } from '../../navigation/app-area-store'
+import ProjectSession from '../../project/project-session-store'
 
 const collectBundles = (
   context: CommandContext,
@@ -42,6 +43,22 @@ const createReleaseCatalog = (): CommandDefinition => ({
     const bundle = collectBundles(context).find((candidate) => candidate.id === bundleId)
     if (bundle == null) {
       context.appendOutput('danger', `Bundle not found: ${bundleId}`)
+      return
+    }
+
+    const projectSession = get(ProjectSession.store)
+    if (projectSession.path == null) {
+      context.appendOutput(
+        'danger',
+        'Project has not been saved. Save the project after building before releasing.',
+      )
+      return
+    }
+    if (projectSession.isDirty) {
+      context.appendOutput(
+        'danger',
+        'Project has unsaved changes. Save the project after building before releasing.',
+      )
       return
     }
 

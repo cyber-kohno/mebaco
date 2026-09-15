@@ -12,6 +12,7 @@
   import StylePropertyCatalog from './style-property-catalog'
   import StylePropertyName from './style-property-name'
   import StyleValueSupport from './style-value-support'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -30,6 +31,9 @@
   let frames = $state<StyleKeyframesElement.Frame[]>([])
   let selectedFrameId = $state<string | null>(null)
   let lastValue = $state('')
+  let framesPane = $state<HTMLElement | null>(null)
+  let selectorList = $state<HTMLElement | null>(null)
+  let propertiesSection = $state<HTMLElement | null>(null)
 
   const selectedFrame = $derived(
     frames.find((frame) => frame.frameId === selectedFrameId) ?? null,
@@ -72,6 +76,7 @@
     frames = [...frames, frame]
     selectedFrameId = frame.frameId
     emit()
+    void ScrollAfterUpdate.toEnd(() => framesPane)
   }
 
   const removeFrame = (frameId: string) => {
@@ -105,6 +110,7 @@
       ...current,
       selectors: [...current.selectors, { type: 'offset', value }],
     }))
+    void ScrollAfterUpdate.reveal(() => selectorList?.lastElementChild)
   }
 
   const updateSelector = (
@@ -140,6 +146,7 @@
         value: { type: 'literal', value: '' },
       }],
     }))
+    void ScrollAfterUpdate.toEnd(() => propertiesSection)
   }
 
   const updateDeclaration = (
@@ -248,7 +255,7 @@
 <div class="keyframes-editor">
   {#if errorMessage != null}<div class="editor-error">{errorMessage}</div>{/if}
   <div class="split-pane">
-    <section class="frames-pane" aria-label="Keyframes">
+    <section class="frames-pane" aria-label="Keyframes" bind:this={framesPane}>
       <div class="pane-header">
         <span>Keyframes</span>
         <button type="button" onclick={addFrame}>Add frame</button>
@@ -290,7 +297,7 @@
             <span>Selectors</span>
             <button type="button" onclick={() => addSelector(selectedFrame)}>Add offset</button>
           </div>
-          <div class="selector-list">
+          <div class="selector-list" bind:this={selectorList}>
             {#each selectedFrame.selectors as selector, index}
               <div class="selector-row">
                 <input
@@ -319,7 +326,7 @@
           </div>
         </div>
 
-        <div class="properties-section">
+        <div class="properties-section" bind:this={propertiesSection}>
           <div class="pane-header">
             <span>Properties</span>
             <button type="button" onclick={() => addDeclaration(selectedFrame)}>Add property</button>

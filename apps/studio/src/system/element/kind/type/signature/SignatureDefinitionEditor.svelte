@@ -4,6 +4,7 @@
   import TypeExpression from '../type-expression'
   import ValueTypeDefinition from '../value-type-definition'
   import ValueTypeEditor from '../ValueTypeEditor.svelte'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Option = {
     value: string
@@ -36,6 +37,7 @@
   let definition = $state<SignatureDefinition.Definition>(SignatureDefinition.create())
   let serializedValue = $state('')
   let selected = $state<'root' | 'return' | string>('root')
+  let treePane = $state<HTMLElement | null>(null)
 
   $effect(() => {
     if (value === serializedValue) return
@@ -75,6 +77,7 @@
     next.parameters.push(parameter)
     emit(next)
     selected = parameter.parameterId
+    void ScrollAfterUpdate.toEnd(() => treePane)
   }
 
   const updateSelectedParameter = (
@@ -175,7 +178,7 @@
   </label>
 
   <div class="split-pane">
-    <section class="tree-pane" aria-label="Signature structure">
+    <section class="tree-pane" aria-label="Signature structure" bind:this={treePane}>
       <button
         type="button"
         class:active={selected === 'root'}

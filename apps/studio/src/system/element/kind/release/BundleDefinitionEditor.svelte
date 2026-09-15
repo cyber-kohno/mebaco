@@ -6,6 +6,7 @@
   import type ElementEditSchema from '../../../element-dialog/element-edit-schema'
   import type TreeNode from '../../../tree/tree-node'
   import ReleaseBundle from '../../../release/release-bundle'
+  import ScrollAfterUpdate from '../../../ui/scroll/scroll-after-update'
 
   type Props = {
     rootNode: TreeNode.Node
@@ -18,6 +19,7 @@
   let { rootNode, value, options, errorMessage = null, onValueChange }: Props = $props()
   let launcherIds = $state<string[]>([])
   let lastValue = $state('')
+  let launcherList = $state<HTMLElement | null>(null)
   const analysis = $derived(ReleaseBundle.analyze(rootNode, launcherIds))
 
   const parse = (source: string): string[] => {
@@ -47,6 +49,7 @@
     if (available == null) return
     launcherIds = [...launcherIds, available.value]
     emit()
+    void ScrollAfterUpdate.toEnd(() => launcherList)
   }
 
   const update = (index: number, launcherId: string) => {
@@ -82,7 +85,7 @@
       {#if launcherIds.length === 0}
         <div class="empty">No Launchers selected.</div>
       {:else}
-        <div class="launcher-list">
+        <div class="launcher-list" bind:this={launcherList}>
           {#each launcherIds as launcherId, index (`${launcherId}-${index}`)}
             <div class="launcher-row">
               <select value={launcherId} onchange={(event) => update(index, event.currentTarget.value)}>

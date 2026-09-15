@@ -12,6 +12,7 @@
   import type StyleParameterCatalog from './style-parameter-catalog'
   import StyleParameterValue from './style-parameter-value'
   import StyleArgumentContract from './style-argument-contract'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -33,6 +34,7 @@
 
   let bases = $state<StyleElement.Base[]>([])
   let lastValue = $state('')
+  let baseArea = $state<HTMLElement | null>(null)
 
   const emit = () => {
     lastValue = JSON.stringify(bases)
@@ -48,6 +50,7 @@
   const addBase = () => {
     bases = [...bases, StyleElement.createBase()]
     emit()
+    void ScrollAfterUpdate.toEnd(() => baseArea)
   }
 
   const updateBase = (
@@ -63,15 +66,14 @@
   const cloneBase = (
     index: number,
   ) => {
-    const source = bases[index]
+    const source = $state.snapshot(bases[index])
     const clone: StyleElement.Base = {
       ...source,
       referenceId: crypto.randomUUID(),
-      condition: source.condition == null ? undefined : { ...source.condition },
-      arguments: structuredClone(source.arguments),
     }
-    bases = [...bases.slice(0, index + 1), clone, ...bases.slice(index + 1)]
+    bases = [...bases, clone]
     emit()
+    void ScrollAfterUpdate.toEnd(() => baseArea)
   }
 
   const deleteBase = (
@@ -239,7 +241,7 @@
   {:else if bases.length === 0}
     <div class="empty">{usage === 'inheritance' ? 'No inherited styles' : 'No applied styles'}</div>
   {:else}
-    <div class="base-area">
+    <div class="base-area" bind:this={baseArea}>
       {#each bases as base, index (base.referenceId)}
         {@const resolution = getBaseResolution(base)}
         <article class="base-record">

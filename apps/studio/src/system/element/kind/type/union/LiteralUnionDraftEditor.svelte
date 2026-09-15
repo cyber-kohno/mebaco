@@ -2,6 +2,7 @@
   import { Plus } from '@lucide/svelte'
   import LiteralUnion from './literal-union'
   import TypeLiteralLabel from '../type-literal-label'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type LiteralValueType = 'string' | 'number'
   type Literal = string | number
@@ -23,6 +24,7 @@
   }: Props = $props()
 
   let draft = $state('')
+  let chipList = $state<HTMLElement | null>(null)
 
   $effect(() => {
     valueType
@@ -54,6 +56,7 @@
     if (!canAdd) return
     onAdd(valueType === 'number' ? Number(draft) : draft)
     draft = ''
+    void ScrollAfterUpdate.toEnd(() => chipList)
   }
 </script>
 
@@ -95,7 +98,7 @@
       <div class="draft-error">{draftError}</div>
     {/if}
 
-    <div class="chip-list">
+    <div class="chip-list" bind:this={chipList}>
       {#each values as literal, index}
         <span class="chip">
           <span>{TypeLiteralLabel.format(literal)}</span>

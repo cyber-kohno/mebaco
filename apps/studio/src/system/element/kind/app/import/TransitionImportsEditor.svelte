@@ -4,6 +4,7 @@
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import IconButton from '../../../../ui/button/IconButton.svelte'
   import type ElementEditSchema from '../../../../element-dialog/element-edit-schema'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -26,6 +27,7 @@
   }: Props = $props()
   let appIds = $state<string[]>([])
   let lastValue = $state('')
+  let list = $state<HTMLElement | null>(null)
 
   const parse = (source: string): string[] => {
     try {
@@ -54,6 +56,7 @@
     if (available == null) return
     appIds = [...appIds, available.value]
     emit()
+    void ScrollAfterUpdate.toEnd(() => list)
   }
 
   const update = (index: number, appId: string) => {
@@ -85,7 +88,7 @@
   {#if appIds.length === 0}
     <div class="empty">{emptyLabel}</div>
   {:else}
-    <div class="list">
+    <div class="list" bind:this={list}>
       {#each appIds as appId, index (`${appId}-${index}`)}
         <div class="row">
           <select value={appId} onchange={(event) => update(index, event.currentTarget.value)}>

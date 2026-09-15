@@ -5,6 +5,7 @@
   import ObjectShape from './object-shape'
   import SignatureReferencePreview from '../signature/SignatureReferencePreview.svelte'
   import TypeLiteralLabel from '../type-literal-label'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     objectId: string
@@ -46,6 +47,7 @@
   let baseObjectIds = $state<string[]>([])
   let serializedValue = $state('')
   let selectedPath = $state<string[]>([])
+  let treePane = $state<HTMLElement | null>(null)
 
   $effect(() => {
     if (value === serializedValue) return
@@ -203,8 +205,12 @@
     const targetPath = selectedPath
     const level = getLevel(next, targetPath)
     if (level == null) return
-    level.push(TypeExpression.createProperty(createPropertyId(level)))
+    const property = TypeExpression.createProperty(createPropertyId(level))
+    level.push(property)
     emit(next)
+    void ScrollAfterUpdate.reveal(() => Array
+      .from(treePane?.querySelectorAll<HTMLElement>('[data-property-id]') ?? [])
+      .find((element) => element.dataset.propertyId === property.propertyId))
   }
 
   const deleteSelected = () => {
@@ -386,7 +392,7 @@
   {/if}
 
   <div class="split-pane">
-    <section class="tree-pane" aria-label="Object structure">
+    <section class="tree-pane" aria-label="Object structure" bind:this={treePane}>
       <button
         type="button"
         class:active={selectedPath.length === 0}
@@ -410,6 +416,7 @@
           {@const base = TypeExpression.unwrapArray(row.property.valueType).base}
           <button
             type="button"
+            data-property-id={row.property.propertyId}
             class:active={pathsEqual(selectedPath, row.path)}
             class:validation-error={isPropertyInvalid(row.property.propertyId)}
             class="tree-row property-row"

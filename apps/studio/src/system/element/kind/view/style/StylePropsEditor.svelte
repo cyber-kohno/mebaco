@@ -11,6 +11,7 @@
   import StylePropertyName from './style-property-name'
   import StyleElement from './style-element'
   import StyleValueSupport from './style-value-support'
+  import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
   type Props = {
     value: string
@@ -33,6 +34,7 @@
   let stateRules = $state<StyleElement.StateRule[]>([])
   let activeScope = $state<Scope>('default')
   let lastValue = $state('')
+  let propArea = $state<HTMLElement | null>(null)
 
   const parseRules = (source: string): StyleElement.Rule[] => {
     try {
@@ -143,6 +145,7 @@
       value: { type: 'literal', value: '' },
     }])
     emit()
+    void ScrollAfterUpdate.toEnd(() => propArea)
   }
 
   const updateProp = (
@@ -278,7 +281,7 @@
   {#if declarationRules.length === 0}
     <div class="empty">No properties</div>
   {:else}
-    <div class="prop-area">
+    <div class="prop-area" bind:this={propArea}>
       <div class="prop-table">
         <div class="prop-head">Property</div>
         <div class="prop-head">Value</div>
