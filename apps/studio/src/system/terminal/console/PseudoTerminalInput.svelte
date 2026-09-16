@@ -111,11 +111,6 @@
     box-sizing: border-box;
   }
 
-  .pseudo-input:focus-visible {
-    outline: 2px solid #8be5ec;
-    outline-offset: 1px;
-  }
-
   .character {
     flex: 0 0 auto;
   }

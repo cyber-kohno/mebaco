@@ -26,6 +26,10 @@ namespace LoopElement {
 
   export type Element = CountElement | CollectionElement
 
+  export type SchemaOptions = {
+    initialIndexId?: string
+  }
+
   export const createCount = (
     countSource: string,
     indexId: string,
@@ -48,7 +52,9 @@ namespace LoopElement {
     indexId,
   })
 
-  export const createSchema = (): ElementEditSchema.Schema<Element> => ({
+  export const createSchema = (
+    options: SchemaOptions = {},
+  ): ElementEditSchema.Schema<Element> => ({
     createTitle: 'Create Loop',
     updateTitle: 'Update Loop',
     fields: [
@@ -100,7 +106,7 @@ namespace LoopElement {
         key: 'indexId',
         label: 'Index Variable',
         width: 'id',
-        defaultValue: 'index',
+        defaultValue: options.initialIndexId ?? 'index',
         required: true,
         charset: 'jsIdentifier',
         minLength: 1,
@@ -109,7 +115,7 @@ namespace LoopElement {
         differentFromWhen: { key: 'mode', value: 'collection' },
       },
     ],
-    createPreview: () => createCount('...', 'index'),
+    createPreview: () => createCount('...', options.initialIndexId ?? 'index'),
     getInitialValues: (element) => {
       return {
         mode: element.mode,

@@ -12,6 +12,7 @@ import TreeStore from '../store/tree-store'
 import SwitchElement from './kind/directive/switch-element'
 import LoopElement from './kind/directive/loop-element'
 import SlotUseElement from './kind/component/definition/slot/slot-use-element'
+import AppSettings from '../settings/app-settings-store'
 
 namespace ContentActions {
   export const createAddMenu = (
@@ -73,9 +74,12 @@ namespace ContentActions {
         )
       }),
       action('Loop', () => {
+        const defaults = AppSettings.getDevelopDefaults()
         ElementDialog.openCreate(
           parentNodeId,
-          LoopElement.createSchema(),
+          LoopElement.createSchema({
+            initialIndexId: defaults.loopIndexVariableName,
+          }),
         )
       }),
     ])

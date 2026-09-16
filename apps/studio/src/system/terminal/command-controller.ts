@@ -7,6 +7,8 @@ import NativeDialogController from '../ui/native-dialog-controller'
 import TerminalTextBuffer from './terminal-text-buffer'
 
 namespace CommandController {
+  let sessionId = 0
+
   const refreshFocus = (focus: number) => {
     commandSessionStore.update((session) => {
       if (session == null) return session
@@ -16,10 +18,22 @@ namespace CommandController {
   }
 
   export const open = () => {
-    commandSessionStore.set({ nodeId: get(TreeStore.selectedNodeId), input: '', inputCaret: 0, completionDismissed: false, focus: 0, outputs: [], prompt: null })
+    commandSessionStore.set({
+      id: ++sessionId,
+      nodeId: get(TreeStore.selectedNodeId),
+      phase: 'idle',
+      input: '',
+      inputCaret: 0,
+      completionDismissed: false,
+      focus: 0,
+      outputs: [],
+      prompt: null,
+    })
   }
 
-  export const close = () => commandSessionStore.set(null)
+  export const close = () => {
+    commandSessionStore.update((session) => session?.phase === 'running' ? session : null)
+  }
 
   export const toggle = () => {
     if (get(commandSessionStore) == null) open()
@@ -27,28 +41,28 @@ namespace CommandController {
   }
 
   export const setInput = (input: string) => {
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, input, inputCaret: input.length, completionDismissed: false, focus: 0 }))
+    commandSessionStore.update((session) => session?.phase !== 'idle' ? session : ({ ...session, input, inputCaret: input.length, completionDismissed: false, focus: 0 }))
   }
 
   export const setInputCaret = (inputCaret: number) => {
-    commandSessionStore.update((session) => session == null ? session : ({
+    commandSessionStore.update((session) => session?.phase !== 'idle' ? session : ({
       ...session,
       inputCaret: TerminalTextBuffer.normalize({ value: session.input, caret: inputCaret }).caret,
     }))
   }
 
   export const dismissSuggestions = () => {
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, completionDismissed: true }))
+    commandSessionStore.update((session) => session?.phase !== 'idle' ? session : ({ ...session, completionDismissed: true }))
   }
 
   export const setPromptInput = (inputValue: string) => {
-    commandSessionStore.update((session) => session?.prompt?.inputSpec == null
+    commandSessionStore.update((session) => session?.phase !== 'awaiting-input' || session.prompt?.inputSpec == null
       ? session
       : ({ ...session, prompt: { ...session.prompt, inputValue, inputCaret: inputValue.length } }))
   }
 
   export const setPromptInputCaret = (inputCaret: number) => {
-    commandSessionStore.update((session) => session?.prompt?.inputSpec == null
+    commandSessionStore.update((session) => session?.phase !== 'awaiting-input' || session.prompt?.inputSpec == null
       ? session
       : ({
           ...session,
@@ -64,7 +78,7 @@ namespace CommandController {
 
   const updateInput = (update: (value: TerminalTextBuffer.Value) => TerminalTextBuffer.Value) => {
     commandSessionStore.update((session) => {
-      if (session == null) return session
+      if (session?.phase !== 'idle') return session
       const next = update({ value: session.input, caret: session.inputCaret })
       return { ...session, input: next.value, inputCaret: next.caret, completionDismissed: false, focus: 0 }
     })
@@ -72,7 +86,7 @@ namespace CommandController {
 
   const updatePromptInput = (update: (value: TerminalTextBuffer.Value) => TerminalTextBuffer.Value) => {
     commandSessionStore.update((session) => {
-      if (session?.prompt?.inputSpec == null) return session
+      if (session?.phase !== 'awaiting-input' || session.prompt?.inputSpec == null) return session
       const next = update({
         value: session.prompt.inputValue ?? '',
         caret: session.prompt.inputCaret ?? 0,
@@ -110,19 +124,19 @@ namespace CommandController {
 
   const hasSuggestions = (): boolean => {
     const session = get(commandSessionStore)
-    if (session == null || session.completionDismissed || session.input.trim() === '') return false
+    if (session?.phase !== 'idle' || session.completionDismissed || session.input.trim() === '') return false
     return CommandRegistry.getSuggestions(CommandRunner.createContext(), session.input).length > 0
   }
 
   export const moveFocus = (direction: -1 | 1) => {
     const session = get(commandSessionStore)
-    if (session == null) return
+    if (session?.phase !== 'idle') return
     refreshFocus(session.focus + direction)
   }
 
   export const applySuggestion = () => {
     const session = get(commandSessionStore)
-    if (session == null) return
+    if (session?.phase !== 'idle') return
     const suggestions = CommandRegistry.getSuggestions(CommandRunner.createContext(), session.input)
     const suggestion = suggestions[session.focus]
     if (suggestion == null) return
@@ -131,7 +145,7 @@ namespace CommandController {
 
   const shouldApplySuggestion = (): boolean => {
     const session = get(commandSessionStore)
-    if (session == null || session.input.trim() === '') return false
+    if (session?.phase !== 'idle' || session.input.trim() === '') return false
     const suggestions = CommandRegistry.getSuggestions(CommandRunner.createContext(), session.input)
     if (suggestions.length === 0) return false
     if (/\s$/.test(session.input)) return true
@@ -143,7 +157,7 @@ namespace CommandController {
 
   export const movePromptFocus = (direction: -1 | 1) => {
     commandSessionStore.update((session) => {
-      if (session?.prompt == null || session.prompt.choices.length === 0) return session
+      if (session?.phase !== 'awaiting-input' || session.prompt == null || session.prompt.choices.length === 0) return session
       return {
         ...session,
         prompt: {
@@ -157,25 +171,30 @@ namespace CommandController {
   export const applyPrompt = async () => {
     const session = get(commandSessionStore)
     const prompt = session?.prompt
-    if (prompt == null) return
+    if (session?.phase !== 'awaiting-input' || prompt == null) return
+    const activeSessionId = session.id
 
     if (prompt.inputSpec != null && prompt.onInputSubmit != null) {
       const value = prompt.inputValue ?? ''
-      commandSessionStore.update((current) => current == null ? current : ({ ...current, prompt: null }))
-      await prompt.onInputSubmit(value)
+      commandSessionStore.update((current) => current?.id !== activeSessionId
+        ? current
+        : ({ ...current, phase: 'running', prompt: null }))
+      await CommandRunner.continueExecution(activeSessionId, () => prompt.onInputSubmit?.(value))
       return
     }
 
     const choice = prompt.choices[prompt.focus]
     if (choice == null) return
 
-    commandSessionStore.update((value) => value == null ? value : ({ ...value, prompt: null }))
-    await prompt.onSelect(choice.id)
+    commandSessionStore.update((current) => current?.id !== activeSessionId
+      ? current
+      : ({ ...current, phase: 'running', prompt: null }))
+    await CommandRunner.continueExecution(activeSessionId, () => prompt.onSelect(choice.id))
   }
 
   export const selectPrompt = async (index: number) => {
     commandSessionStore.update((session) => {
-      if (session?.prompt == null) return session
+      if (session?.phase !== 'awaiting-input' || session.prompt == null) return session
       return {
         ...session,
         prompt: {
@@ -188,19 +207,39 @@ namespace CommandController {
   }
 
   export const cancelPrompt = () => {
-    commandSessionStore.update((session) => session == null ? session : ({
+    commandSessionStore.update((session) => session?.phase !== 'awaiting-input' ? session : ({
       ...session,
+      phase: 'idle',
       prompt: null,
     }))
   }
 
   export const execute = () => {
-    const input = get(commandSessionStore)?.input ?? ''
+    const session = get(commandSessionStore)
+    if (session?.phase !== 'idle') return
+    const input = session.input
     void CommandRunner.execute(input)
   }
 
   export const handleKeydown = (event: KeyboardEvent) => {
-    if (get(commandSessionStore) == null || NativeDialogController.isActive()) return
+    const activeSession = get(commandSessionStore)
+    if (activeSession == null || NativeDialogController.isActive()) return
+    if (activeSession.phase === 'running') {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        close()
+        return
+      }
+      if (
+        (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey)
+        || ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', 'Tab'].includes(event.key)
+      ) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      return
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') {
       event.preventDefault()
       event.stopPropagation()

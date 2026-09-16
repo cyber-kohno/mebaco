@@ -18,6 +18,7 @@ import ControlSwitchElement from './kind/directive/control-switch-element'
 import SwitchElement from './kind/directive/switch-element'
 import TransitionElement from './kind/variable/transition-element'
 import PromiseElement from './kind/promise/promise-element'
+import AppSettings from '../settings/app-settings-store'
 
 namespace FunctionActions {
   const findNode = (
@@ -76,16 +77,20 @@ namespace FunctionActions {
     } = {},
   ): ActionMenuState.ActionItem => {
     const { action } = ActionMenu.createFactory()
-    return action(options.label ?? 'Function', () => ElementDialog.openCreate(
-      parentNodeId,
-      FunctionElement.createSchema({
-        reservedNames: collectFrameIds(rootNode, parentNodeId, 'function'),
-        objectOptions: TypeCatalog.getObjectOptions(rootNode, parentNodeId),
-        namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
-        rootNode,
-      }),
-      options.insertIndex,
-    ))
+    return action(options.label ?? 'Function', () => {
+      const defaults = AppSettings.getDevelopDefaults()
+      ElementDialog.openCreate(
+        parentNodeId,
+        FunctionElement.createSchema({
+          reservedNames: collectFrameIds(rootNode, parentNodeId, 'function'),
+          objectOptions: TypeCatalog.getObjectOptions(rootNode, parentNodeId),
+          namedTypeOptions: TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId),
+          initialSignatureMode: defaults.functionSignatureMode,
+          rootNode,
+        }),
+        options.insertIndex,
+      )
+    })
   }
 
   export const createAddDeclareMenu = (

@@ -5,6 +5,8 @@
   import MonacoFactory from './monaco-factory'
   import MonacoInjection from './monaco-injection'
   import MonacoOverflowLayer from './monaco-overflow-layer'
+  import MonacoThemeCatalog from './monaco-theme-catalog'
+  import MonacoThemeController from './monaco-theme-controller'
   import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
   import ScriptPolicy from '../../runtime/script/script-policy'
 
@@ -47,8 +49,10 @@
   let layoutFrame: number | null = null
   let resizeObserver: ResizeObserver | null = null
   let overflowLayer: MonacoOverflowLayer.Layer | null = null
+  let disconnectTheme: (() => void) | null = null
   let completionProvider: Monaco.IDisposable | null = null
   let destroyed = false
+  let activeTheme = $state(MonacoThemeCatalog.get(MonacoThemeCatalog.defaultId))
   const scheduledTimers = new Set<number>()
 
   const uid = crypto.randomUUID()
@@ -299,20 +303,9 @@
       return
     }
 
-    monaco.editor.defineTheme('mebaco-light', {
-      base: 'vs',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#ffffff',
-        'editor.foreground': '#243f47',
-        'editorLineNumber.foreground': '#89aab1',
-        'editorCursor.foreground': '#236f7a',
-        'editor.selectionBackground': '#bdeef5',
-        'editor.inactiveSelectionBackground': '#d9f4f7',
-        'editorWidget.background': '#f4fbfc',
-        'editorWidget.border': '#9acbd4',
-      },
+    disconnectTheme = MonacoThemeController.connect(monaco, (theme) => {
+      activeTheme = theme
+      overflowLayer?.setTheme(theme)
     })
 
     const userUri = monaco.Uri.parse(`inmemory://mebaco/user-${uid}.ts`)
@@ -327,7 +320,7 @@
       analysisUri,
     )
     lastEditorValue = value
-    overflowLayer = MonacoOverflowLayer.create()
+    overflowLayer = MonacoOverflowLayer.create(activeTheme)
 
     completionProvider = monaco.languages.registerCompletionItemProvider({
       language: 'typescript',
@@ -395,7 +388,7 @@
     editor = monaco.editor.create(mountContainer, {
       model: userModel,
       language: 'typescript',
-      theme: 'mebaco-light',
+      theme: activeTheme.monacoThemeName,
       automaticLayout: true,
       minimap: {
         enabled: false,
@@ -444,6 +437,7 @@
     scheduledTimers.forEach((timer) => window.clearTimeout(timer))
     scheduledTimers.clear()
     resizeObserver?.disconnect()
+    disconnectTheme?.()
 
     editor?.dispose()
     completionProvider?.dispose()
@@ -454,7 +448,12 @@
   })
 </script>
 
-<div class="monaco-frame" style:height>
+<div
+  class="monaco-frame"
+  style:height
+  style:background={activeTheme.frameBackground}
+  style:border-color={activeTheme.frameBorder}
+>
   <div bind:this={container}></div>
 </div>
 
@@ -462,9 +461,8 @@
   .monaco-frame {
     width: 100%;
     min-height: 96px;
-    border: 1px solid #9acbd4;
+    border: 1px solid;
     border-radius: 6px;
-    background: #ffffff;
     overflow: hidden;
     box-sizing: border-box;
   }

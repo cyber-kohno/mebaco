@@ -50,7 +50,7 @@
     }
   })
 
-  let suggestions = $derived(session == null || session.prompt != null || session.completionDismissed || session.input.trim() === ''
+  let suggestions = $derived(session == null || session.phase !== 'idle' || session.prompt != null || session.completionDismissed || session.input.trim() === ''
     ? []
     : CommandRegistry.getSuggestions(CommandRunner.createContext(), session.input))
 
@@ -82,7 +82,7 @@
     <section class="terminal" role="dialog" aria-modal="true" aria-label="Mebaco terminal" tabindex="-1">
       <header class="header">
         <span class="title">Mebaco terminal</span>
-        <span class="hint">↑↓ select · Enter accept/run · Tab complete · Esc close</span>
+        <span class="hint">{session.phase === 'running' ? 'Command is running…' : '↑↓ select · Enter accept/run · Tab complete · Esc close'}</span>
       </header>
 
       <div class="terminal-scroll" bind:this={outputElement} aria-live="polite">
@@ -93,7 +93,7 @@
           <div class="output" data-kind={output.kind} data-tone={output.tone}>{output.message}</div>
         {/each}
 
-        {#if session.prompt != null}
+        {#if session.phase === 'awaiting-input' && session.prompt != null}
           <div class="choice-prompt" role="listbox" aria-label={session.prompt.message}>
             <div class="prompt-message">{session.prompt.message}</div>
             {#if session.prompt.inputSpec != null}
@@ -122,7 +122,7 @@
           </div>
         {/if}
 
-        {#if session.prompt == null}
+        {#if session.phase === 'idle'}
           <div class="input-line" bind:this={inputLineElement}>
             <span class="node-prompt">node-{session.nodeId}&gt;</span>
             <PseudoTerminalInput
@@ -133,12 +133,14 @@
             />
           </div>
           <div class="terminal-tail-space" aria-hidden="true"></div>
+        {:else if session.phase === 'running'}
+          <div class="running-status" role="status">Running…</div>
         {/if}
       </div>
 
     </section>
 
-    {#if session.prompt == null && suggestions.length > 0}
+    {#if session.phase === 'idle' && session.prompt == null && suggestions.length > 0}
       <div
         class="suggestions"
         role="listbox"
@@ -251,6 +253,7 @@
   }
 
   .node-prompt { color: #9fe3e8; font-weight: 800; }
+  .running-status { margin-top: 5px; color: #80aeb4; }
 
   .choice-prompt {
     display: flex;

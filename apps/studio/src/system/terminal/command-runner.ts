@@ -9,13 +9,30 @@ import type { CommandChoice, CommandContext, CommandOutput, CommandOutputKind, C
 namespace CommandRunner {
   let outputId = 0
 
-  const appendRecord = (kind: CommandOutputKind, tone: CommandTone, message: string) => {
+  const appendRecord = (
+    kind: CommandOutputKind,
+    tone: CommandTone,
+    message: string,
+    sessionId?: number,
+  ) => {
     const output: CommandOutput = { id: ++outputId, kind, tone, message }
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [...session.outputs, output] }))
+    commandSessionStore.update((session) => (
+      session == null || (sessionId != null && session.id !== sessionId)
+        ? session
+        : ({ ...session, outputs: [...session.outputs, output] })
+    ))
   }
 
   export const clearOutputs = () => {
     commandSessionStore.update((session) => session == null ? session : ({ ...session, outputs: [] }))
+  }
+
+  const finishExecution = (sessionId: number) => {
+    commandSessionStore.update((session) => (
+      session?.id !== sessionId || session.phase !== 'running'
+        ? session
+        : ({ ...session, phase: 'idle' })
+    ))
   }
 
   const tokenize = (input: string): string[] => input.trim().match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+/g)?.map((token) => {
@@ -25,14 +42,24 @@ namespace CommandRunner {
     return token
   }) ?? []
 
-  export const createContext = (): CommandContext => CommandContextFactory.create({
+  export const createContext = (sessionId?: number): CommandContext => CommandContextFactory.create({
     rootNode: get(TreeStore.rootNode),
     selectedNodeId: get(TreeStore.selectedNodeId),
     appendOutput: (tone: CommandTone, message: string) => {
-      appendRecord('log', tone, message)
+      appendRecord('log', tone, message, sessionId)
     },
-    clearOutputs,
-    close: () => commandSessionStore.set(null),
+    clearOutputs: () => {
+      commandSessionStore.update((session) => (
+        session == null || (sessionId != null && session.id !== sessionId)
+          ? session
+          : ({ ...session, outputs: [] })
+      ))
+    },
+    close: () => {
+      commandSessionStore.update((session) => (
+        sessionId == null || session?.id === sessionId ? null : session
+      ))
+    },
     openPreview: (launcherId?: string, launchValues?: Readonly<Record<string, unknown>>) => PreviewController.openForSelectedNode(
       get(TreeStore.rootNode),
       get(TreeStore.selectedNodeId),
@@ -44,8 +71,9 @@ namespace CommandRunner {
       choices: readonly CommandChoice[],
       onSelect: (choiceId: string) => void | Promise<void>,
     ) => {
-      commandSessionStore.update((session) => session == null ? session : ({
+      commandSessionStore.update((session) => session == null || (sessionId != null && session.id !== sessionId) ? session : ({
         ...session,
+        phase: 'awaiting-input',
         prompt: {
           message,
           choices: [...choices],
@@ -59,8 +87,9 @@ namespace CommandRunner {
       spec,
       onSubmit,
     ) => {
-      commandSessionStore.update((session) => session == null ? session : ({
+      commandSessionStore.update((session) => session == null || (sessionId != null && session.id !== sessionId) ? session : ({
         ...session,
+        phase: 'awaiting-input',
         prompt: {
           message,
           choices: [],
@@ -79,21 +108,48 @@ namespace CommandRunner {
     const tokens = tokenize(input)
     if (tokens.length === 0) return
 
-    const context = createContext()
     const session = get(commandSessionStore)
-    appendRecord('command', 'normal', `node-${session?.nodeId ?? get(TreeStore.selectedNodeId)}> ${input}`)
-    commandSessionStore.update((session) => session == null ? session : ({ ...session, input: '', inputCaret: 0, completionDismissed: false, prompt: null }))
-    const definition = CommandRegistry.find(context, tokens[0])
-    if (definition == null) {
-      context.appendOutput('warning', `Unknown command: ${tokens[0]}`)
-      return
-    }
+    if (session == null || session.phase !== 'idle') return
+    const sessionId = session.id
+    const context = createContext(sessionId)
+    appendRecord('command', 'normal', `node-${session.nodeId}> ${input}`, sessionId)
+    commandSessionStore.update((current) => current?.id !== sessionId ? current : ({
+      ...current,
+      phase: 'running',
+      input: '',
+      inputCaret: 0,
+      completionDismissed: false,
+      prompt: null,
+    }))
+    let commandId = tokens[0]
 
     try {
+      const definition = CommandRegistry.find(context, tokens[0])
+      if (definition == null) {
+        context.appendOutput('warning', `Unknown command: ${tokens[0]}`)
+        return
+      }
+      commandId = definition.id
       await definition.execute(context, tokens.slice(1))
     } catch (error) {
-      console.error(`Command failed: ${definition.id}`, error)
-      context.appendOutput('danger', `Command failed: ${definition.id}`)
+      console.error(`Command failed: ${commandId}`, error)
+      context.appendOutput('danger', `Command failed: ${commandId}`)
+    } finally {
+      finishExecution(sessionId)
+    }
+  }
+
+  export const continueExecution = async (
+    sessionId: number,
+    callback: () => void | Promise<void>,
+  ): Promise<void> => {
+    try {
+      await callback()
+    } catch (error) {
+      console.error('Command continuation failed', error)
+      appendRecord('log', 'danger', 'Command failed.', sessionId)
+    } finally {
+      finishExecution(sessionId)
     }
   }
 

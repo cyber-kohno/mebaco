@@ -1,141 +1,231 @@
 <script lang="ts">
+  import CodeXml from '@lucide/svelte/icons/code-xml'
+  import FilePlus from '@lucide/svelte/icons/file-plus'
+  import FolderOpen from '@lucide/svelte/icons/folder-open'
   import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../../version'
   import DevelopProjectController from '../develop-project-controller'
 </script>
 
 <section class="develop-home-screen" aria-label="Mebaco develop home">
-  <div class="version-info" aria-label="Version information">
-    <div>{`version ${APP_VERSION}`}</div>
-    <div>{`schema gen: ${SCHEMA_GEN}`}</div>
-    <div>{`api gen: ${API_GEN}`}</div>
-  </div>
-
-  <div class="brand-mark" aria-hidden="true">
-    <img src="/favicon.svg" alt="" />
-  </div>
-
-  <div class="start-panel">
-    <p class="lead">Start a project or open a .mbc file.</p>
-    <div class="actions">
-      <button type="button" onclick={DevelopProjectController.startEmpty}>Start Empty</button>
-      <button type="button" class="secondary" onclick={DevelopProjectController.openFileWithAlert}>Open File</button>
+  <header class="screen-header">
+    <div class="screen-title">
+      <h1>Develop</h1>
+      <p>Create and edit Mebaco projects.</p>
     </div>
-  </div>
 
-  <footer class="footer">{`(c) 2026 Mebaco`}</footer>
+    <aside class="compatibility" aria-label="Project compatibility">
+      <span class="compatibility-heading">Project Compatibility</span>
+      <dl>
+        <div>
+          <dt>Schema</dt>
+          <dd>Gen {SCHEMA_GEN}</dd>
+        </div>
+        <div>
+          <dt>API</dt>
+          <dd>Gen {API_GEN}</dd>
+        </div>
+        <div>
+          <dt>Mebaco</dt>
+          <dd>{APP_VERSION}</dd>
+        </div>
+      </dl>
+    </aside>
+  </header>
+
+  <main class="home-content">
+    <section class="start-state" aria-labelledby="start-heading">
+      <span class="start-icon" aria-hidden="true">
+        <CodeXml size={28} strokeWidth={1.7} />
+      </span>
+      <h2 id="start-heading">Start developing</h2>
+      <p>Create a new project or open an existing .mbc file.</p>
+      <div class="actions">
+        <button class="primary" type="button" onclick={DevelopProjectController.startEmpty}>
+          <FilePlus size={16} strokeWidth={2.1} />
+          New Project
+        </button>
+        <button type="button" onclick={DevelopProjectController.openFileWithAlert}>
+          <FolderOpen size={16} strokeWidth={2.1} />
+          Open Project
+        </button>
+      </div>
+    </section>
+
+    <footer class="footer">(c) 2026 Mebaco</footer>
+  </main>
 </section>
 
 <style>
   .develop-home-screen {
-    position: relative;
     display: grid;
-    place-items: center;
+    grid-template-rows: auto minmax(0, 1fr);
     width: 100%;
     height: 100%;
     overflow: hidden;
+    background: #f7fbfc;
     color: var(--mbc-color-text);
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.26)),
-      var(--mbc-color-app-background);
-  }
-
-  .develop-home-screen::before {
-    content: '';
-    position: absolute;
-    inset: 16px;
-    border: 1px solid rgba(185, 212, 218, 0.78);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.22);
-    pointer-events: none;
-  }
-
-  .version-info {
-    position: absolute;
-    top: 24px;
-    left: 26px;
-    min-width: 190px;
-    padding: 8px 14px;
-    border: 1px solid rgba(214, 232, 236, 0.92);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.7);
-    color: var(--mbc-color-text-muted);
     font-size: 13px;
-    font-weight: 700;
-    line-height: 19px;
+  }
+
+  .screen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 88px;
+    padding: 13px 24px;
+    border-bottom: 1px solid var(--mbc-color-border);
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  h1,
+  h2,
+  p,
+  dl,
+  dd {
+    margin: 0;
+  }
+
+  h1 {
+    color: #263f46;
+    font-size: 21px;
+    line-height: 1.25;
+  }
+
+  .screen-title p {
+    margin-top: 4px;
+    color: var(--mbc-color-text-muted);
+    font-size: 12px;
+  }
+
+  .compatibility {
+    min-width: 330px;
+    padding: 8px 12px 9px;
+    border: 1px solid #cfe4e8;
+    border-radius: 7px;
+    background: var(--mbc-color-surface-soft);
     user-select: none;
   }
 
-  .brand-mark {
-    position: absolute;
-    top: 28px;
-    right: 30px;
-    width: 42px;
-    height: 42px;
+  .compatibility-heading {
+    display: block;
+    color: #5d7d84;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .compatibility dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 5px;
+  }
+
+  .compatibility dl div {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: start;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .compatibility dt {
+    color: var(--mbc-color-text-subtle);
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .compatibility dd {
+    color: #36545b;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+
+  .home-content {
+    position: relative;
     display: grid;
     place-items: center;
-    opacity: 0.9;
+    min-height: 0;
+    padding: 32px;
+    background: var(--mbc-color-surface);
   }
 
-  .brand-mark img {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  .start-panel {
-    z-index: 1;
-    display: grid;
-    justify-items: center;
-    gap: 26px;
-    width: min(620px, calc(100% - 96px));
-    padding: 34px 40px 38px;
-    border: 1px solid var(--mbc-color-border);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.82);
-    box-shadow: 0 18px 48px rgba(42, 167, 184, 0.11);
-  }
-
-  .lead {
-    margin: 0;
-    color: #2b4850;
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.35;
+  .start-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px;
+    color: #82989e;
     text-align: center;
   }
 
-  .actions {
+  .start-icon {
     display: grid;
-    grid-template-columns: repeat(2, 220px);
-    gap: 18px;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    margin-bottom: 3px;
+    border-radius: 12px;
+    background: #dff2f5;
+    color: #2b8794;
+  }
+
+  h2 {
+    color: #536e75;
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .start-state p {
+    max-width: 360px;
+    color: #82989e;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
   }
 
   button {
-    height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 13px;
     border: 1px solid var(--mbc-color-border-strong);
-    border-radius: 8px;
-    background: var(--mbc-color-primary-soft);
-    color: #236f7a;
-    font-size: 18px;
+    border-radius: 7px;
+    background: var(--mbc-color-surface);
+    color: #365a63;
     font-weight: 700;
-    line-height: 1;
     cursor: default;
     user-select: none;
-    transition:
-      background-color 120ms ease,
-      border-color 120ms ease,
-      color 120ms ease;
-  }
-
-  button.secondary {
-    background: var(--mbc-color-primary-soft);
-    color: #236f7a;
   }
 
   button:hover {
     border-color: var(--mbc-color-primary);
-    background: #d2f1f5;
+    background: var(--mbc-color-primary-soft);
     color: #1f6270;
+  }
+
+  button.primary {
+    border-color: #278f9e;
+    background: var(--mbc-color-primary);
+    color: white;
+  }
+
+  button.primary:hover {
+    border-color: #1f7d89;
+    background: var(--mbc-color-primary-hover);
+    color: white;
   }
 
   button:focus-visible {
@@ -145,22 +235,32 @@
 
   .footer {
     position: absolute;
-    right: 26px;
-    bottom: 20px;
+    right: 20px;
+    bottom: 14px;
     color: var(--mbc-color-text-subtle);
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 18px;
+    font-size: 11px;
+    line-height: 1.4;
     user-select: none;
   }
 
   @media (max-width: 720px) {
-    .actions {
-      grid-template-columns: minmax(220px, 280px);
+    .screen-header {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 12px;
+      padding: 15px 18px;
     }
 
-    .lead {
-      font-size: 20px;
+    .compatibility {
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .actions {
+      align-items: stretch;
+      flex-direction: column;
+      width: 180px;
     }
   }
 </style>

@@ -75,8 +75,12 @@ export type CommandPrompt = {
   onInputSubmit?: (value: string) => void | Promise<void>
 }
 
+export type CommandSessionPhase = 'idle' | 'running' | 'awaiting-input'
+
 export type CommandSession = {
+  id: number
   nodeId: number
+  phase: CommandSessionPhase
   input: string
   inputCaret: number
   completionDismissed: boolean
