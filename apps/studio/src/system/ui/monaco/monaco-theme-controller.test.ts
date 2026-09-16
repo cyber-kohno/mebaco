@@ -26,6 +26,19 @@ describe('MonacoThemeController', () => {
       'mebaco-light',
       expect.objectContaining({ base: 'vs' }),
     )
+    expect(defineTheme).toHaveBeenCalledWith(
+      'mebaco-dark',
+      expect.objectContaining({ base: 'vs-dark' }),
+    )
+    expect(defineTheme).toHaveBeenCalledWith(
+      'soft-light',
+      expect.objectContaining({ base: 'vs' }),
+    )
+    expect(defineTheme).toHaveBeenCalledWith(
+      'midnight-blue',
+      expect.objectContaining({ base: 'vs-dark' }),
+    )
+    expect(defineTheme).toHaveBeenCalledTimes(4)
     expect(setTheme).toHaveBeenLastCalledWith('mebaco-light')
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({
       id: 'mebaco-light',
@@ -38,6 +51,14 @@ describe('MonacoThemeController', () => {
     expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({
       id: 'visual-studio-dark',
       tone: 'dark',
+    }))
+
+    AppSettings.setMonacoTheme('high-contrast-light')
+
+    expect(setTheme).toHaveBeenLastCalledWith('hc-light')
+    expect(listener).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: 'high-contrast-light',
+      tone: 'high-contrast',
     }))
   })
 })

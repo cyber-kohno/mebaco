@@ -43,6 +43,7 @@ namespace ScriptCompiler {
     '$storage',
     '$system',
     '$event',
+    '$effect',
   ]
 
   const getContextNames = (

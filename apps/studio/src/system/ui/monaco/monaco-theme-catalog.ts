@@ -1,58 +1,55 @@
-import type * as Monaco from 'monaco-editor'
+import mebacoDarkTheme from './theme/mebaco-dark-theme'
+import mebacoLightTheme from './theme/mebaco-light-theme'
+import midnightBlueTheme from './theme/midnight-blue-theme'
+import type {
+  MonacoBaseTheme,
+  MonacoThemeDefinition,
+  MonacoThemeTone,
+} from './theme/monaco-theme-definition'
+import softLightTheme from './theme/soft-light-theme'
+
+const themeDefinitions = [
+  mebacoLightTheme,
+  softLightTheme,
+  mebacoDarkTheme,
+  midnightBlueTheme,
+  {
+    id: 'visual-studio-dark',
+    label: 'Visual Studio Dark',
+    monacoThemeName: 'vs-dark',
+    baseTheme: 'vs-dark',
+    tone: 'dark',
+    frameBackground: '#1e1e1e',
+    frameBorder: '#4b5960',
+  },
+  {
+    id: 'high-contrast-dark',
+    label: 'High Contrast Dark',
+    monacoThemeName: 'hc-black',
+    baseTheme: 'hc-black',
+    tone: 'high-contrast',
+    frameBackground: '#000000',
+    frameBorder: '#ffffff',
+  },
+  {
+    id: 'high-contrast-light',
+    label: 'High Contrast Light',
+    monacoThemeName: 'hc-light',
+    baseTheme: 'hc-light',
+    tone: 'high-contrast',
+    frameBackground: '#ffffff',
+    frameBorder: '#000000',
+  },
+] as const satisfies readonly MonacoThemeDefinition[]
 
 namespace MonacoThemeCatalog {
-  export type Id = 'mebaco-light' | 'visual-studio-dark'
-  export type Tone = 'light' | 'dark' | 'high-contrast'
-  export type BaseTheme = 'vs' | 'vs-dark' | 'hc-black' | 'hc-light'
-
-  export type Theme = Readonly<{
-    id: Id
-    label: string
-    monacoThemeName: string
-    baseTheme: BaseTheme
-    tone: Tone
-    frameBackground: string
-    frameBorder: string
-    definition?: Monaco.editor.IStandaloneThemeData
-  }>
+  export type Id = (typeof themeDefinitions)[number]['id']
+  export type Tone = MonacoThemeTone
+  export type BaseTheme = MonacoBaseTheme
+  export type Theme = MonacoThemeDefinition<Id>
 
   export const defaultId: Id = 'mebaco-light'
-
-  export const themes: readonly Theme[] = [
-    {
-      id: 'mebaco-light',
-      label: 'Mebaco Light',
-      monacoThemeName: 'mebaco-light',
-      baseTheme: 'vs',
-      tone: 'light',
-      frameBackground: '#ffffff',
-      frameBorder: '#9acbd4',
-      definition: {
-        base: 'vs',
-        inherit: true,
-        rules: [],
-        colors: {
-          'editor.background': '#ffffff',
-          'editor.foreground': '#243f47',
-          'editorLineNumber.foreground': '#89aab1',
-          'editorCursor.foreground': '#236f7a',
-          'editor.selectionBackground': '#bdeef5',
-          'editor.inactiveSelectionBackground': '#d9f4f7',
-          'editorWidget.background': '#f4fbfc',
-          'editorWidget.border': '#9acbd4',
-        },
-      },
-    },
-    {
-      id: 'visual-studio-dark',
-      label: 'Visual Studio Dark',
-      monacoThemeName: 'vs-dark',
-      baseTheme: 'vs-dark',
-      tone: 'dark',
-      frameBackground: '#1e1e1e',
-      frameBorder: '#4b5960',
-    },
-  ]
+  export const themes: readonly Theme[] = themeDefinitions
 
   export const isId = (value: string): value is Id => (
     themes.some((theme) => theme.id === value)

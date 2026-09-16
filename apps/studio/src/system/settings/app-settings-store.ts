@@ -14,6 +14,7 @@ namespace AppSettingsStore {
       }>
       editor: Readonly<{
         monacoTheme: MonacoThemeCatalog.Id
+        monacoFontSize: number
       }>
     }>
   }>
@@ -27,6 +28,7 @@ namespace AppSettingsStore {
       },
       editor: {
         monacoTheme: MonacoThemeCatalog.defaultId,
+        monacoFontSize: 13,
       },
     },
   })
@@ -37,6 +39,8 @@ export const appSettingsStore = writable<AppSettingsStore.State>(
 )
 
 namespace AppSettings {
+  export const monacoFontSizeRange = Object.freeze({ min: 10, max: 32 })
+
   export const getDevelopDefaults = () => get(appSettingsStore).develop.defaults
   export const getDevelopEditor = () => get(appSettingsStore).develop.editor
 
@@ -82,6 +86,26 @@ namespace AppSettings {
         },
       },
     }))
+  }
+
+  export const setMonacoFontSize = (value: number): boolean => {
+    if (
+      !Number.isInteger(value)
+      || value < monacoFontSizeRange.min
+      || value > monacoFontSizeRange.max
+    ) return false
+
+    appSettingsStore.update((settings) => ({
+      ...settings,
+      develop: {
+        ...settings.develop,
+        editor: {
+          ...settings.develop.editor,
+          monacoFontSize: value,
+        },
+      },
+    }))
+    return true
   }
 
   export const reset = () => {

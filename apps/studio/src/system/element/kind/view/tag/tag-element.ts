@@ -11,6 +11,7 @@ import TreeStore from '../../../../store/tree-store'
 import type StyleElement from '../style/style-element'
 import StyleParameterCatalog from '../style/style-parameter-catalog'
 import type ResolvableValue from '../../shared/resolvable-value'
+import StyleReferencePreview from '../../../../runtime/style/style-reference-preview'
 
 namespace TagElement {
   export type Kind = 'tag'
@@ -137,6 +138,7 @@ namespace TagElement {
   export type CreateSchemaOptions = {
     styleOptions?: readonly ElementEditSchema.SelectOption[]
     styleCatalog?: StyleParameterCatalog.Catalog
+    getStylePreview?: StyleReferencePreview.Resolver
   }
 
   export const createSchema = (
@@ -196,6 +198,7 @@ namespace TagElement {
               parameters: [],
               issues: [],
             },
+        getPreview: options.getStylePreview,
       },
       {
         type: 'tagStyleMonitor',
@@ -419,9 +422,11 @@ namespace TagElement {
 
     const collect = (node: TreeNode.Node) => {
       if (isStyleElement(node.element)) {
+        const category = node.element.category?.trim()
         options.push({
           value: node.element.styleId,
           label: node.element.id,
+          ...(category == null || category.length === 0 ? {} : { category }),
         })
       }
       node.children.forEach(collect)
@@ -448,6 +453,7 @@ namespace TagElement {
             createSchema({
               styleOptions: getStyleOptions(context.rootNode),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
+              getStylePreview: StyleReferencePreview.createResolver(context.rootNode),
             }),
           )
         }),

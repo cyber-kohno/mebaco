@@ -8,6 +8,7 @@ import EntryElement from './entry-element'
 import FunctionsElement from '../declare/functions-element'
 import StatesElement from '../variable/store/states-element'
 import StoreElement from '../variable/store/store-element'
+import EffectsElement from '../variable/store/effects-element'
 import TypesElement from '../declare/types-element'
 import StylesElement from '../declare/styles-element'
 import ConstantsElement from '../declare/constants-element'
@@ -85,6 +86,9 @@ namespace AppElement {
         children: [
           {
             element: StatesElement.create(),
+          },
+          {
+            element: EffectsElement.create(),
           },
         ],
       },

@@ -73,6 +73,8 @@ namespace StyleDeclarationResolver {
     includeUnresolvedDeclarations?: boolean
     deferFormulaArguments?: boolean
     deferRuntimeFormulas?: boolean
+    deferAllFormulas?: boolean
+    includeAnimations?: boolean
   }
 
   export type Catalog = {
@@ -230,6 +232,7 @@ namespace StyleDeclarationResolver {
     styleName: string,
     path: readonly string[],
     deferRuntimeFormulas: boolean,
+    deferAllFormulas: boolean,
   ): { context: FormulaContext.Value; errors: Error[] } => {
     const frame = VariableFrame.create({})
     const localContext = FormulaContext.create({ ...context, $local: frame.values })
@@ -238,7 +241,10 @@ namespace StyleDeclarationResolver {
     for (const node of localNodes) {
       if (node.element.kind !== 'variable') continue
       const local = node.element
-      if (deferRuntimeFormulas && dependsOnRuntimeContext(local.source)) {
+      if (
+        deferAllFormulas
+        || (deferRuntimeFormulas && dependsOnRuntimeContext(local.source))
+      ) {
         frame.declare(local.id, 'const', createUnresolvedFormula(local.source))
         continue
       }
@@ -299,8 +305,10 @@ namespace StyleDeclarationResolver {
     styleName: string,
     referenceId: string,
     path: readonly string[],
+    deferFormula = false,
   ): { apply: boolean; error?: Error } => {
     if (condition == null) return { apply: true }
+    if (deferFormula) return { apply: true }
 
     const result = FormulaEvaluator.evaluateExpression(condition.source, context)
     if (!result.ok) {
@@ -472,6 +480,7 @@ namespace StyleDeclarationResolver {
         record.element.id,
         nextPathNames,
         options.deferRuntimeFormulas === true,
+        options.deferAllFormulas === true,
       )
       errors.push(...localsResult.errors)
       if (localsResult.errors.length > 0) return { declarations, errors, keyframes }
@@ -516,6 +525,7 @@ namespace StyleDeclarationResolver {
           records.get(base.styleId)?.element.id ?? base.styleId,
           base.referenceId,
           nextPathNames,
+          options.deferAllFormulas === true,
         )
         if (condition.error != null) errors.push(condition.error)
         if (!condition.apply) return
@@ -535,7 +545,7 @@ namespace StyleDeclarationResolver {
             records.get(base.styleId)?.element.id ?? base.styleId,
             base.referenceId,
             nextPathNames,
-            false,
+            options.deferAllFormulas === true,
           )
           if (!result.ok) {
             errors.push(result.error)
@@ -599,8 +609,11 @@ namespace StyleDeclarationResolver {
           }
 
           if (
-            options.deferRuntimeFormulas === true
-            && dependsOnRuntimeContext(declaration.value.source)
+            options.deferAllFormulas === true
+            || (
+              options.deferRuntimeFormulas === true
+              && dependsOnRuntimeContext(declaration.value.source)
+            )
           ) {
             appendDeclaration(declaration.value.source, {
               type: 'formula',
@@ -722,7 +735,7 @@ namespace StyleDeclarationResolver {
         source: { styleId, path: [...nextPathNames], valueType },
       })
 
-      ;(record.element.animations ?? []).forEach((rule) => {
+      ;(options.includeAnimations === false ? [] : record.element.animations ?? []).forEach((rule) => {
         const state = rule.state ?? null
         if (rule.mode === 'none') {
           appendAnimationDeclaration('animation-name', 'none', state)
@@ -867,6 +880,7 @@ namespace StyleDeclarationResolver {
           records.get(application.styleId)?.element.id ?? application.styleId,
           application.referenceId,
           [],
+          options.deferAllFormulas === true,
         )
         if (condition.error != null) errors.push(condition.error)
         if (!condition.apply) return
@@ -886,7 +900,7 @@ namespace StyleDeclarationResolver {
             records.get(application.styleId)?.element.id ?? application.styleId,
             application.referenceId,
             [],
-            options.deferFormulaArguments === true,
+            options.deferAllFormulas === true || options.deferFormulaArguments === true,
           )
           if (!result.ok) {
             errors.push(result.error)

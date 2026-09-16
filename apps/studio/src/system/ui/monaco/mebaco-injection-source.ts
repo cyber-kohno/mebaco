@@ -712,6 +712,14 @@ namespace MebacoInjectionSource {
               '};',
             ].join('\n')
           : null,
+        mode === 'action'
+          && (targetNode?.element.kind === 'effect' || targetNode?.element.kind === 'effects')
+          ? [
+              'declare var $effect: {',
+              '  readonly signal: AbortSignal;',
+              '};',
+            ].join('\n')
+          : null,
       ]),
     ]
 

@@ -17,7 +17,7 @@ namespace SuggestTextOptions {
     return false
   }
 
-  const getMatchRank = (
+  export const getMatchRank = (
     value: string,
     query: string,
   ): number | null => {

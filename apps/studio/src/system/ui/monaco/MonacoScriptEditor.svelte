@@ -9,6 +9,7 @@
   import MonacoThemeController from './monaco-theme-controller'
   import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
   import ScriptPolicy from '../../runtime/script/script-policy'
+  import { appSettingsStore } from '../../settings/app-settings-store'
 
   type Props = {
     value: string
@@ -278,6 +279,12 @@
   })
 
   $effect(() => {
+    editor?.updateOptions({
+      fontSize: $appSettingsStore.develop.editor.monacoFontSize,
+    })
+  })
+
+  $effect(() => {
     setInjectionSource(getInjectionSource())
   })
 
@@ -393,7 +400,7 @@
       minimap: {
         enabled: false,
       },
-      fontSize: 13,
+      fontSize: $appSettingsStore.develop.editor.monacoFontSize,
       lineNumbersMinChars: 3,
       scrollBeyondLastLine: false,
       tabSize: 2,

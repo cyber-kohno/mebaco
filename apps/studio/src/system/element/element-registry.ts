@@ -46,6 +46,8 @@ import ProjectElement from './kind/project/project-element'
 import StateElement from './kind/variable/store/state-element'
 import StatesElement from './kind/variable/store/states-element'
 import StoreElement from './kind/variable/store/store-element'
+import EffectsElement from './kind/variable/store/effects-element'
+import EffectElement from './kind/variable/store/effect-element'
 import StyleElement from './kind/view/style/style-element'
 import StyleParamElement from './kind/view/style/style-param-element'
 import StyleParamsElement from './kind/view/style/style-params-element'
@@ -131,6 +133,8 @@ namespace ElementRegistry {
     state: StateElement.definition,
     states: StatesElement.definition,
     store: StoreElement.definition,
+    effects: EffectsElement.definition,
+    effect: EffectElement.definition,
     style: StyleElement.definition,
     'style-param': StyleParamElement.definition,
     'style-params': StyleParamsElement.definition,

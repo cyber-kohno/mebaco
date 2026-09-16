@@ -12,6 +12,7 @@ import ElementDeletionController from '../../../deletion/element-deletion-contro
 import StoreElement from '../../variable/store/store-element'
 import StatesElement from '../../variable/store/states-element'
 import ResolvableValue from '../../shared/resolvable-value'
+import EffectsElement from '../../variable/store/effects-element'
 
 namespace ComponentElement {
   export type Kind = 'component'
@@ -123,6 +124,9 @@ namespace ComponentElement {
         children: [
           {
             element: StatesElement.create(),
+          },
+          {
+            element: EffectsElement.create(),
           },
         ],
       },

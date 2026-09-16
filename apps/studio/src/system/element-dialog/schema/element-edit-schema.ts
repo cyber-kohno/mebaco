@@ -17,6 +17,7 @@ import StyleParameterValue from '../../element/kind/view/style/style-parameter-v
 import AppId from '../../element/kind/app/app-id'
 import CodeMemberIdentifier from '../../element/code-member-identifier'
 import ResolvableValue from '../../element/kind/shared/resolvable-value'
+import type StyleReferencePreview from '../../runtime/style/style-reference-preview'
 
 namespace ElementEditSchema {
   export type TextCharset =
@@ -66,11 +67,13 @@ namespace ElementEditSchema {
     reservedNames?: readonly string[]
     differentFromKeys?: readonly string[]
     differentFromWhen?: FieldVisibility
+    suggestions?: readonly SelectOption[]
   } & FieldBase
 
   export type SelectOption = {
     value: string
     label?: string
+    category?: string
     detail?: string
     title?: string
     preview?: string
@@ -161,6 +164,14 @@ namespace ElementEditSchema {
     required?: boolean
     maxLength?: number
     allowAwaitInAsyncFunction?: boolean
+    allowAwait?: boolean
+  } & FieldBase
+
+  export type EffectDependenciesField = {
+    type: 'effectDependencies'
+    key: string
+    label: string
+    defaultValue?: string
   } & FieldBase
 
   export type ValueSourceField = {
@@ -219,6 +230,7 @@ namespace ElementEditSchema {
     defaultValue?: string
     options: readonly SelectOption[]
     getResolution?: (styleId: string) => StyleParameterCatalog.Result
+    getPreview?: StyleReferencePreview.Resolver
   } & FieldBase
 
   export type StyleBasesField = {
@@ -228,6 +240,7 @@ namespace ElementEditSchema {
     defaultValue?: string
     options: readonly SelectOption[]
     getResolution?: (styleId: string) => StyleParameterCatalog.Result
+    getPreview?: StyleReferencePreview.Resolver
     ownerParameters?: readonly StyleParameterCatalog.Parameter[]
   } & FieldBase
 
@@ -409,6 +422,7 @@ namespace ElementEditSchema {
     | LiteralField
     | FormulaField
     | ScriptField
+    | EffectDependenciesField
     | CodeField
     | ValueSourceField
     | ValueTypeField
@@ -627,6 +641,36 @@ namespace ElementEditSchema {
       return `Must be ${field.maxLength} characters or fewer.`
     }
     return null
+  }
+
+  export const validateEffectDependencies = (value: string): string | null => {
+    try {
+      const parsed: unknown = JSON.parse(value)
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return 'Add at least one dependency.'
+      }
+      const ids = new Set<string>()
+      for (const item of parsed) {
+        if (item == null || typeof item !== 'object') return 'Fill all dependencies.'
+        const dependency = item as {
+          dependencyId?: unknown
+          type?: unknown
+          source?: unknown
+        }
+        if (
+          typeof dependency.dependencyId !== 'string'
+          || dependency.dependencyId.length === 0
+          || ids.has(dependency.dependencyId)
+          || dependency.type !== 'formula'
+          || typeof dependency.source !== 'string'
+          || dependency.source.trim().length === 0
+        ) return 'Fill all dependencies.'
+        ids.add(dependency.dependencyId)
+      }
+      return null
+    } catch {
+      return 'Invalid dependencies.'
+    }
   }
 
   export const validateCode = (field: CodeField, value: string): string | null => {

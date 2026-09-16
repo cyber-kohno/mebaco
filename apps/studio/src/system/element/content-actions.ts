@@ -13,6 +13,7 @@ import SwitchElement from './kind/directive/switch-element'
 import LoopElement from './kind/directive/loop-element'
 import SlotUseElement from './kind/component/definition/slot/slot-use-element'
 import AppSettings from '../settings/app-settings-store'
+import StyleReferencePreview from '../runtime/style/style-reference-preview'
 
 namespace ContentActions {
   export const createAddMenu = (
@@ -28,6 +29,7 @@ namespace ContentActions {
           TagElement.createSchema({
             styleOptions: TagElement.getStyleOptions(rootNode),
             styleCatalog: StyleParameterCatalog.createCatalog(rootNode),
+            getStylePreview: StyleReferencePreview.createResolver(rootNode),
           }),
         )
       }),

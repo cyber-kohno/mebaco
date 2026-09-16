@@ -3,6 +3,7 @@ import ActionMenuState from '../../../action-menu/action-menu-state'
 import ElementDialog from '../../../element-dialog/element-dialog-controller'
 import StyleElement from '../view/style/style-element'
 import StyleParameterCatalog from '../view/style/style-parameter-catalog'
+import StyleReferencePreview from '../../../runtime/style/style-reference-preview'
 
 namespace StylesElement {
   export type Kind = 'styles'
@@ -36,7 +37,9 @@ namespace StylesElement {
             StyleElement.createSchema({
               reservedNames,
               styleOptions: StyleElement.getStyleOptions(context.rootNode),
+              categoryOptions: StyleElement.getCategoryOptions(context.rootNode),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
+              getStylePreview: StyleReferencePreview.createResolver(context.rootNode),
             }),
           )
         }),

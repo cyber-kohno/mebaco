@@ -11,6 +11,7 @@ import StyleParameterCatalog from './style-parameter-catalog'
 import ElementDeletionController from '../../../deletion/element-deletion-controller'
 import StyleParameterDeletion from './style-parameter-deletion'
 import StyleLocalsElement from './style-locals-element'
+import StyleReferencePreview from '../../../../runtime/style/style-reference-preview'
 
 namespace StyleElement {
   export type Kind = 'style'
@@ -19,6 +20,7 @@ namespace StyleElement {
     kind: Kind
     styleId: string
     id: string
+    category?: string
     rules: Rule[]
     animations?: AnimationRule[]
     bases: Base[]
@@ -158,6 +160,8 @@ namespace StyleElement {
     styleCatalog?: StyleParameterCatalog.Catalog
     ownerStyleId?: string
     keyframesOptions?: readonly ElementEditSchema.SelectOption[]
+    categoryOptions?: readonly ElementEditSchema.SelectOption[]
+    getStylePreview?: StyleReferencePreview.Resolver
   }
 
   export const createSchema = (
@@ -184,6 +188,16 @@ namespace StyleElement {
         minLength: 1,
         maxLength: 32,
         reservedNames: options.reservedNames,
+      },
+      {
+        type: 'text',
+        tab: 'info',
+        key: 'category',
+        label: 'Category',
+        width: 'id',
+        maxLength: 32,
+        charset: 'any',
+        suggestions: options.categoryOptions ?? [],
       },
       {
         type: 'styleProps',
@@ -216,6 +230,7 @@ namespace StyleElement {
         ownerParameters: options.styleCatalog == null || options.ownerStyleId == null
           ? []
           : options.styleCatalog.getDirectParameters(options.ownerStyleId),
+        getPreview: options.getStylePreview,
       },
       {
         type: 'styleMonitor',
@@ -231,24 +246,35 @@ namespace StyleElement {
     createPreview: () => create('...'),
     getInitialValues: (element) => ({
       id: element.id,
+      category: element.category ?? '',
       rules: JSON.stringify(element.rules),
       animations: JSON.stringify(element.animations ?? []),
       bases: JSON.stringify(element.bases ?? []),
     }),
-    create: (values) => create(
-      values.id,
-      parseRules(values.rules),
-      parseBases(values.bases),
-      undefined,
-      parseAnimations(values.animations),
-    ),
-    update: (element, values) => ({
-      ...element,
-      id: values.id,
-      rules: parseRules(values.rules),
-      animations: parseAnimations(values.animations),
-      bases: parseBases(values.bases),
-    }),
+    create: (values) => {
+      const element = create(
+        values.id,
+        parseRules(values.rules),
+        parseBases(values.bases),
+        undefined,
+        parseAnimations(values.animations),
+      )
+      const category = (values.category ?? '').trim()
+      return category.length === 0 ? element : { ...element, category }
+    },
+    update: (element, values) => {
+      const category = (values.category ?? '').trim()
+      const next = {
+        ...element,
+        id: values.id,
+        rules: parseRules(values.rules),
+        animations: parseAnimations(values.animations),
+        bases: parseBases(values.bases),
+      }
+      if (category.length > 0) return { ...next, category }
+      const { category: _category, ...withoutCategory } = next
+      return withoutCategory
+    },
   })
 
   export const getStyleOptions = (
@@ -259,9 +285,11 @@ namespace StyleElement {
 
     const collect = (node: TreeNode.Node) => {
       if (node.id !== excludedNodeId && node.element.kind === 'style') {
+        const category = node.element.category?.trim()
         options.push({
           value: node.element.styleId,
           label: node.element.id,
+          ...(category == null || category.length === 0 ? {} : { category }),
         })
       }
       node.children.forEach(collect)
@@ -269,6 +297,21 @@ namespace StyleElement {
 
     collect(rootNode)
     return options
+  }
+
+  export const getCategoryOptions = (
+    rootNode: TreeNode.Node,
+  ): ElementEditSchema.SelectOption[] => {
+    const categories = new Set<string>()
+    const collect = (node: TreeNode.Node) => {
+      if (node.element.kind === 'style') {
+        const category = node.element.category?.trim()
+        if (category != null && category.length > 0) categories.add(category)
+      }
+      node.children.forEach(collect)
+    }
+    collect(rootNode)
+    return [...categories].map((value) => ({ value }))
   }
 
   export const getKeyframesOptions = (
@@ -583,9 +626,11 @@ namespace StyleElement {
             createSchema({
               reservedNames,
               styleOptions: getStyleOptions(context.rootNode, context.node.id),
+              categoryOptions: getCategoryOptions(context.rootNode),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
               ownerStyleId: context.element.styleId,
               keyframesOptions: getKeyframesOptions(context.node),
+              getStylePreview: StyleReferencePreview.createResolver(context.rootNode),
             }),
           )
         }),

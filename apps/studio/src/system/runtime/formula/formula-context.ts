@@ -24,6 +24,10 @@ namespace FormulaContext {
 
   export type Invalidate = (partialKey: string) => void
 
+  export type EffectValue = Readonly<{
+    signal: AbortSignal
+  }>
+
   export type Value = {
     $args: Record<string, unknown>
     $launch: Record<string, unknown>
@@ -41,6 +45,7 @@ namespace FormulaContext {
     $invalidate: Invalidate
     $transition: TransitionValue
     $event?: Event
+    $effect: EffectValue
     requestTransition: TransitionRequest
     reportError?: ErrorReporter
     requestRender?: () => void
@@ -63,6 +68,9 @@ namespace FormulaContext {
   const unavailableInvalidate: Invalidate = () => {
     throw new Error('$invalidate() is not available in this runtime context.')
   }
+  const defaultEffect = Object.freeze({
+    signal: new AbortController().signal,
+  })
 
   export const create = (
     options: CreateOptions = {},
@@ -85,6 +93,7 @@ namespace FormulaContext {
       $invalidate: options.$invalidate ?? unavailableInvalidate,
       $transition: options.$transition ?? emptyTransition,
       $event: options.$event,
+      $effect: options.$effect ?? defaultEffect,
       requestTransition: options.requestTransition ?? unavailableTransition,
       reportError: options.reportError,
       requestRender: options.requestRender,

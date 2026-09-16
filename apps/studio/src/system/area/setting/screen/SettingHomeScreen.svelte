@@ -9,11 +9,27 @@
   let loopIndexVariableName = $state(
     AppSettings.getDevelopDefaults().loopIndexVariableName,
   )
+  let monacoFontSize = $state(String(
+    AppSettings.getDevelopEditor().monacoFontSize,
+  ))
 
   const loopIndexError = $derived.by(() => {
     if (loopIndexVariableName.length === 0) return 'Enter an index variable name.'
     if (loopIndexVariableName.length > 32) return 'Use 32 characters or fewer.'
     return CodeMemberIdentifier.validate(loopIndexVariableName)
+  })
+
+  const monacoFontSizeError = $derived.by(() => {
+    const value = Number(monacoFontSize)
+    if (monacoFontSize.trim().length === 0) return 'Enter a font size.'
+    if (!Number.isInteger(value)) return 'Enter a whole number.'
+    if (
+      value < AppSettings.monacoFontSizeRange.min
+      || value > AppSettings.monacoFontSizeRange.max
+    ) {
+      return `Use ${AppSettings.monacoFontSizeRange.min}–${AppSettings.monacoFontSizeRange.max}px.`
+    }
+    return null
   })
 
   const updateLoopIndexVariableName = (event: Event) => {
@@ -33,6 +49,13 @@
   const updateMonacoTheme = (event: Event) => {
     const value = (event.currentTarget as HTMLSelectElement).value
     if (MonacoThemeCatalog.isId(value)) AppSettings.setMonacoTheme(value)
+  }
+
+  const updateMonacoFontSize = (event: Event) => {
+    monacoFontSize = (event.currentTarget as HTMLInputElement).value
+    if (monacoFontSizeError == null) {
+      AppSettings.setMonacoFontSize(Number(monacoFontSize))
+    }
   }
 </script>
 
@@ -148,6 +171,29 @@
                   <option value={theme.id}>{theme.label}</option>
                 {/each}
               </select>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label for="monaco-font-size">
+              <span class="setting-name">Monaco font size</span>
+              <span class="setting-description">Font size used by TypeScript editors.</span>
+            </label>
+            <div class="setting-control">
+              <input
+                id="monaco-font-size"
+                type="number"
+                min={AppSettings.monacoFontSizeRange.min}
+                max={AppSettings.monacoFontSizeRange.max}
+                step="1"
+                value={monacoFontSize}
+                aria-invalid={monacoFontSizeError != null}
+                aria-describedby={monacoFontSizeError == null ? undefined : 'monaco-font-size-error'}
+                oninput={updateMonacoFontSize}
+              />
+              {#if monacoFontSizeError != null}
+                <span class="setting-error" id="monaco-font-size-error">{monacoFontSizeError}</span>
+              {/if}
             </div>
           </div>
         </section>

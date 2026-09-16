@@ -25,6 +25,7 @@
   import type RuntimeLog from '../log/runtime-log'
   import ResourceImportCatalog from '../../element/kind/app/import/resource-import-catalog'
   import type StorageRuntime from '../storage/storage-runtime'
+  import RenderEffects from '../effect/RenderEffects.svelte'
 
   type Props = {
     appNode: TreeNode.Node
@@ -403,6 +404,15 @@
       {trackStateDependencies} {invalidateStateDependencies}
       {setActionError} {setStyleResult}
       componentStack={[entryComponentNode.id]} />
+    {#key effectiveRuntimeState}
+      <RenderEffects
+        ownerNode={appNode}
+        formulaContext={appFormulaContext}
+        {renderRevision}
+        {trackStateDependencies}
+        {setActionError}
+      />
+    {/key}
   {/if}
 </div>
 

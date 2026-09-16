@@ -17,6 +17,7 @@ import ControlSwitchElement from './kind/directive/control-switch-element'
 import TreeStore from '../store/tree-store'
 import SwitchElement from './kind/directive/switch-element'
 import TransitionElement from './kind/variable/transition-element'
+import StyleReferencePreview from '../runtime/style/style-reference-preview'
 
 namespace RetentionActions {
   const findNode = (
@@ -87,7 +88,9 @@ namespace RetentionActions {
         StyleElement.createSchema({
           reservedNames: styleNames,
           styleOptions: StyleElement.getStyleOptions(rootNode),
+          categoryOptions: StyleElement.getCategoryOptions(rootNode),
           styleCatalog: StyleParameterCatalog.createCatalog(rootNode),
+          getStylePreview: StyleReferencePreview.createResolver(rootNode),
         }),
       )),
       action('Object', () => ElementDialog.openCreate(

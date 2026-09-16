@@ -98,6 +98,31 @@ describe('ExpressionVerificationStore', () => {
     expect(ExpressionVerificationStore.getStatus(root, action)).toBe('unverified')
   })
 
+  it('keeps a Style result when only its search category changes', () => {
+    const style = node(40, {
+      kind: 'style',
+      styleId: 'style-id',
+      id: 'panel',
+      category: 'layout',
+      rules: [{
+        type: 'declaration',
+        property: 'width',
+        value: { type: 'formula', source: '$state.width' },
+      }],
+      bases: [],
+    })
+    const root = node(1, { kind: 'project' })
+    root.children = [style]
+    ExpressionVerificationStore.setResult(style, { status: 'verified', messages: [] })
+
+    style.element = {
+      ...style.element,
+      category: 'component',
+    } as TreeNode.Node['element']
+
+    expect(ExpressionVerificationStore.getStatus(root, style)).toBe('verified')
+  })
+
   it('treats Procedure structure as a verification candidate and tracks child order', () => {
     const procedure = node(20, { kind: 'function-procedure' })
     procedure.children = [

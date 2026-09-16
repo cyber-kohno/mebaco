@@ -21,12 +21,18 @@ namespace ExpressionVerificationStore {
       : node.children.map(structureFingerprint),
   })
 
+  const elementFingerprint = (node: TreeNode.Node): unknown => {
+    if (node.element.kind !== 'style') return node.element
+    const { category: _category, ...verificationFields } = node.element
+    return verificationFields
+  }
+
   const fingerprint = (node: TreeNode.Node): string => JSON.stringify(
     node.element.kind === 'function-procedure'
       ? structureFingerprint(node)
       : node.element.kind === 'action'
       ? { kind: node.element.kind, source: node.element.source }
-      : node.element,
+      : elementFingerprint(node),
   )
 
   const collectNodes = (

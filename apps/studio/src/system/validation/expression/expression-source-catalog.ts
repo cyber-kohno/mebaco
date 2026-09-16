@@ -171,6 +171,7 @@ namespace ExpressionSourceCatalog {
     node: TreeNode.Node,
     mode: Mode,
   ): boolean => {
+    if (node.element.kind === 'effect' && mode === 'action') return true
     if (
       node.element.kind === 'function'
       && node.element.implementation.mode === 'code'

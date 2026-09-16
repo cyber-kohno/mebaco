@@ -44,6 +44,8 @@
   import ElementDialogDirty from '../element-dialog-dirty'
   import { confirmDialogStore } from '../../feedback/confirm/confirm-dialog-state'
   import ElementAutoVerification from '../element-auto-verification'
+  import SuggestTextInput from '../../ui/input/SuggestTextInput.svelte'
+  import EffectDependenciesEditor from '../../element/kind/variable/store/EffectDependenciesEditor.svelte'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -136,6 +138,8 @@
         )
       case 'script':
         return ElementEditSchema.validateScript(field, value)
+      case 'effectDependencies':
+        return ElementEditSchema.validateEffectDependencies(value)
       case 'code':
         return ElementEditSchema.validateCode(field, value)
       case 'textSource':
@@ -282,6 +286,7 @@
     field: ElementEditSchema.FormulaField | ElementEditSchema.ScriptField | ElementEditSchema.CodeField,
   ): boolean => {
     if (field.type === 'code') return field.getAllowAwait(values)
+    if (field.type === 'script' && field.allowAwait === true) return true
     if (field.type === 'formula' && field.getAllowAwait != null) {
       return field.getAllowAwait(values)
     }
@@ -405,6 +410,7 @@
       || field.type === 'storageImports'
       || field.type === 'resourceBindings'
       || field.type === 'bundleDefinition'
+      || field.type === 'effectDependencies'
     ))}
     aria-label={title}
   >
@@ -432,6 +438,7 @@
         || field.type === 'storageImports'
         || field.type === 'resourceBindings'
         || field.type === 'bundleDefinition'
+        || field.type === 'effectDependencies'
         || field.type === 'code'
       ))}
     >
@@ -540,6 +547,7 @@
               value={values[field.key] ?? '[]'}
               options={field.options}
               getResolution={field.getResolution}
+              getPreview={field.getPreview}
               formulaInjectionSource={getInjectionSource('expression')}
               usage="application"
               onValueChange={(nextValue) => {
@@ -558,6 +566,7 @@
               value={values[field.key] ?? '[]'}
               options={field.options}
               getResolution={field.getResolution}
+              getPreview={field.getPreview}
               formulaInjectionSource={getInjectionSource('expression')}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
@@ -597,6 +606,22 @@
               tagName={values[field.tagNameKey] ?? ''}
               formulaInjectionSource={getInjectionSource('expression')}
               getActionInjectionSource={(eventType) => getInjectionSource('action', eventType)}
+              onValueChange={(nextValue) => {
+                values[field.key] = nextValue
+                touched[field.key] = true
+              }}
+            />
+          </div>
+        {:else if field.type === 'effectDependencies'}
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
+            <span class="field-label">
+              {field.label}
+              {#if issue != null}<FieldValidationIndicator {issue} />{/if}
+            </span>
+            <EffectDependenciesEditor
+              value={values[field.key] ?? '[]'}
+              injectionSource={getInjectionSource('expression')}
+              errorMessage={touched[field.key] === true ? error : null}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true
@@ -907,28 +932,51 @@
               {#if issue != null}<FieldValidationIndicator {issue} />{/if}
             </span>
             {#if field.type === 'text'}
-              <input
-                class:id-width={field.width === 'id'}
-                class:tag-name-width={field.width === 'tagName'}
-                class:mode-width={field.width === 'mode'}
-                class:value-type-width={field.width === 'valueType'}
-                class:array-depth-width={field.width === 'arrayDepth'}
-                class:literal-union-width={field.width === 'literalUnion'}
-                class:read-only-control={isReadOnlyField(field)}
-                type="text"
-                readonly={isReadOnlyField(field)}
-                value={values[field.key] ?? ''}
-                aria-invalid={issue == null ? undefined : true}
-                data-validation-severity={issue?.severity}
-                title={issue?.message}
-                oninput={(event) => {
-                  values[field.key] = event.currentTarget.value
-                  touched[field.key] = true
-                }}
-                onblur={() => {
-                  touched[field.key] = true
-                }}
-              />
+              {#if field.suggestions != null && !isReadOnlyField(field)}
+                <span
+                  class="suggested-text-width"
+                  class:id-width={field.width === 'id'}
+                  class:tag-name-width={field.width === 'tagName'}
+                  class:mode-width={field.width === 'mode'}
+                  class:value-type-width={field.width === 'valueType'}
+                  class:array-depth-width={field.width === 'arrayDepth'}
+                  class:literal-union-width={field.width === 'literalUnion'}
+                >
+                  <SuggestTextInput
+                    value={values[field.key] ?? ''}
+                    options={field.suggestions}
+                    validationMessage={issue?.message}
+                    validationSeverity={issue?.severity}
+                    onValueChange={(nextValue) => {
+                      values[field.key] = nextValue
+                      touched[field.key] = true
+                    }}
+                  />
+                </span>
+              {:else}
+                <input
+                  class:id-width={field.width === 'id'}
+                  class:tag-name-width={field.width === 'tagName'}
+                  class:mode-width={field.width === 'mode'}
+                  class:value-type-width={field.width === 'valueType'}
+                  class:array-depth-width={field.width === 'arrayDepth'}
+                  class:literal-union-width={field.width === 'literalUnion'}
+                  class:read-only-control={isReadOnlyField(field)}
+                  type="text"
+                  readonly={isReadOnlyField(field)}
+                  value={values[field.key] ?? ''}
+                  aria-invalid={issue == null ? undefined : true}
+                  data-validation-severity={issue?.severity}
+                  title={issue?.message}
+                  oninput={(event) => {
+                    values[field.key] = event.currentTarget.value
+                    touched[field.key] = true
+                  }}
+                  onblur={() => {
+                    touched[field.key] = true
+                  }}
+                />
+              {/if}
             {/if}
             {#if field.type === 'select'}
               {@const selectedOption = getSelectedOption(field)}
@@ -1306,6 +1354,10 @@
 
   .id-width {
     width: min(100%, var(--mbc-width-id-field));
+  }
+
+  .suggested-text-width {
+    display: block;
   }
 
   .tag-name-width {

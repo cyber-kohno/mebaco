@@ -13,11 +13,14 @@
   import StyleParameterValue from './style-parameter-value'
   import StyleArgumentContract from './style-argument-contract'
   import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
+  import StyleReferenceField from './StyleReferenceField.svelte'
+  import type StyleReferencePreview from '../../../../runtime/style/style-reference-preview'
 
   type Props = {
     value: string
     options: readonly ElementEditSchema.SelectOption[]
     getResolution?: (styleId: string) => StyleParameterCatalog.Result
+    getPreview?: StyleReferencePreview.Resolver
     formulaInjectionSource?: string
     usage?: 'inheritance' | 'application'
     onValueChange: (value: string) => void
@@ -27,6 +30,7 @@
     value,
     options,
     getResolution,
+    getPreview,
     formulaInjectionSource,
     usage = 'inheritance',
     onValueChange,
@@ -263,23 +267,20 @@
             </div>
           </div>
 
-          <label class="base-field style-field">
+          <div class="base-field style-field">
             <span>Style</span>
-            <select
+            <StyleReferenceField
               value={base.styleId}
-              onchange={(event) => {
+              {options}
+              {getPreview}
+              onValueChange={(styleId) => {
                 updateBase(base.referenceId, {
-                  styleId: event.currentTarget.value,
-                  arguments: createArguments(event.currentTarget.value),
+                  styleId,
+                  arguments: createArguments(styleId),
                 })
               }}
-            >
-              <option value=""></option>
-              {#each options as option}
-                <option value={option.value}>{option.label ?? option.value}</option>
-              {/each}
-            </select>
-          </label>
+            />
+          </div>
 
           <div class="condition-field">
             <label class="condition-toggle">

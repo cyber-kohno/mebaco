@@ -43,6 +43,8 @@ import ProjectElement from './kind/project/project-element'
 import StateElement from './kind/variable/store/state-element'
 import StatesElement from './kind/variable/store/states-element'
 import StoreElement from './kind/variable/store/store-element'
+import EffectsElement from './kind/variable/store/effects-element'
+import EffectElement from './kind/variable/store/effect-element'
 import StyleElement from './kind/view/style/style-element'
 import StyleParamElement from './kind/view/style/style-param-element'
 import StyleParamsElement from './kind/view/style/style-params-element'
@@ -124,6 +126,8 @@ namespace MebacoElement {
     | StateElement.Kind
     | StatesElement.Kind
     | StoreElement.Kind
+    | EffectsElement.Kind
+    | EffectElement.Kind
     | StyleElement.Kind
     | StyleParamElement.Kind
     | StyleParamsElement.Kind
@@ -206,6 +210,8 @@ namespace MebacoElement {
     | StateElement.Element
     | StatesElement.Element
     | StoreElement.Element
+    | EffectsElement.Element
+    | EffectElement.Element
     | StyleElement.Element
     | StyleParamElement.Element
     | StyleParamsElement.Element

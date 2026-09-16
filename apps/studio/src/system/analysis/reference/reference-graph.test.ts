@@ -117,6 +117,37 @@ describe('ReferenceGraph', () => {
     })
   })
 
+  it('collects dependencies from Effect formulas and Actions', () => {
+    const state = node(5, {
+      kind: 'state', id: 'feedUrl', valueType: { type: 'string' }, nullable: false,
+      initial: { type: 'literal', value: '' },
+    })
+    const effect = node(7, {
+      kind: 'effect', comment: '', trigger: 'dependencies',
+      dependencies: [{
+        dependencyId: 'feed-dependency', type: 'formula', source: '$state.feedUrl',
+      }],
+      action: { type: 'script', source: '$log.info($state.feedUrl)' },
+    })
+    const root = node(1, { kind: 'project' }, [
+      node(2, { kind: 'app', appId: 'app-id', id: 'reader' }, [
+        node(3, { kind: 'store' }, [
+          node(4, { kind: 'states' }, [state]),
+          node(6, { kind: 'effects' }, [effect]),
+        ]),
+      ]),
+    ])
+
+    expect(ReferenceGraph.build(root, effect.id)).toMatchObject({
+      canHaveDependencies: true,
+      dependencies: [{
+        sourceNodeId: effect.id,
+        targetNodeId: state.id,
+        targetLabel: 'state.feedUrl',
+      }],
+    })
+  })
+
   it('resolves structured references by stable definition UUID only', () => {
     const component = node(2, {
       kind: 'component',

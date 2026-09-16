@@ -126,6 +126,38 @@ describe('ExpressionSourceCatalog', () => {
     ])
   })
 
+  it('collects Effect dependencies and allows await in its Action', () => {
+    const effect = node(35, {
+      kind: 'effect',
+      comment: '',
+      trigger: 'dependencies',
+      dependencies: [{
+        dependencyId: 'feed',
+        type: 'formula',
+        source: '$props.feedUrl',
+      }],
+      action: {
+        type: 'script',
+        source: '$state.items = await $fn.load($props.feedUrl)',
+      },
+    })
+
+    const result = ExpressionSourceCatalog.collect(effect, effect)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '$props.feedUrl',
+        mode: 'expression',
+        allowAwait: false,
+      }),
+      expect.objectContaining({
+        source: '$state.items = await $fn.load($props.feedUrl)',
+        mode: 'action',
+        allowAwait: true,
+      }),
+    ])
+  })
+
   it('assigns number expectation to count loops', () => {
     const loop = node(41, {
       kind: 'loop',

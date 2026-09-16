@@ -10,6 +10,7 @@
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type TreeNode from '../../tree/tree-node'
   import RenderContent from './RenderContent.svelte'
+  import RenderEffects from '../effect/RenderEffects.svelte'
 
   type Props = {
     componentNode: TreeNode.Node
@@ -98,4 +99,13 @@
     {slotDefinitions}
     {slotCallerContext}
   />
+  {#key formulaContext.$state}
+    <RenderEffects
+      ownerNode={componentNode}
+      {formulaContext}
+      renderRevision={scopedRenderRevision}
+      {trackStateDependencies}
+      {setActionError}
+    />
+  {/key}
 {/if}
