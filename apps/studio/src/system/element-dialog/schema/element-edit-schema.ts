@@ -165,6 +165,7 @@ namespace ElementEditSchema {
     maxLength?: number
     allowAwaitInAsyncFunction?: boolean
     allowAwait?: boolean
+    fillAvailable?: boolean
   } & FieldBase
 
   export type EffectDependenciesField = {

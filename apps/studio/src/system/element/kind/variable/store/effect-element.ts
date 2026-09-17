@@ -98,7 +98,7 @@ namespace EffectElement {
         },
         {
           type: 'script', tab: 'action', key: 'action', label: 'Action',
-          required: true, maxLength: 8000, allowAwait: true,
+          required: true, maxLength: 8000, allowAwait: true, fillAvailable: true,
         },
       ],
       createPreview: () => create('...', allowMount ? 'mount' : 'dependencies'),

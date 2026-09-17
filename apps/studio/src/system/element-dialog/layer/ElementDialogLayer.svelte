@@ -440,6 +440,7 @@
         || field.type === 'bundleDefinition'
         || field.type === 'effectDependencies'
         || field.type === 'code'
+        || (field.type === 'script' && field.fillAvailable === true)
       ))}
     >
       <h2>{title}</h2>
@@ -794,7 +795,11 @@
             />
           </div>
         {:else if field.type === 'script'}
-          <div class="field" data-validation-severity={issue?.severity}>
+          <div
+            class="field"
+            class:contained-editor-field={field.fillAvailable === true}
+            data-validation-severity={issue?.severity}
+          >
             <span class="field-label">
               {field.label}
               {#if issue != null}<FieldValidationIndicator {issue} />{/if}
@@ -803,6 +808,7 @@
               value={values[field.key] ?? ''}
               injectionSource={getInjectionSource('action')}
               allowAwait={getAllowAwait(field)}
+              fillAvailable={field.fillAvailable === true}
               onValueChange={(nextValue) => {
                 values[field.key] = nextValue
                 touched[field.key] = true

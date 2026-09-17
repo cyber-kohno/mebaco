@@ -6,9 +6,16 @@
     onValueChange: (value: string) => void
     injectionSource?: string
     allowAwait?: boolean
+    fillAvailable?: boolean
   }
 
-  let { value, onValueChange, injectionSource, allowAwait = false }: Props = $props()
+  let {
+    value,
+    onValueChange,
+    injectionSource,
+    allowAwait = false,
+    fillAvailable = false,
+  }: Props = $props()
 </script>
 
 <ScriptEditorField
@@ -18,5 +25,6 @@
   dialogLabel="Action editor"
   {injectionSource}
   {allowAwait}
+  {fillAvailable}
   {onValueChange}
 />

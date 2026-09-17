@@ -21,6 +21,15 @@ describe('EffectElement', () => {
     expect(getTriggerValues(occupied)).toEqual(['dependencies'])
   })
 
+  it('fills the available Action tab space with the script editor', () => {
+    const action = EffectElement.createSchema().fields.find(
+      (field) => field.key === 'action',
+    )
+
+    expect(action?.type).toBe('script')
+    expect(action?.type === 'script' && action.fillAvailable).toBe(true)
+  })
+
   it('keeps stable dependency identities and async Action source', () => {
     const schema = EffectElement.createSchema()
     const element = schema.create({

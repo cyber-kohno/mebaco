@@ -3,7 +3,7 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up'
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import IconButton from '../../../../ui/button/IconButton.svelte'
-  import FormulaField from '../../../../ui/formula/FormulaField.svelte'
+  import FormulaLabelField from '../../../../ui/formula/FormulaLabelField.svelte'
   import type EffectElement from './effect-element'
 
   type Props = {
@@ -94,8 +94,9 @@
       {#each dependencies as dependency, index (dependency.dependencyId)}
         <div class="dependency-row">
           <span class="index">{index + 1}</span>
-          <FormulaField
+          <FormulaLabelField
             value={dependency.source}
+            ariaLabel={`Dependency ${index + 1} formula`}
             {injectionSource}
             onValueChange={(source) => update(index, source)}
           />
