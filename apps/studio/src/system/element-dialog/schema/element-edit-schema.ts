@@ -18,6 +18,8 @@ import AppId from '../../element/kind/app/app-id'
 import CodeMemberIdentifier from '../../element/code-member-identifier'
 import ResolvableValue from '../../element/kind/shared/resolvable-value'
 import type StyleReferencePreview from '../../runtime/style/style-reference-preview'
+import type TagCatalog from '../../element/kind/view/tag/tag-catalog'
+import TagAttributeCatalog from '../../element/kind/view/tag/tag-attribute-catalog'
 
 namespace ElementEditSchema {
   export type TextCharset =
@@ -1185,13 +1187,45 @@ namespace ElementEditSchema {
     return true
   }
 
-  export const validateTagAttributes = (value: string): string | null => {
+  export const validateTagAttributes = (
+    value: string,
+    tagName?: TagCatalog.TagName,
+  ): string | null => {
     try {
       const parsed = JSON.parse(value)
       if (!Array.isArray(parsed)) return 'Invalid attributes.'
 
       const hasInvalid = parsed.some((item) => !isTagAttribute(item))
-      return hasInvalid ? 'Fill all attributes.' : null
+      if (hasInvalid) return 'Fill all attributes.'
+
+      const definitionKeys = parsed.map((item) => {
+        const attribute = item as { type: 'attribute' | 'property' | 'event', name: string }
+        const namespace = attribute.type === 'event' ? 'event' : 'value'
+        return `${namespace}:${attribute.name}`
+      })
+      if (new Set(definitionKeys).size !== definitionKeys.length) {
+        return 'Attribute, property, or event is duplicated.'
+      }
+
+      if (tagName != null) {
+        const invalidNumber = parsed.find((item) => {
+          const attribute = item as {
+            type: 'attribute' | 'property' | 'event'
+            name: string
+            value?: { type?: unknown, value?: unknown }
+          }
+          if (attribute.type === 'event' || attribute.value?.type !== 'literal') return false
+          const definition = TagAttributeCatalog.getDefinition(tagName, attribute.name)
+          if (definition?.valueType !== 'number') return false
+          const literal = attribute.value.value
+          return typeof literal !== 'string'
+            || literal.trim().length === 0
+            || !Number.isFinite(Number(literal))
+        }) as { name?: string } | undefined
+        if (invalidNumber != null) return `Enter a number for ${invalidNumber.name ?? 'attribute'}.`
+      }
+
+      return null
     } catch {
       return 'Invalid attributes.'
     }

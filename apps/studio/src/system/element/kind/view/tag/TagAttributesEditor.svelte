@@ -7,6 +7,7 @@
   import FormulaField from '../../../../ui/formula/FormulaField.svelte'
   import SuggestTextInput from '../../../../ui/input/SuggestTextInput.svelte'
   import TagEventCatalog from './tag-event-catalog'
+  import TagAttributeCatalog from './tag-attribute-catalog'
   import type TagElement from './tag-element'
   import ScrollAfterUpdate from '../../../../ui/scroll/scroll-after-update'
 
@@ -146,7 +147,7 @@
       ...attributes,
       {
         type: 'event',
-        name: 'click',
+        name: '',
         preventDefault: false,
         stopPropagation: false,
         action: {
@@ -184,6 +185,30 @@
       currentIndex === index ? nextAttribute : attribute
     ))
     emit()
+  }
+
+  const updateAttributeName = (
+    index: number,
+    attribute: TagElement.HtmlAttribute | TagElement.DomProperty,
+    name: string,
+  ) => {
+    const definition = TagAttributeCatalog.getDefinition(tagName, name)
+    let nextValue = attribute.value
+
+    if (
+      definition?.valueType === 'boolean'
+      && (nextValue.type === 'literal' || nextValue.type === 'empty')
+    ) {
+      nextValue = { type: 'boolean', value: false }
+    } else if (
+      definition != null
+      && definition.valueType !== 'boolean'
+      && nextValue.type === 'boolean'
+    ) {
+      nextValue = { type: 'literal', value: '' }
+    }
+
+    updateAttribute(index, { ...attribute, name, value: nextValue })
   }
 
   const createValueByType = (
@@ -227,21 +252,18 @@
   {:else}
     <div class="attribute-area" bind:this={attributeArea}>
       {#each attributes as attribute, index}
+        {@const attributeDefinition = attribute.type === 'attribute' || attribute.type === 'property'
+          ? TagAttributeCatalog.getDefinition(tagName, attribute.name)
+          : null}
         <section class="attribute-row" aria-label={`Attribute ${index + 1}`}>
           <div class="row-main">
             <span class="row-type" data-type={attribute.type}>{attribute.type}</span>
 
             {#if attribute.type === 'attribute' || attribute.type === 'property'}
-              <input
-                class="name-input"
-                type="text"
+              <SuggestTextInput
                 value={attribute.name}
-                oninput={(event) => {
-                  updateAttribute(index, {
-                    ...attribute,
-                    name: event.currentTarget.value,
-                  })
-                }}
+                options={TagAttributeCatalog.getOptions(tagName)}
+                onValueChange={(name) => updateAttributeName(index, attribute, name)}
               />
             {:else}
               <SuggestTextInput
@@ -265,6 +287,12 @@
                 title={isKnownEvent ? `$event is injected as ${eventType}.` : '$event is injected as Event.'}
               >
                 {isKnownEvent ? eventType : 'Unknown event'}
+              </span>
+            {:else}
+              <span class="attribute-type-label" class:unknown={attributeDefinition == null}>
+                {attributeDefinition == null
+                  ? 'Custom attribute'
+                  : `${attributeDefinition.valueType} · ${attributeDefinition.scope === 'global' ? 'global' : tagName}`}
               </span>
             {/if}
 
@@ -332,20 +360,36 @@
 
           {#if attribute.type === 'attribute' || attribute.type === 'property'}
             {#if attribute.value.type === 'literal'}
-              <input
-                class="wide-input"
-                type="text"
-                value={attribute.value.value}
-                oninput={(event) => {
-                  updateAttribute(index, {
-                    ...attribute,
-                    value: {
-                      type: 'literal',
-                      value: event.currentTarget.value,
-                    },
-                  })
-                }}
-              />
+              {#if attributeDefinition?.valueType === 'enum' && attributeDefinition.values != null}
+                <SuggestTextInput
+                  value={attribute.value.value}
+                  options={attributeDefinition.values.map((enumValue) => ({ value: enumValue }))}
+                  onValueChange={(value) => {
+                    updateAttribute(index, {
+                      ...attribute,
+                      value: { type: 'literal', value },
+                    })
+                  }}
+                />
+              {:else}
+                <input
+                  class="wide-input"
+                  type={attributeDefinition?.valueType === 'number'
+                    ? 'number'
+                    : attributeDefinition?.valueType === 'url' ? 'url' : 'text'}
+                  step={attributeDefinition?.valueType === 'number' ? 'any' : undefined}
+                  value={attribute.value.value}
+                  oninput={(event) => {
+                    updateAttribute(index, {
+                      ...attribute,
+                      value: {
+                        type: 'literal',
+                        value: event.currentTarget.value,
+                      },
+                    })
+                  }}
+                />
+              {/if}
             {:else if attribute.value.type === 'formula'}
               <FormulaField
                 value={attribute.value.source}
@@ -402,8 +446,11 @@
 <style>
   .tag-attributes {
     display: grid;
+    grid-template-rows: min-content minmax(0, 1fr);
     gap: 10px;
+    height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
   .toolbar {
@@ -440,7 +487,7 @@
   }
 
   .empty {
-    height: 260px;
+    min-height: 0;
     padding: 12px;
     border: 1px solid rgba(154, 203, 212, 0.68);
     border-radius: 6px;
@@ -451,7 +498,7 @@
   }
 
   .attribute-area {
-    height: 320px;
+    min-height: 0;
     padding: 0 4px 8px 0;
     overflow: auto;
     box-sizing: border-box;
@@ -472,7 +519,7 @@
 
   .row-main {
     display: grid;
-    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 180px) minmax(0, 1fr) max-content;
+    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 230px) minmax(0, 1fr) max-content;
     gap: 8px;
     align-items: center;
   }
@@ -537,13 +584,28 @@
     white-space: nowrap;
   }
 
+  .attribute-type-label {
+    min-width: 0;
+    overflow: hidden;
+    color: #56777f;
+    font-size: 12px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .attribute-type-label.unknown {
+    color: #789198;
+    font-weight: 600;
+  }
+
   .event-type-label.unknown {
     color: #b8454f;
   }
 
   .value-type-row {
     display: grid;
-    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 180px);
+    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 230px);
     gap: 8px;
     align-items: center;
   }

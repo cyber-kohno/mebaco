@@ -46,6 +46,7 @@
   import ElementAutoVerification from '../element-auto-verification'
   import SuggestTextInput from '../../ui/input/SuggestTextInput.svelte'
   import EffectDependenciesEditor from '../../element/kind/variable/store/EffectDependenciesEditor.svelte'
+  import TagCatalog from '../../element/kind/view/tag/tag-catalog'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
@@ -169,7 +170,12 @@
       case 'bundleDefinition':
         return ElementEditSchema.validateBundleDefinition(field, value)
       case 'tagAttributes':
-        return ElementEditSchema.validateTagAttributes(value)
+        return ElementEditSchema.validateTagAttributes(
+          value,
+          TagCatalog.isTagName(values[field.tagNameKey])
+            ? values[field.tagNameKey] as TagCatalog.TagName
+            : undefined,
+        )
       case 'tagRefKey':
         return ElementEditSchema.validateTagRefKey(
           value,
@@ -431,6 +437,7 @@
         || field.type === 'styleBases'
         || field.type === 'styleMonitor'
         || field.type === 'tagStyleMonitor'
+        || field.type === 'tagAttributes'
         || field.type === 'objectShape'
         || field.type === 'signatureDefinition'
         || field.type === 'transitionImports'
@@ -597,7 +604,7 @@
             />
           </div>
         {:else if field.type === 'tagAttributes'}
-          <div class="field" data-validation-severity={issue?.severity}>
+          <div class="field contained-editor-field" data-validation-severity={issue?.severity}>
             <span class="field-label">
               {field.label}
               {#if issue != null}<FieldValidationIndicator {issue} />{/if}

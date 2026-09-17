@@ -6,6 +6,8 @@
   type Option = {
     value: string
     label?: string
+    detail?: string
+    title?: string
   }
 
   type Props = {
@@ -184,6 +186,7 @@
           type="button"
           role="option"
           aria-selected={index === focusedIndex}
+          title={option.title}
           onmousedown={(event) => {
             event.preventDefault()
             commit(option.value)
@@ -192,7 +195,8 @@
             focusedIndex = index
           }}
         >
-          {option.label ?? option.value}
+          <span class="option-label">{option.label ?? option.value}</span>
+          {#if option.detail != null}<span class="option-detail">{option.detail}</span>{/if}
         </button>
       {/each}
     </div>
@@ -236,7 +240,10 @@
   }
 
   button {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     width: 100%;
     height: 28px;
     padding: 0 8px;
@@ -249,6 +256,19 @@
     font-weight: 700;
     text-align: left;
     cursor: default;
+  }
+
+  .option-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .option-detail {
+    flex: 0 0 auto;
+    color: rgba(222, 244, 247, 0.7);
+    font-size: 11px;
+    font-weight: 600;
   }
 
   button.focused {

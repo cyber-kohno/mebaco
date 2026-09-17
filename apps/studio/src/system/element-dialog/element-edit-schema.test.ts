@@ -216,6 +216,61 @@ describe('ElementEditSchema Tag Partial key', () => {
   })
 })
 
+describe('ElementEditSchema Tag attributes', () => {
+  const literal = (type: 'attribute' | 'property', name: string) => ({
+    type,
+    name,
+    value: { type: 'literal', value: '' },
+  })
+  const event = (name: string) => ({
+    type: 'event',
+    name,
+    preventDefault: false,
+    stopPropagation: false,
+    action: { type: 'script', source: 'return' },
+  })
+
+  it('rejects duplicate attributes and properties in the same value namespace', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('attribute', 'title'),
+      literal('attribute', 'title'),
+    ]))).toBe('Attribute, property, or event is duplicated.')
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('attribute', 'value'),
+      literal('property', 'value'),
+    ]))).toBe('Attribute, property, or event is duplicated.')
+  })
+
+  it('rejects duplicate events and allows the same name in separate namespaces', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      event('click'),
+      event('click'),
+    ]))).toBe('Attribute, property, or event is duplicated.')
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('attribute', 'click'),
+      event('click'),
+    ]))).toBeNull()
+  })
+
+  it('validates known number attributes for the selected tag', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('attribute', 'tabindex'),
+    ]), 'div')).toBe('Enter a number for tabindex.')
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([{
+      type: 'attribute',
+      name: 'tabindex',
+      value: { type: 'literal', value: '-1' },
+    }]), 'div')).toBeNull()
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('attribute', 'custom-number-like-value'),
+    ]), 'div')).toBeNull()
+  })
+})
+
 describe('ElementEditSchema related text fields', () => {
   it('validates strict lowercase kebab identifiers by segment', () => {
     const textField: ElementEditSchema.TextField = {
