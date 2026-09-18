@@ -6,7 +6,6 @@
   import type RuntimeStateDependency from '../runtime-state-dependency'
   import EffectRuntimeGuard from './effect-runtime-guard'
   import EffectRunner from './EffectRunner.svelte'
-  import ScriptErrorValue from '../script/script-error'
 
   type Props = {
     ownerNode: TreeNode.Node
@@ -33,30 +32,9 @@
         child.element.kind === 'effect' && child.disabled !== true
       )) ?? [],
   )
-  const duplicateMount = $derived(
-    effects.filter((node) => node.element.trigger === 'mount')[1] ?? null,
-  )
-  const runnableEffects = $derived.by(() => {
-    let mountFound = false
-    return effects.filter((node) => {
-      if (node.element.trigger !== 'mount') return true
-      if (mountFound) return false
-      mountFound = true
-      return true
-    })
-  })
-
-  $effect(() => {
-    if (duplicateMount == null) return
-    setActionError(
-      duplicateMount.id,
-      ScriptErrorValue.create('runtime', 'Effects can contain only one Mount Effect.'),
-    )
-    return () => setActionError(duplicateMount.id, null)
-  })
 </script>
 
-{#each runnableEffects as effectNode (effectNode.id)}
+{#each effects as effectNode (effectNode.id)}
   <EffectRunner
     node={effectNode}
     {formulaContext}

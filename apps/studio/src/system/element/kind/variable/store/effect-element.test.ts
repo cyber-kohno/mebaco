@@ -7,34 +7,31 @@ vi.mock('../../../../store/tree-store', () => ({
 }))
 
 describe('EffectElement', () => {
-  it('offers Mount only when the Effects container has no Mount Effect', () => {
-    const available = EffectElement.createSchema({ allowMount: true })
-    const occupied = EffectElement.createSchema({ allowMount: false })
-    const getTriggerValues = (schema: typeof available) => {
-      const field = schema.fields.find((candidate) => candidate.key === 'trigger')
-      return field?.type === 'select'
-        ? field.options.map((option) => option.value)
-        : []
-    }
+  it('always shows optional Dependencies without a Trigger field', () => {
+    const fields = EffectElement.createSchema().fields
+    const dependencies = fields.find((field) => field.key === 'dependencies')
 
-    expect(getTriggerValues(available)).toEqual(['mount', 'dependencies'])
-    expect(getTriggerValues(occupied)).toEqual(['dependencies'])
+    expect(fields.some((field) => field.key === 'trigger')).toBe(false)
+    expect(dependencies?.type).toBe('effectDependencies')
+    expect(dependencies?.visibleWhen).toBeUndefined()
   })
 
-  it('fills the available Action tab space with the script editor', () => {
+  it('allows an empty Action and fills the available tab space with its editor', () => {
     const action = EffectElement.createSchema().fields.find(
       (field) => field.key === 'action',
     )
 
     expect(action?.type).toBe('script')
-    expect(action?.type === 'script' && action.fillAvailable).toBe(true)
+    if (action?.type !== 'script') throw new Error('Action field was not found.')
+    expect(action.required).not.toBe(true)
+    expect(action.fillAvailable).toBe(true)
+    expect(ElementEditSchema.validateScript(action, '')).toBeNull()
   })
 
   it('keeps stable dependency identities and async Action source', () => {
     const schema = EffectElement.createSchema()
     const element = schema.create({
       comment: 'Load feed',
-      trigger: 'dependencies',
       dependencies: JSON.stringify([{
         dependencyId: 'feed-dependency',
         type: 'formula',
@@ -46,7 +43,6 @@ describe('EffectElement', () => {
     expect(element).toEqual({
       kind: 'effect',
       comment: 'Load feed',
-      trigger: 'dependencies',
       dependencies: [{
         dependencyId: 'feed-dependency',
         type: 'formula',
@@ -59,9 +55,8 @@ describe('EffectElement', () => {
     })
   })
 
-  it('requires at least one complete dependency', () => {
-    expect(ElementEditSchema.validateEffectDependencies('[]'))
-      .toBe('Add at least one dependency.')
+  it('allows no dependencies and rejects incomplete dependencies', () => {
+    expect(ElementEditSchema.validateEffectDependencies('[]')).toBeNull()
     expect(ElementEditSchema.validateEffectDependencies(JSON.stringify([{
       dependencyId: 'condition',
       type: 'formula',

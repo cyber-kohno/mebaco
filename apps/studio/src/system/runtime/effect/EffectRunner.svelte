@@ -10,6 +10,7 @@
   import type TreeNode from '../../tree/tree-node'
   import type RuntimeStateDependency from '../runtime-state-dependency'
   import type EffectRuntimeGuard from './effect-runtime-guard'
+  import EffectDependencyChange from './effect-dependency-change'
 
   type Props = {
     node: TreeNode.Node & { element: EffectElement.Element }
@@ -31,7 +32,6 @@
 
   let mounted = $state(false)
   let destroyed = false
-  let mountRequested = false
   let scheduled = false
   let running = false
   let pending = false
@@ -42,9 +42,6 @@
 
   const dependencyResult = $derived.by(() => {
     renderRevision
-    if (node.element.trigger !== 'dependencies') {
-      return { ok: true as const, values: [] as unknown[] }
-    }
     return trackStateDependencies(() => {
       const values: unknown[] = []
       for (const dependency of node.element.dependencies) {
@@ -58,12 +55,6 @@
       return { ok: true as const, values }
     })
   })
-
-  const equalValues = (
-    left: readonly unknown[],
-    right: readonly unknown[],
-  ): boolean => left.length === right.length
-    && left.every((value, index) => Object.is(value, right[index]))
 
   const guardedState = (
     state: Record<string, unknown>,
@@ -131,21 +122,13 @@
 
   $effect(() => {
     if (!mounted || blocked) return
-    if (node.element.trigger === 'mount') {
-      if (!mountRequested) {
-        mountRequested = true
-        requestRun()
-      }
-      return
-    }
-
     const result = dependencyResult
     if (!result.ok) {
       setActionError(node.id, result.error)
       return
     }
     setActionError(node.id, null)
-    if (lastValues == null || !equalValues(lastValues, result.values)) {
+    if (EffectDependencyChange.detected(lastValues, result.values)) {
       lastValues = [...result.values]
       requestRun()
     }

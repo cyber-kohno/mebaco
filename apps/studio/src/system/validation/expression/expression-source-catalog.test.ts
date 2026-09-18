@@ -130,7 +130,6 @@ describe('ExpressionSourceCatalog', () => {
     const effect = node(35, {
       kind: 'effect',
       comment: '',
-      trigger: 'dependencies',
       dependencies: [{
         dependencyId: 'feed',
         type: 'formula',

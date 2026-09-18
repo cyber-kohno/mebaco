@@ -123,7 +123,7 @@ describe('ReferenceGraph', () => {
       initial: { type: 'literal', value: '' },
     })
     const effect = node(7, {
-      kind: 'effect', comment: '', trigger: 'dependencies',
+      kind: 'effect', comment: '',
       dependencies: [{
         dependencyId: 'feed-dependency', type: 'formula', source: '$state.feedUrl',
       }],

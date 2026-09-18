@@ -649,9 +649,7 @@ namespace ElementEditSchema {
   export const validateEffectDependencies = (value: string): string | null => {
     try {
       const parsed: unknown = JSON.parse(value)
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        return 'Add at least one dependency.'
-      }
+      if (!Array.isArray(parsed)) return 'Invalid dependencies.'
       const ids = new Set<string>()
       for (const item of parsed) {
         if (item == null || typeof item !== 'object') return 'Fill all dependencies.'
@@ -1426,7 +1424,6 @@ namespace ElementEditSchema {
         && action != null
         && action.type === 'script'
         && typeof action.source === 'string'
-        && action.source.length > 0
       )
     }
 

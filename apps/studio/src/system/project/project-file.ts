@@ -103,6 +103,10 @@ namespace ProjectFile {
       migrationApplied = true
     }
     const migrate = (node: TreeNode.Node) => {
+      if (node.element.kind === 'effect' && 'trigger' in node.element) {
+        delete (node.element as typeof node.element & { trigger?: unknown }).trigger
+        migrationApplied = true
+      }
       if (node.element.kind === 'declares') {
         if (!node.children.some((child) => child.element.kind === 'constants')) {
           node.children.unshift({

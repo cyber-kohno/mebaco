@@ -222,12 +222,18 @@ describe('ElementEditSchema Tag attributes', () => {
     name,
     value: { type: 'literal', value: '' },
   })
-  const event = (name: string) => ({
+  const event = (name: string, source = 'return') => ({
     type: 'event',
     name,
     preventDefault: false,
     stopPropagation: false,
-    action: { type: 'script', source: 'return' },
+    action: { type: 'script', source },
+  })
+
+  it('allows an event with an empty Action', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      event('click', ''),
+    ]))).toBeNull()
   })
 
   it('rejects duplicate attributes and properties in the same value namespace', () => {

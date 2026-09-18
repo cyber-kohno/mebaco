@@ -84,13 +84,13 @@
 
 <section class="dependencies" aria-label="Effect dependencies">
   <div class="toolbar">
-    <span class="hint">The Effect runs after mount and whenever a value changes.</span>
+    <span class="hint">The Effect always runs after mount. Dependencies rerun it when values change.</span>
     <button type="button" onclick={add}>Add</button>
   </div>
-  {#if dependencies.length === 0}
-    <div class="empty">Add at least one dependency.</div>
-  {:else}
-    <div class="dependency-list">
+  <div class="dependency-list">
+    {#if dependencies.length === 0}
+      <div class="empty">No dependencies — runs only once after mount.</div>
+    {:else}
       {#each dependencies as dependency, index (dependency.dependencyId)}
         <div class="dependency-row">
           <span class="index">{index + 1}</span>
@@ -113,8 +113,8 @@
           </div>
         </div>
       {/each}
-    </div>
-  {/if}
+    {/if}
+  </div>
   {#if errorMessage != null}<div class="error">{errorMessage}</div>{/if}
 </section>
 
@@ -123,7 +123,7 @@
   .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .hint { color: #6d8990; font-size: 12px; }
   button { height: 28px; padding: 0 12px; border: 1px solid var(--mbc-color-border-strong); border-radius: 6px; background: var(--mbc-color-surface-soft); color: #236f7a; font: inherit; font-size: 12px; font-weight: 700; }
-  .empty { height: 180px; padding: 12px; border: 1px solid rgba(154, 203, 212, 0.68); border-radius: 6px; background: rgba(244, 251, 252, 0.8); color: #6d8990; font-size: 13px; box-sizing: border-box; }
+  .empty { display: flex; align-items: center; min-height: 52px; padding: 9px 12px; border: 1px solid rgba(154, 203, 212, 0.68); border-radius: 7px; background: rgba(244, 251, 252, 0.8); color: #6d8990; font-size: 13px; box-sizing: border-box; }
   .dependency-list { display: grid; align-content: start; gap: 8px; height: 260px; padding-right: 4px; overflow: auto; }
   .dependency-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) max-content; gap: 8px; align-items: center; padding: 9px; border: 1px solid rgba(154, 203, 212, 0.72); border-radius: 7px; background: rgba(244, 251, 252, 0.72); }
   .index { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #d8f0ec; color: #315d65; font-size: 12px; font-weight: 800; }

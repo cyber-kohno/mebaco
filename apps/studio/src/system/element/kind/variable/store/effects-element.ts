@@ -17,15 +17,12 @@ namespace EffectsElement {
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const hasMount = context.node.children.some((child) => (
-        child.element.kind === 'effect' && child.element.trigger === 'mount'
-      ))
       return [
         action('Add effect', () => {
           void import('./effect-element').then(({ default: EffectElement }) => {
             ElementDialog.openCreate(
               context.node.id,
-              EffectElement.createSchema({ allowMount: !hasMount }),
+              EffectElement.createSchema(),
             )
           })
         }),

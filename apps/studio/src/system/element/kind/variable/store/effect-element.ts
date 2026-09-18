@@ -6,7 +6,6 @@ import TreeStore from '../../../../store/tree-store'
 
 namespace EffectElement {
   export type Kind = 'effect'
-  export type Trigger = 'mount' | 'dependencies'
   export type Dependency = {
     dependencyId: string
     type: 'formula'
@@ -19,21 +18,18 @@ namespace EffectElement {
   export type Element = {
     kind: Kind
     comment: string
-    trigger: Trigger
     dependencies: Dependency[]
     action: Action
   }
 
   export const create = (
     comment = '',
-    trigger: Trigger = 'mount',
     dependencies: Dependency[] = [],
     source = '',
   ): Element => ({
     kind: 'effect',
     comment,
-    trigger,
-    dependencies: trigger === 'dependencies' ? dependencies : [],
+    dependencies,
     action: { type: 'script', source },
   })
 
@@ -60,68 +56,44 @@ namespace EffectElement {
     }
   }
 
-  export type SchemaOptions = {
-    allowMount?: boolean
-  }
-
-  export const createSchema = (
-    options: SchemaOptions = {},
-  ): ElementEditSchema.Schema<Element> => {
-    const allowMount = options.allowMount !== false
-    const triggerOptions = [
-      ...(allowMount ? [{ value: 'mount', label: 'Mount' }] : []),
-      { value: 'dependencies', label: 'Dependencies' },
-    ]
-    return {
-      createTitle: 'Create Effect',
-      updateTitle: 'Update Effect',
-      tabs: [
-        { id: 'info', label: 'Info' },
-        { id: 'action', label: 'Action' },
-      ],
-      fields: [
-        {
-          type: 'text', tab: 'info', key: 'comment', label: 'Comment',
-          charset: 'any', maxLength: 64,
-        },
-        {
-          type: 'select', tab: 'info', key: 'trigger', label: 'Trigger',
-          width: 'mode', required: true,
-          defaultValue: allowMount ? 'mount' : 'dependencies',
-          options: triggerOptions,
-          clearWhenChanged: ['dependencies'],
-        },
-        {
-          type: 'effectDependencies', tab: 'info', key: 'dependencies',
-          label: 'Dependencies', defaultValue: '[]',
-          visibleWhen: { key: 'trigger', value: 'dependencies' },
-        },
-        {
-          type: 'script', tab: 'action', key: 'action', label: 'Action',
-          required: true, maxLength: 8000, allowAwait: true, fillAvailable: true,
-        },
-      ],
-      createPreview: () => create('...', allowMount ? 'mount' : 'dependencies'),
-      getInitialValues: (element) => ({
-        comment: element.comment,
-        trigger: element.trigger,
-        dependencies: JSON.stringify(element.dependencies),
-        action: element.action.source,
-      }),
-      create: (values) => create(
-        values.comment,
-        values.trigger === 'dependencies' ? 'dependencies' : 'mount',
-        parseDependencies(values.dependencies),
-        values.action,
-      ),
-      update: (_element, values) => create(
-        values.comment,
-        values.trigger === 'dependencies' ? 'dependencies' : 'mount',
-        parseDependencies(values.dependencies),
-        values.action,
-      ),
-    }
-  }
+  export const createSchema = (): ElementEditSchema.Schema<Element> => ({
+    createTitle: 'Create Effect',
+    updateTitle: 'Update Effect',
+    tabs: [
+      { id: 'info', label: 'Info' },
+      { id: 'action', label: 'Action' },
+    ],
+    fields: [
+      {
+        type: 'text', tab: 'info', key: 'comment', label: 'Comment',
+        charset: 'any', maxLength: 64,
+      },
+      {
+        type: 'effectDependencies', tab: 'info', key: 'dependencies',
+        label: 'Dependencies', defaultValue: '[]',
+      },
+      {
+        type: 'script', tab: 'action', key: 'action', label: 'Action',
+        maxLength: 8000, allowAwait: true, fillAvailable: true,
+      },
+    ],
+    createPreview: () => create('...'),
+    getInitialValues: (element) => ({
+      comment: element.comment,
+      dependencies: JSON.stringify(element.dependencies),
+      action: element.action.source,
+    }),
+    create: (values) => create(
+      values.comment,
+      parseDependencies(values.dependencies),
+      values.action,
+    ),
+    update: (_element, values) => create(
+      values.comment,
+      parseDependencies(values.dependencies),
+      values.action,
+    ),
+  })
 
   export const definition = {
     kind: 'effect',
@@ -129,25 +101,23 @@ namespace EffectElement {
       type: 'static',
       kindText: 'Effect',
       tone: 'item',
-      getValueText: (element: Element) => (
-        element.comment.length > 0
-          ? `${element.trigger} /** ${element.comment} */`
-          : element.trigger
-      ),
+      getValueText: (element: Element) => {
+        const behavior = element.dependencies.length === 0
+          ? 'mount only'
+          : 'mount + dependencies'
+        return element.comment.length > 0
+          ? `${behavior} /** ${element.comment} */`
+          : behavior
+      },
     },
     getContextMenu: (context) => {
       const { action } = ActionMenuState.createFactory()
-      const siblingMount = context.parentNode?.children.some((child) => (
-        child.id !== context.node.id
-        && child.element.kind === 'effect'
-        && child.element.trigger === 'mount'
-      )) === true
       return [
         action('Modify', () => {
           ElementDialog.openUpdate(
             context.node.id,
             context.element,
-            createSchema({ allowMount: !siblingMount }),
+            createSchema(),
           )
         }),
         action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'),

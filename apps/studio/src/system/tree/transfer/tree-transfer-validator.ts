@@ -87,13 +87,6 @@ namespace TreeTransferValidator {
     return null
   }
 
-  const validateEffects = (node: TreeNode.Node): string | null => {
-    const mountCount = node.children.filter((child) => (
-      child.element.kind === 'effect' && child.element.trigger === 'mount'
-    )).length
-    return mountCount > 1 ? 'Effects can contain only one Mount Effect.' : null
-  }
-
   const getComponentOption = (
     rootNode: TreeNode.Node,
     sourceNodeId: number,
@@ -252,8 +245,6 @@ namespace TreeTransferValidator {
         return validateConditional(node)
       case 'switch':
         return validateSwitch(node)
-      case 'effects':
-        return validateEffects(node)
       case 'if':
       case 'else-if':
       case 'else':
