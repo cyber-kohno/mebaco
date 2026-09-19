@@ -1,7 +1,7 @@
-import type TagCatalog from './tag-catalog'
+import TagCatalog from './tag-catalog'
 
 namespace TagAttributeCatalog {
-  export type ValueType =
+  type DefinitionKind =
     | 'string'
     | 'number'
     | 'boolean'
@@ -9,31 +9,61 @@ namespace TagAttributeCatalog {
     | 'url'
     | 'token-list'
 
+  export type PrimitiveType = 'string' | 'number' | 'boolean'
+
+  export type Editor =
+    | { type: 'text' }
+    | { type: 'url' }
+    | { type: 'token-list' }
+    | { type: 'enum', values: readonly string[] }
+
   export type Definition = {
     name: string
-    valueType: ValueType
-    values?: readonly string[]
-    scope: 'global' | 'tag'
+    primitiveType: PrimitiveType
+    editor: Editor
+    scope: 'global' | 'tag' | 'data'
   }
+
+  export type Policy =
+    | { status: 'supported', definition: Definition }
+    | { status: 'reserved', reason: string, replacement?: string }
+    | { status: 'unknown' }
 
   export type Option = {
     value: string
     label: string
-    detail: string
     title: string
   }
 
+  const createDefinition = (
+    name: string,
+    kind: DefinitionKind,
+    values: readonly string[] | undefined,
+    scope: Definition['scope'],
+  ): Definition => ({
+    name,
+    primitiveType: kind === 'number' || kind === 'boolean' ? kind : 'string',
+    editor: kind === 'enum'
+      ? { type: 'enum', values: values ?? [] }
+      : kind === 'url'
+        ? { type: 'url' }
+        : kind === 'token-list'
+          ? { type: 'token-list' }
+          : { type: 'text' },
+    scope,
+  })
+
   const global = (
     name: string,
-    valueType: ValueType = 'string',
+    kind: DefinitionKind = 'string',
     values?: readonly string[],
-  ): Definition => ({ name, valueType, values, scope: 'global' })
+  ): Definition => createDefinition(name, kind, values, 'global')
 
   const local = (
     name: string,
-    valueType: ValueType = 'string',
+    kind: DefinitionKind = 'string',
     values?: readonly string[],
-  ): Definition => ({ name, valueType, values, scope: 'tag' })
+  ): Definition => createDefinition(name, kind, values, 'tag')
 
   const globalDefinitions = [
     global('accesskey'),
@@ -85,20 +115,16 @@ namespace TagAttributeCatalog {
     global('aria-valuetext'),
     global('autocapitalize', 'enum', ['off', 'none', 'on', 'sentences', 'words', 'characters']),
     global('autofocus', 'boolean'),
-    global('class', 'token-list'),
     global('contenteditable', 'enum', ['true', 'false', 'plaintext-only']),
     global('dir', 'enum', ['ltr', 'rtl', 'auto']),
     global('draggable', 'enum', ['true', 'false']),
     global('enterkeyhint', 'enum', ['enter', 'done', 'go', 'next', 'previous', 'search', 'send']),
-    global('hidden', 'boolean'),
     global('id'),
     global('inert', 'boolean'),
     global('inputmode', 'enum', ['none', 'text', 'tel', 'url', 'email', 'numeric', 'decimal', 'search']),
     global('lang'),
-    global('part', 'token-list'),
     global('popover', 'enum', ['auto', 'manual', 'hint']),
     global('role'),
-    global('slot'),
     global('spellcheck', 'enum', ['true', 'false']),
     global('tabindex', 'number'),
     global('title'),
@@ -224,11 +250,6 @@ namespace TagAttributeCatalog {
       local('type', 'enum', ['1', 'a', 'A', 'i', 'I']),
     ],
     li: [local('value', 'number')],
-    table: [
-      local('border', 'number'),
-      local('cellpadding', 'number'),
-      local('cellspacing', 'number'),
-    ],
     th: [
       local('abbr'),
       local('colspan', 'number'),
@@ -268,40 +289,105 @@ namespace TagAttributeCatalog {
     ],
   }
 
-  const definitionsByTag = new Map<TagCatalog.TagName, readonly Definition[]>()
-  const optionsByTag = new Map<TagCatalog.TagName, readonly Option[]>()
+  const definitionsByTag = new Map<string, readonly Definition[]>()
+  const optionsByTag = new Map<string, readonly Option[]>()
+
+  const reservedAttributes = new Map<string, { reason: string, replacement?: string }>([
+    ['class', { reason: 'Class-based styling bypasses the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['classname', { reason: 'Class-based styling bypasses the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['style', { reason: 'Inline styles bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['csstext', { reason: 'Inline styles bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['hidden', { reason: 'Attribute visibility bypasses Mebaco rendering and styles.', replacement: 'Use a condition or the Styles tab.' }],
+    ['innerhtml', { reason: 'Direct HTML replacement bypasses the Mebaco element tree.', replacement: 'Use Mebaco elements.' }],
+    ['outerhtml', { reason: 'Direct HTML replacement bypasses the Mebaco element tree.', replacement: 'Use Mebaco elements.' }],
+    ['textcontent', { reason: 'Direct text replacement bypasses the Mebaco element tree.', replacement: 'Use a Text element.' }],
+    ['innertext', { reason: 'Direct text replacement bypasses the Mebaco element tree.', replacement: 'Use a Text element.' }],
+    ['children', { reason: 'Direct child replacement bypasses the Mebaco element tree.', replacement: 'Use Mebaco elements.' }],
+    ['slot', { reason: 'Native slot assignment conflicts with the Mebaco Slot system.', replacement: 'Use a Mebaco Slot.' }],
+    ['part', { reason: 'External part styling bypasses the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['exportparts', { reason: 'External part styling bypasses the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['border', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['cellpadding', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['cellspacing', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['bgcolor', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['align', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+    ['valign', { reason: 'Presentational HTML attributes bypass the Mebaco style system.', replacement: 'Use the Styles tab.' }],
+  ])
+
+  const reservedDirectivePattern = /^(?:bind|use|transition|in|out|animate|let|class|style):/
+
+  export const resolvePolicy = (
+    tagName: string,
+    attributeName: string,
+  ): Policy => {
+    const normalizedName = attributeName.toLowerCase()
+    const exactReservation = reservedAttributes.get(normalizedName)
+    if (exactReservation != null) return { status: 'reserved', ...exactReservation }
+    if (normalizedName.startsWith('on')) {
+      return {
+        status: 'reserved',
+        reason: 'Event attributes bypass the Mebaco Event and Action system.',
+        replacement: 'Use Add Event.',
+      }
+    }
+    if (reservedDirectivePattern.test(normalizedName)) {
+      return {
+        status: 'reserved',
+        reason: 'Framework directive syntax is not available as a runtime attribute.',
+        replacement: 'Use the corresponding Mebaco feature.',
+      }
+    }
+    if (normalizedName.startsWith('data-mbc-') || normalizedName.startsWith('mbc-')) {
+      return {
+        status: 'reserved',
+        reason: 'This name belongs to the Mebaco internal namespace.',
+      }
+    }
+
+    const definition = getDefinitions(tagName).find(
+      (candidate) => candidate.name === normalizedName,
+    ) ?? (/^data-[a-z0-9_.:-]+$/.test(normalizedName)
+      ? createDefinition(normalizedName, 'string', undefined, 'data')
+      : null)
+    return definition == null
+      ? { status: 'unknown' }
+      : { status: 'supported', definition }
+  }
 
   export const getDefinitions = (
-    tagName: TagCatalog.TagName,
+    tagName: string,
   ): readonly Definition[] => {
     const cached = definitionsByTag.get(tagName)
     if (cached != null) return cached
 
-    const definitions = [...(tagDefinitions[tagName] ?? []), ...globalDefinitions]
+    const definitions = [
+      ...(TagCatalog.isTagName(tagName) ? tagDefinitions[tagName] ?? [] : []),
+      ...globalDefinitions,
+    ]
     definitionsByTag.set(tagName, definitions)
     return definitions
   }
 
   export const getDefinition = (
-    tagName: TagCatalog.TagName,
+    tagName: string,
     attributeName: string,
-  ): Definition | null => getDefinitions(tagName).find(
-    (definition) => definition.name === attributeName,
-  ) ?? null
+  ): Definition | null => {
+    const policy = resolvePolicy(tagName, attributeName)
+    return policy.status === 'supported' ? policy.definition : null
+  }
 
   export const getOptions = (
-    tagName: TagCatalog.TagName,
+    tagName: string,
   ): readonly Option[] => {
     const cached = optionsByTag.get(tagName)
     if (cached != null) return cached
 
     const options = getDefinitions(tagName).map((definition) => {
       const scope = definition.scope === 'global' ? 'global' : tagName
-      const detail = `${definition.valueType} · ${scope}`
+      const detail = `${definition.primitiveType} · ${scope}`
       return {
         value: definition.name,
         label: definition.name,
-        detail,
         title: `${definition.name}: ${detail}`,
       }
     })

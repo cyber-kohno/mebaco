@@ -405,7 +405,7 @@ describe('TreeTransfer', () => {
       node(10, { kind: 'slots' }, [localSlot]),
     ])
     const titleTag = node(14, TagElement.create('h2', '', [], [{
-      type: 'property',
+      type: 'attribute',
       name: 'textContent',
       value: { type: 'formula', source: '$props.title' },
     }]))
@@ -1914,7 +1914,7 @@ describe('TreeTransfer', () => {
       valueType: TypeExpression.createPrimitive('string'), nullable: false,
     })
     const source = node(6, TagElement.create('div', 'source', [], [{
-      type: 'property',
+      type: 'attribute',
       name: 'textContent',
       value: { type: 'formula', source: '$props.value' },
     }]))

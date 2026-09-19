@@ -1029,7 +1029,11 @@
                     <option value=""></option>
                   {/if}
                   {#each field.options as option}
-                    <option value={option.value}>{option.label ?? option.value}</option>
+                    <option
+                      value={option.value}
+                      disabled={option.disabled === true}
+                      title={option.disabledReason ?? option.title}
+                    >{option.label ?? option.value}</option>
                   {/each}
                 </select>
                 {#if selectedOption?.detail != null}
@@ -1436,6 +1440,11 @@
   select:focus {
     border-color: var(--mbc-color-primary);
     box-shadow: 0 0 0 3px rgba(78, 195, 211, 0.22);
+  }
+
+  option:disabled {
+    color: #9c6d74;
+    text-decoration: line-through;
   }
 
 </style>

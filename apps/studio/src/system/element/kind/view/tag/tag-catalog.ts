@@ -87,6 +87,22 @@ namespace TagCatalog {
     value: tagName,
   })) satisfies readonly ElementEditSchema.SelectOption[]
 
+  export const getOptions = (
+    disableVoidTags = false,
+  ): readonly ElementEditSchema.SelectOption[] => tagNames.map((tagName) => {
+    const disabled = disableVoidTags && !canHaveChildren(tagName)
+    return {
+      value: tagName,
+      ...(disabled
+        ? {
+            label: `${tagName} — cannot contain children`,
+            disabled: true,
+            disabledReason: `${tagName} cannot be selected while this Tag has child elements.`,
+          }
+        : {}),
+    }
+  })
+
   export const isTagName = (value: string): value is TagName =>
     tagNames.some((tagName) => tagName === value)
 

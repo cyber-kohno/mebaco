@@ -4,7 +4,7 @@
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import ActionField from '../../../../ui/script/ActionField.svelte'
   import IconButton from '../../../../ui/button/IconButton.svelte'
-  import FormulaField from '../../../../ui/formula/FormulaField.svelte'
+  import LiteralFormulaField from '../../../../ui/input/LiteralFormulaField.svelte'
   import SuggestTextInput from '../../../../ui/input/SuggestTextInput.svelte'
   import TagEventCatalog from './tag-event-catalog'
   import TagAttributeCatalog from './tag-attribute-catalog'
@@ -30,8 +30,6 @@
   let attributes = $state<TagElement.Attribute[]>([])
   let lastValue = $state('')
   let attributeArea = $state<HTMLElement | null>(null)
-
-  const valueTypes = ['empty', 'literal', 'formula', 'boolean'] as const
 
   const getActionInjectionSourceForEvent = (
     eventName: string,
@@ -60,12 +58,12 @@
     if (item == null || typeof item !== 'object') return null
     const source = item as Partial<TagElement.Attribute>
 
-    if (source.type === 'attribute' || source.type === 'property') {
+    if (source.type === 'attribute') {
       const value = source.value
       if (typeof source.name !== 'string' || value == null) return null
       if (!isValue(value)) return null
       return {
-        type: source.type,
+        type: 'attribute',
         name: source.name,
         value,
       }
@@ -102,14 +100,10 @@
     const value = item as Partial<TagElement.AttributeValue>
 
     switch (value.type) {
-      case 'empty':
-        return true
       case 'literal':
-        return typeof value.value === 'string'
+        return ['string', 'number', 'boolean'].includes(typeof value.value)
       case 'formula':
         return typeof value.source === 'string'
-      case 'boolean':
-        return typeof value.value === 'boolean'
       default:
         return false
     }
@@ -133,8 +127,8 @@
         type: 'attribute',
         name: '',
         value: {
-          type: 'literal',
-          value: '',
+          type: 'formula',
+          source: '',
         },
       },
     ]
@@ -189,51 +183,48 @@
 
   const updateAttributeName = (
     index: number,
-    attribute: TagElement.HtmlAttribute | TagElement.DomProperty,
+    attribute: TagElement.HtmlAttribute,
     name: string,
   ) => {
+    const previousDefinition = TagAttributeCatalog.getDefinition(tagName, attribute.name)
     const definition = TagAttributeCatalog.getDefinition(tagName, name)
     let nextValue = attribute.value
 
-    if (
-      definition?.valueType === 'boolean'
-      && (nextValue.type === 'literal' || nextValue.type === 'empty')
-    ) {
-      nextValue = { type: 'boolean', value: false }
+    if (definition == null) {
+      if (nextValue.type === 'literal') nextValue = { type: 'formula', source: '' }
     } else if (
-      definition != null
-      && definition.valueType !== 'boolean'
-      && nextValue.type === 'boolean'
+      nextValue.type === 'formula'
+      && previousDefinition == null
+      && nextValue.source.trim().length === 0
     ) {
-      nextValue = { type: 'literal', value: '' }
+      nextValue = { type: 'literal', value: createDefaultLiteral(definition.primitiveType) }
+    } else if (
+      nextValue.type === 'literal'
+      && typeof nextValue.value !== definition.primitiveType
+    ) {
+      nextValue = { type: 'literal', value: createDefaultLiteral(definition.primitiveType) }
     }
 
     updateAttribute(index, { ...attribute, name, value: nextValue })
   }
 
-  const createValueByType = (
-    valueType: TagElement.AttributeValue['type'],
-  ): TagElement.AttributeValue => {
-    switch (valueType) {
-      case 'empty':
-        return {
-          type: 'empty',
-        }
-      case 'formula':
-        return {
-          type: 'formula',
-          source: '',
-        }
-      case 'boolean':
-        return {
-          type: 'boolean',
-          value: false,
-        }
-      case 'literal':
-        return {
-          type: 'literal',
-          value: '',
-        }
+  const createDefaultLiteral = (
+    primitiveType: TagAttributeCatalog.PrimitiveType,
+  ): string | number | boolean => {
+    switch (primitiveType) {
+      case 'string': return ''
+      case 'number': return 0
+      case 'boolean': return false
+    }
+  }
+
+  const getDefinitionScopeLabel = (
+    definition: TagAttributeCatalog.Definition,
+  ): string => {
+    switch (definition.scope) {
+      case 'global': return 'global'
+      case 'data': return 'data attribute'
+      case 'tag': return tagName
     }
   }
 </script>
@@ -252,14 +243,17 @@
   {:else}
     <div class="attribute-area" bind:this={attributeArea}>
       {#each attributes as attribute, index}
-        {@const attributeDefinition = attribute.type === 'attribute' || attribute.type === 'property'
-          ? TagAttributeCatalog.getDefinition(tagName, attribute.name)
+        {@const attributePolicy = attribute.type === 'attribute'
+          ? TagAttributeCatalog.resolvePolicy(tagName, attribute.name)
+          : null}
+        {@const attributeDefinition = attributePolicy?.status === 'supported'
+          ? attributePolicy.definition
           : null}
         <section class="attribute-row" aria-label={`Attribute ${index + 1}`}>
           <div class="row-main">
             <span class="row-type" data-type={attribute.type}>{attribute.type}</span>
 
-            {#if attribute.type === 'attribute' || attribute.type === 'property'}
+            {#if attribute.type === 'attribute'}
               <SuggestTextInput
                 value={attribute.name}
                 options={TagAttributeCatalog.getOptions(tagName)}
@@ -289,10 +283,23 @@
                 {isKnownEvent ? eventType : 'Unknown event'}
               </span>
             {:else}
-              <span class="attribute-type-label" class:unknown={attributeDefinition == null}>
-                {attributeDefinition == null
-                  ? 'Custom attribute'
-                  : `${attributeDefinition.valueType} · ${attributeDefinition.scope === 'global' ? 'global' : tagName}`}
+              <span
+                class="attribute-type-label"
+                class:unknown={attributePolicy?.status === 'unknown'}
+                class:reserved={attributePolicy?.status === 'reserved'}
+                title={attributePolicy?.status === 'reserved'
+                  ? `${attributePolicy.reason}${attributePolicy.replacement == null ? '' : ` ${attributePolicy.replacement}`}`
+                  : attributePolicy?.status === 'unknown'
+                    ? 'Not found in the attribute catalog. Check the spelling.'
+                    : undefined}
+              >
+                {attributePolicy?.status === 'reserved'
+                  ? 'Reserved by Mebaco'
+                  : attributePolicy?.status === 'unknown'
+                    ? 'Unknown attribute'
+                    : attributeDefinition == null
+                      ? ''
+                      : `${attributeDefinition.primitiveType} · ${getDefinitionScopeLabel(attributeDefinition)}`}
               </span>
             {/if}
 
@@ -309,23 +316,27 @@
             </div>
           </div>
 
-          {#if attribute.type === 'attribute' || attribute.type === 'property'}
-            <div class="value-type-row">
-              <span class="field-label">Set Value</span>
-              <select
-                class="value-kind"
-                value={attribute.value.type}
-                onchange={(event) => {
-                  updateAttribute(index, {
-                    ...attribute,
-                    value: createValueByType(event.currentTarget.value as TagElement.AttributeValue['type']),
-                  })
-                }}
-              >
-                {#each valueTypes as valueType}
-                  <option value={valueType}>{valueType}</option>
-                {/each}
-              </select>
+          {#if attribute.type === 'attribute'}
+            <div class="attribute-value-row">
+              <span class="field-label">Value</span>
+              {#if attributePolicy?.status === 'reserved'}
+                <div class="reserved-message">
+                  <span>{attributePolicy.reason}</span>
+                  {#if attributePolicy.replacement != null}
+                    <span>{attributePolicy.replacement}</span>
+                  {/if}
+                </div>
+              {:else}
+                <LiteralFormulaField
+                  value={attribute.value}
+                  primitiveType={attributeDefinition?.primitiveType}
+                  editor={attributeDefinition?.editor}
+                  formulaOnly={attributePolicy?.status === 'unknown'}
+                  formulaAriaLabel={`${attribute.name || 'Unknown attribute'} formula`}
+                  injectionSource={formulaInjectionSource}
+                  onValueChange={(value) => updateAttribute(index, { ...attribute, value })}
+                />
+              {/if}
             </div>
           {:else}
             <div class="event-flags">
@@ -358,71 +369,7 @@
             </div>
           {/if}
 
-          {#if attribute.type === 'attribute' || attribute.type === 'property'}
-            {#if attribute.value.type === 'literal'}
-              {#if attributeDefinition?.valueType === 'enum' && attributeDefinition.values != null}
-                <SuggestTextInput
-                  value={attribute.value.value}
-                  options={attributeDefinition.values.map((enumValue) => ({ value: enumValue }))}
-                  onValueChange={(value) => {
-                    updateAttribute(index, {
-                      ...attribute,
-                      value: { type: 'literal', value },
-                    })
-                  }}
-                />
-              {:else}
-                <input
-                  class="wide-input"
-                  type={attributeDefinition?.valueType === 'number'
-                    ? 'number'
-                    : attributeDefinition?.valueType === 'url' ? 'url' : 'text'}
-                  step={attributeDefinition?.valueType === 'number' ? 'any' : undefined}
-                  value={attribute.value.value}
-                  oninput={(event) => {
-                    updateAttribute(index, {
-                      ...attribute,
-                      value: {
-                        type: 'literal',
-                        value: event.currentTarget.value,
-                      },
-                    })
-                  }}
-                />
-              {/if}
-            {:else if attribute.value.type === 'formula'}
-              <FormulaField
-                value={attribute.value.source}
-                injectionSource={formulaInjectionSource}
-                onValueChange={(source) => {
-                  updateAttribute(index, {
-                    ...attribute,
-                    value: {
-                      type: 'formula',
-                      source,
-                    },
-                  })
-                }}
-              />
-            {:else if attribute.value.type === 'boolean'}
-              <label class="flag">
-                <input
-                  type="checkbox"
-                  checked={attribute.value.value}
-                  onchange={(event) => {
-                    updateAttribute(index, {
-                      ...attribute,
-                      value: {
-                        type: 'boolean',
-                        value: event.currentTarget.checked,
-                      },
-                    })
-                  }}
-                />
-                true
-              </label>
-            {/if}
-          {:else}
+          {#if attribute.type === 'event'}
             <ActionField
               value={attribute.action.source}
               injectionSource={getActionInjectionSourceForEvent(attribute.name)}
@@ -541,8 +488,7 @@
     background: #d9dcf0;
   }
 
-  input,
-  select {
+  input {
     height: 32px;
     padding: 0 9px;
     border: 1px solid #9acbd4;
@@ -555,16 +501,9 @@
     box-sizing: border-box;
   }
 
-  input:focus,
-  select:focus {
+  input:focus {
     border-color: var(--mbc-color-primary);
     box-shadow: 0 0 0 3px rgba(78, 195, 211, 0.22);
-  }
-
-  .name-input,
-  .value-kind,
-  .wide-input {
-    width: 100%;
   }
 
   .row-actions {
@@ -595,17 +534,22 @@
   }
 
   .attribute-type-label.unknown {
-    color: #789198;
-    font-weight: 600;
+    color: #9a6814;
+    font-weight: 800;
+  }
+
+  .attribute-type-label.reserved {
+    color: #b8454f;
+    font-weight: 800;
   }
 
   .event-type-label.unknown {
     color: #b8454f;
   }
 
-  .value-type-row {
+  .attribute-value-row {
     display: grid;
-    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) var(--mbc-tag-attribute-name-width, 230px);
+    grid-template-columns: var(--mbc-tag-attribute-type-width, 74px) minmax(0, 1fr);
     gap: 8px;
     align-items: center;
   }
@@ -614,6 +558,21 @@
     color: #496970;
     font-size: 12px;
     font-weight: 700;
+  }
+
+  .reserved-message {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 3px 8px;
+    padding: 7px 9px;
+    border: 1px solid rgba(184, 69, 79, 0.48);
+    border-radius: 6px;
+    background: rgba(255, 241, 242, 0.88);
+    color: #9f3640;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
   }
 
   .event-flags {

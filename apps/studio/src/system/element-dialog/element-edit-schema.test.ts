@@ -64,6 +64,24 @@ describe('ElementEditSchema number field', () => {
   })
 })
 
+describe('ElementEditSchema select field', () => {
+  it('rejects a disabled option with its reason', () => {
+    const selectField: ElementEditSchema.SelectField = {
+      type: 'select',
+      key: 'tagName',
+      label: 'Tag name',
+      options: [{
+        value: 'input',
+        disabled: true,
+        disabledReason: 'input cannot contain children.',
+      }],
+    }
+
+    expect(ElementEditSchema.validateSelect(selectField, 'input'))
+      .toBe('input cannot contain children.')
+  })
+})
+
 describe('ElementEditSchema Bundle definition', () => {
   const bundleField: ElementEditSchema.BundleDefinitionField = {
     type: 'bundleDefinition',
@@ -217,10 +235,10 @@ describe('ElementEditSchema Tag Partial key', () => {
 })
 
 describe('ElementEditSchema Tag attributes', () => {
-  const literal = (type: 'attribute' | 'property', name: string) => ({
-    type,
+  const literal = (name: string, value: string | number | boolean = '') => ({
+    type: 'attribute',
     name,
-    value: { type: 'literal', value: '' },
+    value: { type: 'literal', value },
   })
   const event = (name: string, source = 'return') => ({
     type: 'event',
@@ -236,44 +254,82 @@ describe('ElementEditSchema Tag attributes', () => {
     ]))).toBeNull()
   })
 
-  it('rejects duplicate attributes and properties in the same value namespace', () => {
+  it('rejects duplicate attributes and the removed property shape', () => {
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
-      literal('attribute', 'title'),
-      literal('attribute', 'title'),
-    ]))).toBe('Attribute, property, or event is duplicated.')
+      literal('title'),
+      literal('title'),
+    ]))).toBe('Attribute or event is duplicated.')
 
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
-      literal('attribute', 'value'),
-      literal('property', 'value'),
-    ]))).toBe('Attribute, property, or event is duplicated.')
+      { ...literal('textContent'), type: 'property' },
+    ]))).toBe('Fill all attributes.')
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('title'),
+      literal('TITLE'),
+    ]))).toBe('Attribute or event is duplicated.')
   })
 
   it('rejects duplicate events and allows the same name in separate namespaces', () => {
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
       event('click'),
       event('click'),
-    ]))).toBe('Attribute, property, or event is duplicated.')
+    ]))).toBe('Attribute or event is duplicated.')
 
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
-      literal('attribute', 'click'),
+      literal('click'),
       event('click'),
     ]))).toBeNull()
   })
 
   it('validates known number attributes for the selected tag', () => {
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
-      literal('attribute', 'tabindex'),
-    ]), 'div')).toBe('Enter a number for tabindex.')
+      literal('tabindex'),
+    ]), 'div')).toBe('Use a number literal for tabindex.')
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('tabindex', -1),
+    ]), 'div')).toBeNull()
+  })
+
+  it('requires formulas for unknown attributes but recognizes data attributes', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('custom-value'),
+    ]), 'div')).toBe("Unknown attribute 'custom-value' requires a formula.")
 
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([{
       type: 'attribute',
-      name: 'tabindex',
-      value: { type: 'literal', value: '-1' },
+      name: 'custom-value',
+      value: { type: 'formula', source: '$state.value' },
     }]), 'div')).toBeNull()
 
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
-      literal('attribute', 'custom-number-like-value'),
+      literal('data-item-id', '42'),
     ]), 'div')).toBeNull()
+  })
+
+  it('rejects reserved attributes regardless of case or value mode', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('class', 'card'),
+    ]), 'div')).toBe(
+      "Attribute 'class' is reserved by Mebaco. Class-based styling bypasses the Mebaco style system. Use the Styles tab.",
+    )
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([{
+      type: 'attribute',
+      name: 'CLASS',
+      value: { type: 'formula', source: '$state.className' },
+    }]), 'div')).toBe(
+      "Attribute 'CLASS' is reserved by Mebaco. Class-based styling bypasses the Mebaco style system. Use the Styles tab.",
+    )
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([{
+      type: 'attribute',
+      name: 'data-mbc-node',
+      value: { type: 'formula', source: '$state.node' },
+    }]), 'div')).toBe(
+      "Attribute 'data-mbc-node' is reserved by Mebaco. This name belongs to the Mebaco internal namespace.",
+    )
   })
 })
 

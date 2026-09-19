@@ -51,17 +51,10 @@ namespace TagElement {
 
   export type Attribute =
     | HtmlAttribute
-    | DomProperty
     | EventHandler
 
   export type HtmlAttribute = {
     type: 'attribute'
-    name: string
-    value: AttributeValue
-  }
-
-  export type DomProperty = {
-    type: 'property'
     name: string
     value: AttributeValue
   }
@@ -74,15 +67,7 @@ namespace TagElement {
     action: EventAction
   }
 
-  export type AttributeValue =
-    | {
-      type: 'empty'
-    }
-    | ResolvableValue.Value<string>
-    | {
-      type: 'boolean'
-      value: boolean
-    }
+  export type AttributeValue = ResolvableValue.Value<string | number | boolean>
 
   export type EventAction = {
     type: 'script'
@@ -139,6 +124,7 @@ namespace TagElement {
     styleOptions?: readonly ElementEditSchema.SelectOption[]
     styleCatalog?: StyleParameterCatalog.Catalog
     getStylePreview?: StyleReferencePreview.Resolver
+    hasChildren?: boolean
   }
 
   export const createSchema = (
@@ -161,7 +147,7 @@ namespace TagElement {
         required: true,
         defaultValue: 'div',
         width: 'tagName',
-        options: TagCatalog.options,
+        options: TagCatalog.getOptions(options.hasChildren === true),
       },
       {
         type: 'text',
@@ -359,7 +345,7 @@ namespace TagElement {
     if (item == null || typeof item !== 'object') return null
 
     const attribute = item as Partial<Attribute>
-    if (attribute.type === 'attribute' || attribute.type === 'property') {
+    if (attribute.type === 'attribute') {
       if (typeof attribute.name !== 'string' || !isAttributeValue(attribute.value)) return null
       return {
         type: attribute.type,
@@ -398,14 +384,10 @@ namespace TagElement {
 
     const attributeValue = value as Partial<AttributeValue>
     switch (attributeValue.type) {
-      case 'empty':
-        return true
       case 'literal':
-        return typeof attributeValue.value === 'string'
+        return ['string', 'number', 'boolean'].includes(typeof attributeValue.value)
       case 'formula':
         return typeof attributeValue.source === 'string'
-      case 'boolean':
-        return typeof attributeValue.value === 'boolean'
       default:
         return false
     }
@@ -454,6 +436,7 @@ namespace TagElement {
               styleOptions: getStyleOptions(context.rootNode),
               styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
               getStylePreview: StyleReferencePreview.createResolver(context.rootNode),
+              hasChildren: context.node.children.length > 0,
             }),
           )
         }),

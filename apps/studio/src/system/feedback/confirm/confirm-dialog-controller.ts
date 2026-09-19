@@ -4,7 +4,7 @@ namespace ConfirmDialogController {
   export const open = (options: { tone?: 'normal' | 'warning' | 'danger'; title?: string; message: string | string[]; choices?: ConfirmChoice[] }): Promise<boolean> => new Promise((resolve) => {
     const choices = [...(options.choices ?? [{ label: 'OK', role: 'proceed' as const }])]
     if (!choices.some((choice) => choice.role === 'cancel')) {
-      choices.push({ label: 'Cancel', role: 'cancel' })
+      choices.unshift({ label: 'Cancel', role: 'cancel' })
     }
     confirmDialogStore.set({ tone: options.tone ?? 'normal', title: options.title, message: typeof options.message === 'string' ? [options.message] : options.message, choices: choices.map((choice) => ({ ...choice, callback: async () => { resolve(choice.role === 'proceed'); await choice.callback?.() } })), focus: 0 })
   })

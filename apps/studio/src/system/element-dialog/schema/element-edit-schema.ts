@@ -75,6 +75,8 @@ namespace ElementEditSchema {
   export type SelectOption = {
     value: string
     label?: string
+    disabled?: boolean
+    disabledReason?: string
     category?: string
     detail?: string
     title?: string
@@ -522,8 +524,12 @@ namespace ElementEditSchema {
 
   export const validateSelect = (field: SelectField, value: string): string | null => {
     if (field.required === true && value.length === 0) return 'Required.'
-    if (value.length > 0 && field.options.every((option) => option.value !== value)) {
+    const selectedOption = field.options.find((option) => option.value === value)
+    if (value.length > 0 && selectedOption == null) {
       return 'Select a valid option.'
+    }
+    if (selectedOption?.disabled === true) {
+      return selectedOption.disabledReason ?? 'This option is unavailable.'
     }
     if (field.reservedValues?.includes(value) === true) return 'Already exists.'
 
@@ -1197,30 +1203,41 @@ namespace ElementEditSchema {
       if (hasInvalid) return 'Fill all attributes.'
 
       const definitionKeys = parsed.map((item) => {
-        const attribute = item as { type: 'attribute' | 'property' | 'event', name: string }
+        const attribute = item as { type: 'attribute' | 'event', name: string }
         const namespace = attribute.type === 'event' ? 'event' : 'value'
-        return `${namespace}:${attribute.name}`
+        return `${namespace}:${attribute.name.toLowerCase()}`
       })
       if (new Set(definitionKeys).size !== definitionKeys.length) {
-        return 'Attribute, property, or event is duplicated.'
+        return 'Attribute or event is duplicated.'
       }
 
       if (tagName != null) {
-        const invalidNumber = parsed.find((item) => {
+        for (const item of parsed) {
           const attribute = item as {
-            type: 'attribute' | 'property' | 'event'
+            type: 'attribute' | 'event'
             name: string
             value?: { type?: unknown, value?: unknown }
           }
-          if (attribute.type === 'event' || attribute.value?.type !== 'literal') return false
-          const definition = TagAttributeCatalog.getDefinition(tagName, attribute.name)
-          if (definition?.valueType !== 'number') return false
-          const literal = attribute.value.value
-          return typeof literal !== 'string'
-            || literal.trim().length === 0
-            || !Number.isFinite(Number(literal))
-        }) as { name?: string } | undefined
-        if (invalidNumber != null) return `Enter a number for ${invalidNumber.name ?? 'attribute'}.`
+          if (attribute.type === 'event') continue
+          const policy = TagAttributeCatalog.resolvePolicy(tagName, attribute.name)
+          if (policy.status === 'reserved') {
+            const replacement = policy.replacement == null ? '' : ` ${policy.replacement}`
+            return `Attribute '${attribute.name}' is reserved by Mebaco. ${policy.reason}${replacement}`
+          }
+          if (policy.status === 'unknown') {
+            if (attribute.value?.type !== 'formula') {
+              return `Unknown attribute '${attribute.name}' requires a formula.`
+            }
+            continue
+          }
+          const definition = policy.definition
+          if (
+            attribute.value?.type === 'literal'
+            && typeof attribute.value.value !== definition.primitiveType
+          ) {
+            return `Use a ${definition.primitiveType} literal for ${attribute.name}.`
+          }
+        }
       }
 
       return null
@@ -1377,14 +1394,10 @@ namespace ElementEditSchema {
     }
 
     switch (attrValue.type) {
-      case 'empty':
-        return true
       case 'literal':
-        return typeof attrValue.value === 'string'
+        return ['string', 'number', 'boolean'].includes(typeof attrValue.value)
       case 'formula':
         return typeof attrValue.source === 'string' && attrValue.source.trim().length > 0
-      case 'boolean':
-        return typeof attrValue.value === 'boolean'
       default:
         return false
     }
@@ -1402,7 +1415,7 @@ namespace ElementEditSchema {
       stopPropagation?: unknown
     }
 
-    if (attribute.type === 'attribute' || attribute.type === 'property') {
+    if (attribute.type === 'attribute') {
       return (
         typeof attribute.name === 'string'
         && attribute.name.length > 0

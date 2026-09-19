@@ -82,6 +82,7 @@ describe('ClientPackageController', () => {
       'Downgrading may make existing launch settings incompatible.',
     ])
 
+    ConfirmDialogController.move(1)
     await ConfirmDialogController.apply()
     await update
 

@@ -7,6 +7,7 @@
   import FormulaEvaluator from '../formula/formula-evaluator'
   import ScriptError from '../script/script-error'
   import TagCatalog from '../../element/kind/view/tag/tag-catalog'
+  import TagAttributeCatalog from '../../element/kind/view/tag/tag-attribute-catalog'
   import RenderContent from './RenderContent.svelte'
   import RetentionResolver from '../retention/retention-resolver'
   import RuntimeTree from '../runtime-tree'
@@ -139,11 +140,7 @@
     value: TagElement.AttributeValue,
   ): unknown => {
     switch (value.type) {
-      case 'empty':
-        return true
       case 'literal':
-        return value.value
-      case 'boolean':
         return value.value
       case 'formula': {
         const result = FormulaEvaluator.evaluateExpression(value.source, retentionResult.context)
@@ -202,10 +199,12 @@
       if (attribute.name.length === 0) return
 
       switch (attribute.type) {
-        case 'attribute':
-        case 'property':
+        case 'attribute': {
+          const policy = TagAttributeCatalog.resolvePolicy(tag.tagName, attribute.name)
+          if (policy.status === 'reserved') break
           attrs[attribute.name] = getAttributeValue(attribute.value)
           break
+        }
         case 'event':
           attrs[`on${attribute.name}`] = (event: Event) => {
             executeEventAction(attribute, event)
