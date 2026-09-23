@@ -1,0 +1,58 @@
+import type ElementDefinition from '@system/workspace/element-definition/element-definition'
+import type ElementEditSchema from '@system/workspace/element-editor/element-edit-schema'
+import ActionMenuState from '@system/ui/action-menu/action-menu-state'
+import ElementDialog from '@system/workspace/element-editor/element-dialog-controller'
+import ResourceDefinition from '@system/model/resource/resource-definition'
+import SqliteResource from '@system/model/resource/sqlite-resource'
+import ResourceTreeLabel from '@system/workspace/tree/label/resource/ResourceTreeLabel.svelte'
+
+namespace SqliteResourceElementDefinition {
+  export const createSchema = (
+    options: { reservedNames?: readonly string[] } = {},
+  ): ElementEditSchema.Schema<SqliteResource.Element> => ({
+    createTitle: 'Create SQLite Resource',
+    updateTitle: 'Update SQLite Resource',
+    fields: [
+      { type: 'text', key: 'id', label: 'Id', width: 'id', required: true, charset: 'jsIdentifier', minLength: 1, maxLength: 32, reservedNames: options.reservedNames },
+      { type: 'text', key: 'name', label: 'Name', width: 'id', maxLength: 64 },
+      { type: 'select', key: 'access', label: 'Access', defaultValue: 'read', required: true, options: [{ value: 'read', label: 'Read' }, { value: 'read-write', label: 'Read / Write' }] },
+      { type: 'checkbox', key: 'create', label: 'Create if missing', defaultValue: 'false', visibleWhen: { key: 'access', value: 'read-write' } },
+    ],
+    createPreview: () => SqliteResource.create('...', 'preview'),
+    getInitialValues: (element) => ({ id: element.id, name: element.name ?? '', access: element.access, create: String(element.create) }),
+    create: (values) => {
+      const access = ResourceDefinition.parseAccess(values.access)
+      return ResourceDefinition.withOptionalName(
+        SqliteResource.create(values.id, undefined, access, access === 'read-write' && values.create === 'true'), values.name,
+      )
+    },
+    update: (element, values) => {
+      const access = ResourceDefinition.parseAccess(values.access)
+      return ResourceDefinition.withOptionalName(
+        { ...element, id: values.id, access, create: access === 'read-write' && values.create === 'true' }, values.name,
+      )
+    },
+  })
+
+  export const definition = {
+    kind: 'sqlite-resource',
+    treeLabel: { type: 'component', Component: ResourceTreeLabel },
+    search: { getIdText: (element) => element.id },
+    getContextMenu: (context) => {
+      const { action } = ActionMenuState.createFactory()
+      const reservedNames = (context.parentNode?.children ?? [])
+        .filter((node) => node.id !== context.node.id)
+        .map((node) => (node.element as { id?: unknown }).id)
+        .filter((id): id is string => typeof id === 'string')
+      return [
+        action('Modify', () => ElementDialog.openUpdate(context.node.id, context.element, createSchema({ reservedNames }))),
+        action('Delete', () => import('@system/workspace/tree/state').then(({ default: store }) => store.removeNode(context.node.id)), 'danger'),
+      ]
+    },
+    childSlots: [],
+    canDisable: false,
+    reorderGroup: 'siblings',
+  } satisfies ElementDefinition.Definition<SqliteResource.Element>
+}
+
+export default SqliteResourceElementDefinition

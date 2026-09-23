@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type TagElement from '../../element/kind/view/tag/tag-element'
-  import StyleElement from '../../element/kind/view/style/style-element'
+  import type TagElement from '@system/model/view/tag'
+  import StyleElement from '@system/model/view/style/style'
   import FormulaContext from '../formula/formula-context'
   import StyleDeclarationResolver from './style-declaration-resolver'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import ResolvedStyleMonitor from './ResolvedStyleMonitor.svelte'
 
   type Props = {

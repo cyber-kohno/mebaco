@@ -1,10 +1,11 @@
 <script lang="ts">
   type Props = {
     value: string
+    size?: 'default' | 'small'
     onValueChange?: (value: string) => void
   }
 
-  let { value, onValueChange }: Props = $props()
+  let { value, size = 'default', onValueChange }: Props = $props()
 
   let colorContext: CanvasRenderingContext2D | null = null
 
@@ -42,6 +43,7 @@
 
 <span
   class="color-swatch"
+  class:small={size === 'small'}
   class:interactive={onValueChange != null}
   title={onValueChange == null ? `Color preview: ${value}` : `Choose color: ${value}`}
 >
@@ -76,6 +78,15 @@
     box-sizing: border-box;
   }
 
+  .color-swatch.small {
+    width: 16px;
+    height: 16px;
+    padding: 2px;
+    border-radius: 4px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+    background-size: 8px 8px;
+  }
+
   .color-swatch.interactive:hover,
   .color-swatch:focus-within {
     border-color: var(--mbc-color-primary);
@@ -87,6 +98,10 @@
     width: 100%;
     height: 100%;
     border-radius: 3px;
+  }
+
+  .color-swatch.small .color-value {
+    border-radius: 2px;
   }
 
   input {

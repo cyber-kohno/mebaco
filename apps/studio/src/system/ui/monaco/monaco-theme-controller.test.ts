@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type * as Monaco from 'monaco-editor'
-import AppSettings from '../../settings/app-settings-store'
+import { AppSettings } from '@system/application/settings'
 import MonacoThemeController from './monaco-theme-controller'
 
 let disconnect: (() => void) | null = null

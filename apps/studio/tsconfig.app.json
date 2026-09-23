@@ -5,6 +5,9 @@
     "target": "es2023",
     "module": "esnext",
     "types": ["svelte", "vite/client"],
+    "paths": {
+      "@system/*": ["./src/system/*"]
+    },
     "allowArbitraryExtensions": true,
     "noEmit": true,
     /**

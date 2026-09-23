@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte'
   import type * as Monaco from 'monaco-editor'
-  import MonacoDiagnostics from './monaco-diagnostics'
-  import MonacoFactory from './monaco-factory'
-  import MonacoInjection from './monaco-injection'
+  import { MonacoDiagnostics } from '@system/infra/monaco/diagnostics'
+  import { MonacoFactory } from '@system/infra/monaco/factory'
+  import { MonacoInjection } from '@system/model/code-analysis/injection'
   import MonacoOverflowLayer from './monaco-overflow-layer'
   import MonacoThemeCatalog from './monaco-theme-catalog'
   import MonacoThemeController from './monaco-theme-controller'
-  import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
+  import ExpressionTypeInference from '@system/model/code-analysis/expression-type-inference'
   import ScriptPolicy from '../../runtime/script/script-policy'
-  import { appSettingsStore } from '../../settings/app-settings-store'
+import { appSettingsStore } from '@system/application/settings'
 
   type Props = {
     value: string
@@ -280,7 +280,7 @@
 
   $effect(() => {
     editor?.updateOptions({
-      fontSize: $appSettingsStore.develop.editor.monacoFontSize,
+      fontSize: $appSettingsStore.codeEditor.monacoFontSize,
     })
   })
 
@@ -400,7 +400,7 @@
       minimap: {
         enabled: false,
       },
-      fontSize: $appSettingsStore.develop.editor.monacoFontSize,
+      fontSize: $appSettingsStore.codeEditor.monacoFontSize,
       lineNumbersMinChars: 3,
       scrollBeyondLastLine: false,
       tabSize: 2,

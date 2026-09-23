@@ -1,5 +1,5 @@
-import type TreeNode from '../../tree/tree-node'
-import type DebugLogElement from '../../element/kind/debug/debug-log-element'
+import type TreeNode from '@system/model/tree/tree-node'
+import type DebugLogElement from '@system/model/debug/debug-log'
 
 namespace RuntimeLog {
   export type MessageLevel = Exclude<DebugLogElement.Level, 'off'>

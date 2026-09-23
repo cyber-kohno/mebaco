@@ -8,12 +8,12 @@
   import RuntimeConstant from '../runtime-constant'
   import RuntimeTree from '../runtime-tree'
   import ScriptError from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
-  import StyleElement from '../../element/kind/view/style/style-element'
+  import type TreeNode from '@system/model/tree/tree-node'
+  import StyleElement from '@system/model/view/style/style'
   import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeProps from '../runtime-props'
   import RuntimeLaunch from '../runtime-launch'
-  import type AppElement from '../../element/kind/app/app-element'
+  import type App from '@system/model/app/app'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
   import RuntimePartialRegistry from '../partial/runtime-partial-registry'
   import PreviewController from '../preview/preview-controller'
@@ -23,7 +23,7 @@
   import TransitionNamespace from '../transition/transition-namespace'
   import type ResourceRuntime from '../resource/resource-runtime'
   import type RuntimeLog from '../log/runtime-log'
-  import ResourceImportCatalog from '../../element/kind/app/import/resource-import-catalog'
+  import ResourceImportCatalog from '@system/model/app/import/resource-import-catalog'
   import type StorageRuntime from '../storage/storage-runtime'
   import RenderEffects from '../effect/RenderEffects.svelte'
 
@@ -117,7 +117,7 @@
     requestRender: () => invalidateRuntime(),
   }))
   const launchResult = $derived(RuntimeLaunch.resolve({
-    appNode: appNode as TreeNode.Node & { element: AppElement.Element },
+    appNode: appNode as TreeNode.Node & { element: App.Element },
     projectNode,
     launcherId,
     launchValues,

@@ -1,20 +1,20 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type FormulaContext from '../formula/formula-context'
-  import type TagElement from '../../element/kind/view/tag/tag-element'
+  import type TagElement from '@system/model/view/tag'
   import ActionEvaluator from '../action/action-evaluator'
   import FormulaContextValue from '../formula/formula-context'
   import FormulaEvaluator from '../formula/formula-evaluator'
   import ScriptError from '../script/script-error'
-  import TagCatalog from '../../element/kind/view/tag/tag-catalog'
-  import TagAttributeCatalog from '../../element/kind/view/tag/tag-attribute-catalog'
+  import HtmlTag from '@system/model/element/html-tag'
+  import TagAttributeCatalog from '@system/model/view/tag-attribute-catalog'
   import RenderContent from './RenderContent.svelte'
   import RetentionResolver from '../retention/retention-resolver'
   import RuntimeTree from '../runtime-tree'
   import RuntimeStateDependency from '../runtime-state-dependency'
   import type RuntimeState from '../runtime-state'
   import type ScriptErrorValue from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import StyleDeclarationResolver from '../style/style-declaration-resolver'
   import RuntimeRefKey from '../ref/runtime-ref-key'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
@@ -157,23 +157,25 @@
     }
   }
 
-  const executeEventAction = (
+  const executeEventAction = async (
     attribute: TagElement.EventHandler,
     event: Event,
-  ) => {
+  ): Promise<void> => {
     if (attribute.preventDefault) event.preventDefault()
     if (attribute.stopPropagation) event.stopPropagation()
 
     const transaction = RuntimeRefRegistry.beginAction(retentionResult.context.$system, node.id)
-    const result = ActionEvaluator.executeScript(
+    const eventContext = FormulaContextValue.forNode(
+      FormulaContextValue.create({
+        ...retentionResult.context,
+        $system: transaction.system,
+        $event: event,
+      }),
+      node.id,
+    )
+    const result = await ActionEvaluator.executeScriptAsync(
       attribute.action.source,
-      FormulaContextValue.forNode(
-        FormulaContextValue.create({
-          ...retentionResult.context,
-          $event: event,
-        }),
-        node.id,
-      ),
+      eventContext,
     )
     transaction.complete(result.ok)
 
@@ -187,6 +189,7 @@
     }
 
     setActionError(node.id, null)
+    eventContext.requestRender?.()
   }
 
   const elementAttributes = $derived.by(() => {
@@ -207,7 +210,7 @@
         }
         case 'event':
           attrs[`on${attribute.name}`] = (event: Event) => {
-            executeEventAction(attribute, event)
+            void executeEventAction(attribute, event)
           }
           break
       }
@@ -223,7 +226,7 @@
 </script>
 
 {#if tag != null && retentionResult.error == null}
-  {#if TagCatalog.canHaveChildren(tag.tagName)}
+  {#if HtmlTag.canHaveChildren(tag.tagName)}
     <svelte:element this={tag.tagName} {...elementAttributes} bind:this={tagDomElement}>
       <RenderContent hostNode={node} {projectNode} {styleCatalog}
         formulaContext={retentionResult.context} evaluateRetention={false}

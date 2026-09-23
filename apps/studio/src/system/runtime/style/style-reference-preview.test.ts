@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import StyleFixture from '../../test-support/style-fixture'
+import StyleFixture from '@system/model/view/style/test-support/style-fixture'
 import StyleReferencePreview from './style-reference-preview'
 
 describe('StyleReferencePreview', () => {

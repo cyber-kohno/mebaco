@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type MebacoElement from '../element/element'
-import type TreeNode from '../tree/tree-node'
-import TypeExpression from '../element/kind/type/type-expression'
+import type MebacoElement from '@system/model/element/element'
+import type TreeNode from '@system/model/tree/tree-node'
+import TypeExpression from '@system/model/type-system/type-expression'
 import TypeValue from './type-value'
 
 let nextNodeId = 1

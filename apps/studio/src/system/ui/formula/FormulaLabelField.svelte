@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte'
-  import type MonacoInjection from '../monaco/monaco-injection'
+  import type { MonacoInjection } from '@system/model/code-analysis/injection'
   import CompactFormulaField from './CompactFormulaField.svelte'
   import FormulaDiagnostic from './formula-diagnostic'
   import FormulaLabelState from './formula-label-state'

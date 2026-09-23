@@ -1,12 +1,12 @@
-import type ComponentReference from '../element/kind/component/shared/component-reference'
-import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
-import TypeCatalog from '../element/kind/type/type-catalog'
-import TypeExpression from '../element/kind/type/type-expression'
+import type ComponentReference from '@system/model/component/component-reference'
+import type ValuePropElement from '@system/model/component/value-prop'
+import TypeCatalog from '@system/model/type-system/type-catalog'
+import TypeExpression from '@system/model/type-system/type-expression'
 import FormulaContext from './formula/formula-context'
 import FormulaEvaluator from './formula/formula-evaluator'
 import ScriptError from './script/script-error'
 import type RuntimeTree from './runtime-tree'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import TypeValue from './type-value'
 
 namespace RuntimeProps {

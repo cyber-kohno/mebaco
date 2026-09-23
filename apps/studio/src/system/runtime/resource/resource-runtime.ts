@@ -1,7 +1,7 @@
-import type TreeNode from '../../tree/tree-node'
-import type DirectoryResourceElement from '../../element/kind/resource/directory-resource-element'
-import type TextResourceElement from '../../element/kind/resource/text-resource-element'
-import type SqliteResourceElement from '../../element/kind/resource/sqlite-resource-element'
+import type TreeNode from '@system/model/tree/tree-node'
+import type DirectoryResource from '@system/model/resource/directory-resource'
+import type TextResource from '@system/model/resource/text-resource'
+import type SqliteResource from '@system/model/resource/sqlite-resource'
 import TauriResourceCommands from '../../infra/tauri/resource-commands'
 
 namespace ResourceRuntime {
@@ -33,9 +33,9 @@ namespace ResourceRuntime {
   }
 
   type ResourceElement =
-    | DirectoryResourceElement.Element
-    | TextResourceElement.Element
-    | SqliteResourceElement.Element
+    | DirectoryResource.Element
+    | TextResource.Element
+    | SqliteResource.Element
 
   type Policy = {
     access: 'read' | 'read-write'
@@ -378,7 +378,7 @@ namespace ResourceRuntime {
     }
 
     const createDirectory = (
-      resource: DirectoryResourceElement.Element,
+      resource: DirectoryResource.Element,
     ): Readonly<Record<string, unknown>> => Object.freeze({
       exists: (relativePath: string) => execute<boolean>('resource_exists', {
         ...target(resource.resourceId),

@@ -9,12 +9,12 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('svelte/store', () => ({ get: (store: { value: unknown }) => store.value }))
-vi.mock('../../area/develop/develop-screen-store', () => ({ developScreenStore: mocks.developScreenStore }))
-vi.mock('../../navigation/app-area-store', () => ({ appAreaStore: mocks.appAreaStore }))
-vi.mock('../../release/release-package', () => ({
-  default: { createRevisionCandidate: mocks.createRevisionCandidate },
+vi.mock('@system/workspace/screen', () => ({ developScreenStore: mocks.developScreenStore }))
+vi.mock('@system/application/navigation', () => ({ appAreaStore: mocks.appAreaStore }))
+vi.mock('@system/project/release/package', () => ({
+  ReleasePackage: { createRevisionCandidate: mocks.createRevisionCandidate },
 }))
-vi.mock('../../store/tree-store', () => ({ default: { updateElement: mocks.updateElement } }))
+vi.mock('@system/workspace/tree/state', () => ({ default: { updateElement: mocks.updateElement } }))
 
 import createBuildCatalog from './build-catalog'
 

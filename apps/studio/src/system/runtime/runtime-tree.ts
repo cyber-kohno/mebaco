@@ -1,18 +1,18 @@
-import type AppElement from '../element/kind/app/app-element'
-import type ComponentElement from '../element/kind/component/definition/component-element'
-import type ComponentUseElement from '../element/kind/component/reference/component-use-element'
-import type SlotUseElement from '../element/kind/component/definition/slot/slot-use-element'
-import type EntryElement from '../element/kind/app/entry-element'
-import type StateElement from '../element/kind/variable/store/state-element'
-import type StyleElement from '../element/kind/view/style/style-element'
-import type TagElement from '../element/kind/view/tag/tag-element'
-import type TextElement from '../element/kind/view/text/text-element'
-import type ConditionalElement from '../element/kind/directive/conditional-element'
-import type SwitchElement from '../element/kind/directive/switch-element'
-import type LoopElement from '../element/kind/directive/loop-element'
-import type BlockElement from '../element/kind/block/block-element'
-import type TreeNode from '../tree/tree-node'
-import ContentHost from '../element/content-host'
+import type App from '@system/model/app/app'
+import type ComponentElement from '@system/model/component/component'
+import type ComponentUseElement from '@system/model/component/component-use'
+import type SlotUseElement from '@system/model/component/slot-use'
+import type Entry from '@system/model/app/entry'
+import type State from '@system/model/variable/state'
+import type StyleElement from '@system/model/view/style/style'
+import type TagElement from '@system/model/view/tag'
+import type TextElement from '@system/model/view/text'
+import type Conditional from '@system/model/directive/conditional'
+import type SwitchElement from '@system/model/directive/switch'
+import type LoopElement from '@system/model/directive/loop'
+import type Block from '@system/model/block/block'
+import type TreeNode from '@system/model/tree/tree-node'
+import ContentHost from '@system/model/element/content-host'
 
 namespace RuntimeTree {
   export type AppRuntime = {
@@ -26,7 +26,7 @@ namespace RuntimeTree {
 
   export const isAppNode = (
     node: TreeNode.Node,
-  ): node is TreeNode.Node & { element: AppElement.Element } => (
+  ): node is TreeNode.Node & { element: App.Element } => (
     node.element.kind === 'app'
   )
 
@@ -44,7 +44,7 @@ namespace RuntimeTree {
 
   export const isEntryNode = (
     node: TreeNode.Node,
-  ): node is TreeNode.Node & { element: EntryElement.Element } => (
+  ): node is TreeNode.Node & { element: Entry.Element } => (
     node.element.kind === 'entry'
   )
 
@@ -56,7 +56,7 @@ namespace RuntimeTree {
 
   export const isStateNode = (
     node: TreeNode.Node,
-  ): node is TreeNode.Node & { element: StateElement.Element } => (
+  ): node is TreeNode.Node & { element: State.Element } => (
     node.element.kind === 'state'
   )
 
@@ -86,7 +86,7 @@ namespace RuntimeTree {
 
   export const isConditionalNode = (
     node: TreeNode.Node,
-  ): node is TreeNode.Node & { element: ConditionalElement.Element } => (
+  ): node is TreeNode.Node & { element: Conditional.Element } => (
     node.element.kind === 'conditional'
   )
 
@@ -104,7 +104,7 @@ namespace RuntimeTree {
 
   export const isBlockNode = (
     node: TreeNode.Node,
-  ): node is TreeNode.Node & { element: BlockElement.Element } => (
+  ): node is TreeNode.Node & { element: Block.Element } => (
     node.element.kind === 'block'
   )
 
@@ -116,10 +116,10 @@ namespace RuntimeTree {
       | TextElement.Element
       | ComponentUseElement.Element
       | SlotUseElement.Element
-      | ConditionalElement.Element
+      | Conditional.Element
       | SwitchElement.Element
       | LoopElement.Element
-      | BlockElement.Element
+      | Block.Element
   } => (
     isTagNode(node)
     || isTextNode(node)

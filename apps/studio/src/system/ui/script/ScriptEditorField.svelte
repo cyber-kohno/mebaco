@@ -2,7 +2,7 @@
   import Maximize2 from '@lucide/svelte/icons/maximize-2'
   import IconButton from '../button/IconButton.svelte'
   import MonacoScriptEditor from '../monaco/MonacoScriptEditor.svelte'
-  import type MonacoInjection from '../monaco/monaco-injection'
+  import type { MonacoInjection } from '@system/model/code-analysis/injection'
   import ScriptEditorDialog from './ScriptEditorDialog.svelte'
 
   type Props = {

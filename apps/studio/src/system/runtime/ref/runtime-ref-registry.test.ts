@@ -66,7 +66,7 @@ describe('RuntimeRefRegistry', () => {
     const system = RuntimeRefRegistry.createSystem({ requestRender, waitForRender })
     const transaction = RuntimeRefRegistry.beginAction(system, 12)
 
-    system.afterRender(callback)
+    transaction.system.afterRender(callback)
     expect(callback).not.toHaveBeenCalled()
     transaction.complete(true)
     await flushScheduledCallbacks()
@@ -82,17 +82,47 @@ describe('RuntimeRefRegistry', () => {
     const system = RuntimeRefRegistry.createSystem({ waitForRender: async () => {} })
 
     const failed = RuntimeRefRegistry.beginAction(system, 1)
-    system.afterRender(failedCallback)
+    failed.system.afterRender(failedCallback)
     failed.complete(false)
 
     const cancelled = RuntimeRefRegistry.beginAction(system, 2)
-    const cancel = system.afterRender(cancelledCallback)
+    const cancel = cancelled.system.afterRender(cancelledCallback)
     cancel()
     cancelled.complete(true)
     await flushScheduledCallbacks()
 
     expect(failedCallback).not.toHaveBeenCalled()
     expect(cancelledCallback).not.toHaveBeenCalled()
+  })
+
+  it('keeps overlapping async Action callbacks in their originating scopes', async () => {
+    const firstCallback = vi.fn()
+    const secondCallback = vi.fn()
+    const system = RuntimeRefRegistry.createSystem({ waitForRender: async () => {} })
+    const first = RuntimeRefRegistry.beginAction(system, 1)
+    const second = RuntimeRefRegistry.beginAction(system, 2)
+
+    first.system.afterRender(firstCallback)
+    second.system.afterRender(secondCallback)
+    first.complete(false)
+    second.complete(true)
+    await flushScheduledCallbacks()
+
+    expect(firstCallback).not.toHaveBeenCalled()
+    expect(secondCallback).toHaveBeenCalledOnce()
+  })
+
+  it('accepts an after-render callback registered after an async boundary', async () => {
+    const callback = vi.fn()
+    const system = RuntimeRefRegistry.createSystem({ waitForRender: async () => {} })
+    const transaction = RuntimeRefRegistry.beginAction(system, 7)
+
+    await Promise.resolve()
+    transaction.system.afterRender(callback)
+    transaction.complete(true)
+    await flushScheduledCallbacks()
+
+    expect(callback).toHaveBeenCalledOnce()
   })
 
   it('reports callback errors against the originating Action', async () => {
@@ -103,7 +133,7 @@ describe('RuntimeRefRegistry', () => {
       waitForRender: async () => {},
     })
     const transaction = RuntimeRefRegistry.beginAction(system, 42)
-    system.afterRender(() => { throw new Error('after render failed') })
+    transaction.system.afterRender(() => { throw new Error('after render failed') })
     transaction.complete(true)
     await flushScheduledCallbacks()
 
@@ -112,11 +142,26 @@ describe('RuntimeRefRegistry', () => {
     expect(reportError.mock.calls[0][1].message).toBe('after render failed')
   })
 
+  it('discards nested callbacks when their after-render callback fails', async () => {
+    const nestedCallback = vi.fn()
+    const system = RuntimeRefRegistry.createSystem({ waitForRender: async () => {} })
+    const transaction = RuntimeRefRegistry.beginAction(system, 42)
+    transaction.system.afterRender(() => {
+      transaction.system.afterRender(nestedCallback)
+      throw new Error('after render failed')
+    })
+    transaction.complete(true)
+
+    await flushScheduledCallbacks()
+
+    expect(nestedCallback).not.toHaveBeenCalled()
+  })
+
   it('drops pending callbacks when the component instance is disposed', async () => {
     const callback = vi.fn()
     const system = RuntimeRefRegistry.createSystem({ waitForRender: async () => {} })
     const transaction = RuntimeRefRegistry.beginAction(system, 1)
-    system.afterRender(callback)
+    transaction.system.afterRender(callback)
     transaction.complete(true)
     RuntimeRefRegistry.dispose(system)
     await flushScheduledCallbacks()

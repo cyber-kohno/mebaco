@@ -1,8 +1,7 @@
-import AppId from '../../element/kind/app/app-id'
-import type AppElement from '../../element/kind/app/app-element'
-import type TreeNode from '../../tree/tree-node'
+import AppId from '@system/model/app/app-id'
+import type TreeNode from '@system/model/tree/tree-node'
 import type FormulaContext from '../formula/formula-context'
-import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
+import TransitionImportCatalog from '@system/model/app/import/transition-import-catalog'
 
 namespace TransitionNamespace {
   export const create = (

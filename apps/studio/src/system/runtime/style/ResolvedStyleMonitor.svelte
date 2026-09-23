@@ -1,6 +1,8 @@
 <script lang="ts">
-  import StyleElement from '../../element/kind/view/style/style-element'
-  import type StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
+  import StylePropertyCatalog from '@system/model/view/style/style-property-catalog'
+  import StyleElement from '@system/model/view/style/style'
+  import type StyleParameterCatalog from '@system/model/view/style/style-parameter-catalog'
+  import ColorSwatch from '../../ui/color/ColorSwatch.svelte'
   import StyleDeclarationResolver from './style-declaration-resolver'
   import StyleMonitor from './style-monitor'
 
@@ -22,6 +24,16 @@
   let activeState = $state<StyleElement.State | null>(null)
 
   const formulaPreviewMaxLength = 72
+  const nonConcreteColorKeywords = new Set([
+    'currentcolor',
+    'inherit',
+    'initial',
+    'revert',
+    'revert-layer',
+    'unset',
+  ])
+
+  let colorProbeStyle: CSSStyleDeclaration | null = null
 
   const result = $derived(
     resolution == null
@@ -78,6 +90,24 @@
   ): string | undefined => entry.unresolved == null
     ? undefined
     : entry.unresolved.source
+
+  const isConcreteColorValue = (
+    entry: StyleMonitor.Entry,
+  ): boolean => {
+    if (entry.unresolved != null) return false
+    if (!StylePropertyCatalog.isColorProperty(entry.property.trim().toLowerCase())) return false
+
+    const value = entry.value.trim()
+    if (value.length === 0) return false
+    if (nonConcreteColorKeywords.has(value.toLowerCase())) return false
+    if (/\bvar\s*\(/i.test(value)) return false
+    if (typeof document === 'undefined') return false
+
+    colorProbeStyle ??= document.createElement('option').style
+    colorProbeStyle.color = ''
+    colorProbeStyle.color = value
+    return colorProbeStyle.color.length > 0
+  }
 </script>
 
 <section class="style-monitor" aria-label="Resolved style monitor">
@@ -127,13 +157,19 @@
             {@const overridesDefault = activeState != null
               && entry.state === activeState
               && entry.overridden.some((declaration) => declaration.state == null)}
+            {@const showColorChip = isConcreteColorValue(entry)}
             <div class="property" class:local={isLocal}>{entry.property}</div>
             <div
               class="value"
               class:local={isLocal}
               class:unresolved={entry.unresolved != null}
               title={getValueTitle(entry)}
-            >{formatValue(entry)}</div>
+            >
+              {#if showColorChip}
+                <ColorSwatch value={entry.value} size="small" />
+              {/if}
+              <span class="value-text">{formatValue(entry)}</span>
+            </div>
             <div
               class="source"
               class:local={isLocal}
@@ -235,10 +271,18 @@
   .head { background: #eaf7fa; color: #617f86 !important; font-size: 11px !important; font-weight: 800; }
   .property { color: #236f7a !important; font-weight: 750; }
   .value {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     overflow: hidden;
     font-family: Consolas, "Courier New", monospace;
-    text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .value-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .value.unresolved {
     color: #8a6c21;

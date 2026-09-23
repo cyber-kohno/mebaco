@@ -1,0 +1,366 @@
+import type ElementDefinition from '@system/workspace/element-definition/element-definition'
+import type ElementEditSchema from '@system/workspace/element-editor/element-edit-schema'
+import type TreeNode from '@system/model/tree/tree-node'
+import ActionMenuState from '@system/ui/action-menu/action-menu-state'
+import ContentActions from '@system/workspace/tree/context-menu/content-actions'
+import ElementDialog from '@system/workspace/element-editor/element-dialog-controller'
+import TagCatalog from '@system/model/view/tag-catalog'
+import HtmlTag from '@system/model/element/html-tag'
+import TagTreeLabel from '@system/workspace/tree/label/view/TagTreeLabel.svelte'
+import TreeStore from '@system/workspace/tree/state'
+import type StyleElement from '@system/model/view/style/style'
+import StyleParameterCatalog from '@system/model/view/style/style-parameter-catalog'
+import StyleReferencePreview from '@system/runtime/style/style-reference-preview'
+import Tag from '@system/model/view/tag'
+
+namespace TagElementDefinition {
+  const parseTagName = (value: string): Tag.TagName => {
+    if (HtmlTag.isTagName(value)) return value
+    return 'div'
+  }
+
+  export type CreateSchemaOptions = {
+    styleOptions?: readonly ElementEditSchema.SelectOption[]
+    styleCatalog?: StyleParameterCatalog.Catalog
+    getStylePreview?: StyleReferencePreview.Resolver
+    hasChildren?: boolean
+  }
+
+  export const createSchema = (
+    options: CreateSchemaOptions = {},
+  ): ElementEditSchema.Schema<Tag.Element> => ({
+    createTitle: 'Create Tag',
+    updateTitle: 'Update Tag',
+    tabs: [
+      { id: 'info', label: 'Info' },
+      { id: 'style', label: 'Style' },
+      { id: 'monitor', label: 'Monitor' },
+      { id: 'attribute', label: 'Attribute' },
+    ],
+    fields: [
+      {
+        type: 'select',
+        tab: 'info',
+        key: 'tagName',
+        label: 'Tag name',
+        required: true,
+        defaultValue: 'div',
+        width: 'tagName',
+        options: TagCatalog.getOptions(options.hasChildren === true),
+      },
+      {
+        type: 'text',
+        tab: 'info',
+        key: 'comment',
+        label: 'Comment',
+        charset: 'any',
+        maxLength: 80,
+      },
+      {
+        type: 'tagRefKey',
+        tab: 'info',
+        key: 'refKey',
+        label: 'Ref',
+        defaultValue: '',
+      },
+      {
+        type: 'tagPartialKey',
+        tab: 'info',
+        key: 'partialKey',
+        label: 'Partial',
+        defaultValue: '',
+      },
+      {
+        type: 'styleApplications',
+        tab: 'style',
+        key: 'styles',
+        label: 'Styles',
+        defaultValue: '[]',
+        options: options.styleOptions ?? [],
+        getResolution: options.styleCatalog == null
+          ? undefined
+          : (styleId) => options.styleCatalog?.resolve(styleId) ?? {
+              parameters: [],
+              issues: [],
+            },
+        getPreview: options.getStylePreview,
+      },
+      {
+        type: 'tagStyleMonitor',
+        tab: 'monitor',
+        key: 'monitor',
+        label: 'Resolved Style',
+        stylesKey: 'styles',
+      },
+      {
+        type: 'tagAttributes',
+        tab: 'attribute',
+        key: 'attributes',
+        label: 'Attributes',
+        defaultValue: '[]',
+        tagNameKey: 'tagName',
+      },
+    ],
+    createPreview: () => Tag.create('div', '...'),
+    getInitialValues: (element) => ({
+      tagName: element.tagName,
+      comment: element.comment,
+      refKey: element.refKey == null ? '' : JSON.stringify(element.refKey),
+      partialKey: element.partialKey == null ? '' : JSON.stringify(element.partialKey),
+      styles: JSON.stringify(element.styles),
+      attributes: JSON.stringify(element.attributes ?? []),
+    }),
+    create: (values) => Tag.create(
+      parseTagName(values.tagName),
+      values.comment,
+      parseStyleApplications(values.styles),
+      parseAttributes(values.attributes),
+      Tag.parseRefKey(values.refKey ?? ''),
+      Tag.parsePartialKey(values.partialKey ?? ''),
+    ),
+    update: (element, values) => {
+      const {
+        refKey: _currentRefKey,
+        partialKey: _currentPartialKey,
+        ...base
+      } = element
+      const refKey = Tag.parseRefKey(values.refKey ?? '')
+      const partialKey = Tag.parsePartialKey(values.partialKey ?? '')
+      return {
+        ...base,
+        tagName: parseTagName(values.tagName),
+        comment: values.comment,
+        ...(refKey == null ? {} : { refKey }),
+        ...(partialKey == null ? {} : { partialKey }),
+        styles: parseStyleApplications(values.styles),
+        attributes: parseAttributes(values.attributes),
+      }
+    },
+  })
+
+  const parseStyleApplications = (source: string): Tag.StyleApplication[] => {
+    try {
+      const parsed = JSON.parse(source)
+      if (!Array.isArray(parsed)) return []
+
+      return parsed
+        .map(parseStyleApplication)
+        .filter((item): item is Tag.StyleApplication => item != null)
+    } catch {
+      return []
+    }
+  }
+
+  const parseStyleApplication = (item: unknown): Tag.StyleApplication | null => {
+    if (item == null || typeof item !== 'object') return null
+
+    const application = item as Partial<Tag.StyleApplication>
+    if (
+      typeof application.referenceId !== 'string'
+      || typeof application.styleId !== 'string'
+      || !Array.isArray(application.arguments)
+    ) return null
+
+    const condition = parseFormulaSource(application.condition)
+    if (application.condition != null && condition == null) return null
+
+    return {
+      referenceId: application.referenceId,
+      styleId: application.styleId,
+      condition: condition ?? undefined,
+      arguments: application.arguments
+        .map(parseStyleArgument)
+        .filter((argument): argument is Tag.StyleArgument => argument != null),
+    }
+  }
+
+  const parseStyleArgument = (item: unknown): Tag.StyleArgument | null => {
+    if (item == null || typeof item !== 'object') return null
+
+    const argument = item as Partial<Tag.StyleArgument>
+    if (typeof argument.parameterId !== 'string') return null
+
+    const binding = parseStyleArgumentBinding(argument.binding)
+    return binding == null
+      ? null
+      : { parameterId: argument.parameterId, binding }
+  }
+
+  const parseStyleArgumentBinding = (value: unknown): Tag.StyleArgumentBinding | null => {
+    if (value == null || typeof value !== 'object') return null
+
+    const candidate = value as {
+      type?: unknown
+      value?: unknown
+    }
+    if (candidate.type === 'default') return { type: 'default' }
+    if (candidate.type === 'value') {
+      const parameterValue = parseStyleParameterValue(candidate.value)
+      return parameterValue == null
+        ? null
+        : { type: 'value', value: parameterValue }
+    }
+    return null
+  }
+
+  const parseStyleParameterValue = (value: unknown): StyleElement.ParameterValue | null => {
+    const formula = parseFormulaSource(value)
+    if (formula != null) return formula
+    if (value == null || typeof value !== 'object') return null
+
+    const candidate = value as { type?: unknown; value?: unknown }
+    return candidate.type === 'literal'
+      && ['string', 'number', 'boolean'].includes(typeof candidate.value)
+      ? {
+          type: 'literal',
+          value: candidate.value as string | number | boolean,
+        }
+      : null
+  }
+
+  const parseFormulaSource = (value: unknown): StyleElement.FormulaSource | null => {
+    if (value == null || typeof value !== 'object') return null
+
+    const formula = value as Partial<StyleElement.FormulaSource>
+    return formula.type === 'formula' && typeof formula.source === 'string'
+      ? { type: 'formula', source: formula.source }
+      : null
+  }
+
+  const parseAttributes = (source: string): Tag.Attribute[] => {
+    try {
+      const parsed = JSON.parse(source)
+      if (!Array.isArray(parsed)) return []
+
+      return parsed
+        .map(parseAttribute)
+        .filter((attribute): attribute is Tag.Attribute => attribute != null)
+    } catch {
+      return []
+    }
+  }
+
+  const parseAttribute = (item: unknown): Tag.Attribute | null => {
+    if (item == null || typeof item !== 'object') return null
+
+    const attribute = item as Partial<Tag.Attribute>
+    if (attribute.type === 'attribute') {
+      if (typeof attribute.name !== 'string' || !isAttributeValue(attribute.value)) return null
+      return {
+        type: attribute.type,
+        name: attribute.name,
+        value: attribute.value,
+      }
+    }
+
+    if (attribute.type === 'event') {
+      if (
+        typeof attribute.name !== 'string'
+        || attribute.action == null
+        || attribute.action.type !== 'script'
+        || typeof attribute.action.source !== 'string'
+      ) return null
+
+      return {
+        type: 'event',
+        name: attribute.name,
+        preventDefault: attribute.preventDefault === true,
+        stopPropagation: attribute.stopPropagation === true,
+        action: {
+          type: 'script',
+          source: attribute.action.source,
+        },
+      }
+    }
+
+    return null
+  }
+
+  const isAttributeValue = (
+    value: unknown,
+  ): value is Tag.AttributeValue => {
+    if (value == null || typeof value !== 'object') return false
+
+    const attributeValue = value as Partial<Tag.AttributeValue>
+    switch (attributeValue.type) {
+      case 'literal':
+        return ['string', 'number', 'boolean'].includes(typeof attributeValue.value)
+      case 'formula':
+        return typeof attributeValue.source === 'string'
+      default:
+        return false
+    }
+  }
+
+  const isStyleElement = (
+    element: TreeNode.Node['element'],
+  ): element is StyleElement.Element => (
+    element.kind === 'style'
+  )
+
+  export const getStyleOptions = (
+    rootNode: TreeNode.Node,
+  ): ElementEditSchema.SelectOption[] => {
+    const options: ElementEditSchema.SelectOption[] = []
+
+    const collect = (node: TreeNode.Node) => {
+      if (isStyleElement(node.element)) {
+        const category = node.element.category?.trim()
+        options.push({
+          value: node.element.styleId,
+          label: node.element.id,
+          ...(category == null || category.length === 0 ? {} : { category }),
+        })
+      }
+      node.children.forEach(collect)
+    }
+
+    collect(rootNode)
+    return options
+  }
+
+  export const definition = {
+    kind: 'tag',
+    treeLabel: {
+      type: 'component',
+      Component: TagTreeLabel,
+    },
+    getHierarchyText: ({ element }) => `<${element.tagName}>`,
+    getContextMenu: (context) => {
+      const { action } = ActionMenuState.createFactory()
+      const items: ActionMenuState.Item[] = [
+        action('Modify', () => {
+          ElementDialog.openUpdate(
+            context.node.id,
+            context.element,
+            createSchema({
+              styleOptions: getStyleOptions(context.rootNode),
+              styleCatalog: StyleParameterCatalog.createCatalog(context.rootNode),
+              getStylePreview: StyleReferencePreview.createResolver(context.rootNode),
+              hasChildren: context.node.children.length > 0,
+            }),
+          )
+        }),
+      ]
+
+      if (HtmlTag.canHaveChildren(context.element.tagName)) {
+        items.push(...ContentActions.createOptionalRetentionItems(
+          context.node,
+          context.rootNode,
+        ))
+      }
+
+      items.push(action('Delete', () => TreeStore.removeNode(context.node.id), 'danger'))
+      return items
+    },
+    contentHost: {
+      retention: 'optional',
+    },
+    childSlots: [],
+    canDisable: true,
+    reorderGroup: 'siblings',
+  } satisfies ElementDefinition.Definition<Tag.Element>
+}
+
+export default TagElementDefinition
+

@@ -11,17 +11,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock('svelte/store', () => ({
   get: (store: { value: unknown }) => store.value,
 }))
-vi.mock('../../area/develop/develop-screen-store', () => ({
+vi.mock('@system/workspace/screen', () => ({
   developScreenStore: mocks.developScreenStore,
 }))
-vi.mock('../../navigation/app-area-store', () => ({
+vi.mock('@system/application/navigation', () => ({
   appAreaStore: mocks.appAreaStore,
 }))
 vi.mock('../../project/project-session-store', () => ({
   default: { store: mocks.projectSessionStore },
 }))
-vi.mock('../../release/release-package', () => ({
-  default: { save: mocks.save },
+vi.mock('@system/project/release/package', () => ({
+  ReleasePackage: { save: mocks.save },
 }))
 
 import createReleaseCatalog from './release-catalog'

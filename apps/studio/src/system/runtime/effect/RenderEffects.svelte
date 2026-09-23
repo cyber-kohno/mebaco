@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type EffectElement from '../../element/kind/variable/store/effect-element'
+  import type Effect from '@system/model/variable/effect'
   import type FormulaContext from '../formula/formula-context'
   import type ScriptError from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import type RuntimeStateDependency from '../runtime-state-dependency'
   import EffectRuntimeGuard from './effect-runtime-guard'
   import EffectRunner from './EffectRunner.svelte'
@@ -28,7 +28,7 @@
     ownerNode.children
       .find((child) => child.element.kind === 'store')
       ?.children.find((child) => child.element.kind === 'effects')
-      ?.children.filter((child): child is TreeNode.Node & { element: EffectElement.Element } => (
+      ?.children.filter((child): child is TreeNode.Node & { element: Effect.Element } => (
         child.element.kind === 'effect' && child.disabled !== true
       )) ?? [],
   )

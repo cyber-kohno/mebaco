@@ -1,10 +1,10 @@
-import type TransitionElement from '../../element/kind/variable/transition-element'
-import type AppElement from '../../element/kind/app/app-element'
-import type TreeNode from '../../tree/tree-node'
+import type Transition from '@system/model/variable/transition'
+import type App from '@system/model/app/app'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import RuntimeLaunch from '../runtime-launch'
 import ScriptError from '../script/script-error'
-import TransitionImportCatalog from '../../element/kind/app/import/transition-import-catalog'
+import TransitionImportCatalog from '@system/model/app/import/transition-import-catalog'
 
 namespace TransitionExecutor {
   export type Result =
@@ -14,9 +14,9 @@ namespace TransitionExecutor {
   const findApp = (
     node: TreeNode.Node,
     appId: string,
-  ): (TreeNode.Node & { element: AppElement.Element }) | null => {
+  ): (TreeNode.Node & { element: App.Element }) | null => {
     if (node.element.kind === 'app' && node.element.appId === appId) {
-      return node as TreeNode.Node & { element: AppElement.Element }
+      return node as TreeNode.Node & { element: App.Element }
     }
     for (const child of node.children) {
       const found = findApp(child, appId)
@@ -27,7 +27,7 @@ namespace TransitionExecutor {
 
   export const execute = (
     transitionNodeId: number,
-    element: TransitionElement.Element,
+    element: Transition.Element,
     context: FormulaContext.Value,
     projectNode: TreeNode.Node,
   ): Result => {
@@ -64,7 +64,7 @@ namespace TransitionExecutor {
     }
 
     const resolved = RuntimeLaunch.resolveBindings(
-      appNode as TreeNode.Node & { element: AppElement.Element },
+      appNode as TreeNode.Node & { element: App.Element },
       element.argumentBindings,
       context,
       projectNode,

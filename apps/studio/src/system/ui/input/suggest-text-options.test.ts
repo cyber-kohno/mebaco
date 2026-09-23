@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import StylePropertyCatalog from '../../element/kind/view/style/style-property-catalog'
+import StylePropertyCatalog from '@system/model/view/style/style-property-catalog'
 import SuggestTextOptions from './suggest-text-options'
 
 const options = (

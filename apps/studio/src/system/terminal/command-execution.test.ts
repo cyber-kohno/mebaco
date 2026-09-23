@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   openPreview: vi.fn(() => true),
 }))
 
-vi.mock('../store/tree-store', () => {
+vi.mock('@system/workspace/tree/state', () => {
   const readable = <T>(value: T) => ({
     subscribe: (run: (next: T) => void) => {
       run(value)

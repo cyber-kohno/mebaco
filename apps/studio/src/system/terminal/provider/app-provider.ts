@@ -1,10 +1,10 @@
 import type { CommandContext, CommandDefinition } from '../command-types'
 import createRunCatalog, { type LaunchArgumentSpec } from '../catalog/run-catalog'
-import type TreeNode from '../../tree/tree-node'
-import type LauncherElement from '../../element/kind/project/launcher-element'
-import type LaunchArgumentElement from '../../element/kind/app/launch/launch-argument-element'
-import type AppElement from '../../element/kind/app/app-element'
-import TypeExpression from '../../element/kind/type/type-expression'
+import type TreeNode from '@system/model/tree/tree-node'
+import type Launcher from '@system/model/project/launcher'
+import type LaunchArgument from '@system/model/app/launch-argument'
+import type App from '@system/model/app/app'
+import TypeExpression from '@system/model/type-system/type-expression'
 import RuntimeTree from '../../runtime/runtime-tree'
 
 const findOwnerApp = (
@@ -41,7 +41,7 @@ const getLaunchArguments = (appNode: TreeNode.Node): TreeNode.Node[] => {
 }
 
 const getLaunchArgumentSpecs = (appNode: TreeNode.Node): LaunchArgumentSpec[] => getLaunchArguments(appNode)
-  .map((node) => node.element as LaunchArgumentElement.Element)
+  .map((node) => node.element as LaunchArgument.Element)
   .map((argument) => {
     const { base, depth } = TypeExpression.unwrapArray(argument.valueType)
     const isPrimitive = base.type === 'string' || base.type === 'number' || base.type === 'boolean'
@@ -73,9 +73,9 @@ const findLaunchers = (
 ): { launcherId: string; id: string; name: string }[] => {
   if (
     node.element.kind === 'launcher'
-    && (node.element as LauncherElement.Element).appId === appId
+    && (node.element as Launcher.Element).appId === appId
   ) {
-    const launcher = node.element as LauncherElement.Element
+    const launcher = node.element as Launcher.Element
     result.push({ launcherId: launcher.launcherId, id: launcher.id, name: launcher.name?.trim() || launcher.id })
   }
 
@@ -99,7 +99,7 @@ const createAppProvider = () => ({
       launchers: configurationError == null
           ? findLaunchers(
             context.rootNode,
-            (appNode.element as AppElement.Element).appId,
+            (appNode.element as App.Element).appId,
           )
         : [],
     })]

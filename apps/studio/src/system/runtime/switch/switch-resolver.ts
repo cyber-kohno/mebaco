@@ -1,10 +1,10 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type TreeNode from '../../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
-import SwitchValueType from '../../element/kind/directive/switch-value-type'
-import type UnionDefinition from '../../element/kind/type/union/union-definition'
+import SwitchValueType from '@system/model/directive/switch-value-type'
+import type UnionDefinition from '@system/model/type-system/union/union-definition'
 
 namespace SwitchResolver {
   export type Result = {

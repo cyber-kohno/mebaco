@@ -1,6 +1,7 @@
 <script lang="ts">
   import MonacoScriptEditor from '../monaco/MonacoScriptEditor.svelte'
-  import type MonacoInjection from '../monaco/monaco-injection'
+  import type { MonacoInjection } from '@system/model/code-analysis/injection'
+  import { translatorStore } from '@system/application/localization'
   import bodyPortal from '../body-portal'
 
   type Props = {
@@ -53,7 +54,7 @@
   >
     <header class="script-dialog-header">
       <div>{title}</div>
-      <button type="button" onclick={onBack}>Back</button>
+      <button type="button" onclick={onBack}>{$translatorStore('common.action.back')}</button>
     </header>
     <div class="script-expanded-editor">
       <MonacoScriptEditor

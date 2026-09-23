@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type MonacoInjection from '../monaco/monaco-injection'
+  import type { MonacoInjection } from '@system/model/code-analysis/injection'
   import ScriptEditorField from '../script/ScriptEditorField.svelte'
 
   type Props = {

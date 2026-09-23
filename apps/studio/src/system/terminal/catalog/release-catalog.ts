@@ -1,15 +1,15 @@
 import type { CommandContext, CommandDefinition } from '../command-types'
-import type BundleElement from '../../element/kind/release/bundle-element'
-import ReleasePackage from '../../release/release-package'
+import type Bundle from '@system/model/release/bundle'
+import { ReleasePackage } from '@system/project/release/package'
 import { get } from 'svelte/store'
-import { developScreenStore } from '../../area/develop/develop-screen-store'
-import { appAreaStore } from '../../navigation/app-area-store'
+import { developScreenStore } from '@system/workspace/screen'
+import { appAreaStore } from '@system/application/navigation'
 import ProjectSession from '../../project/project-session-store'
 
 const collectBundles = (
   context: CommandContext,
-): BundleElement.Element[] => {
-  const result: BundleElement.Element[] = []
+): Bundle.Element[] => {
+  const result: Bundle.Element[] = []
   const visit = (node: CommandContext['rootNode']) => {
     if (node.element.kind === 'bundle') result.push(node.element)
     node.children.forEach(visit)

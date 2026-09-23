@@ -1,11 +1,11 @@
-import type AppElement from '../element/kind/app/app-element'
-import type LaunchArgumentElement from '../element/kind/app/launch/launch-argument-element'
-import LaunchArgumentValueProp from '../element/kind/app/launch/launch-argument-value-prop'
-import type LauncherElement from '../element/kind/project/launcher-element'
-import type TreeNode from '../tree/tree-node'
-import ComponentReference from '../element/kind/component/shared/component-reference'
-import TypeExpression from '../element/kind/type/type-expression'
-import TypeCatalog from '../element/kind/type/type-catalog'
+import type App from '@system/model/app/app'
+import type LaunchArgument from '@system/model/app/launch-argument'
+import LaunchArgumentValueProp from '@system/model/app/launch-argument-value-prop'
+import type Launcher from '@system/model/project/launcher'
+import type TreeNode from '@system/model/tree/tree-node'
+import ComponentReference from '@system/model/component/component-reference'
+import TypeExpression from '@system/model/type-system/type-expression'
+import TypeCatalog from '@system/model/type-system/type-catalog'
 import TypeValue from './type-value'
 import FormulaContext from './formula/formula-context'
 import RuntimeProps from './runtime-props'
@@ -26,13 +26,13 @@ namespace RuntimeLaunch {
     return result
   }
 
-  const getArguments = (appNode: TreeNode.Node): LaunchArgumentElement.Element[] => {
+  const getArguments = (appNode: TreeNode.Node): LaunchArgument.Element[] => {
     const argumentsNode = appNode.children
       .find((child) => child.element.kind === 'launch-options')
       ?.children.find((child) => child.element.kind === 'launch-arguments')
     return argumentsNode?.children
       .map((child) => child.element)
-      .filter((element): element is LaunchArgumentElement.Element => element.kind === 'launch-argument')
+      .filter((element): element is LaunchArgument.Element => element.kind === 'launch-argument')
       ?? []
   }
 
@@ -40,24 +40,24 @@ namespace RuntimeLaunch {
     projectNode: TreeNode.Node,
     appId: string,
     launcherId: string,
-  ): LauncherElement.Element | null => {
+  ): Launcher.Element | null => {
     return collect(
       projectNode,
       (node) => node.element.kind === 'launcher',
     )
       .map((node) => node.element)
-      .filter((element): element is LauncherElement.Element => element.kind === 'launcher')
+      .filter((element): element is Launcher.Element => element.kind === 'launcher')
       .find((launcher) => (
         launcher.launcherId === launcherId && launcher.appId === appId
       )) ?? null
   }
 
   const toProps = (
-    argumentsList: readonly LaunchArgumentElement.Element[],
+    argumentsList: readonly LaunchArgument.Element[],
   ) => argumentsList.map(LaunchArgumentValueProp.convert)
 
   const resolveDefaultValue = (
-    argument: LaunchArgumentElement.Element,
+    argument: LaunchArgument.Element,
     projectNode: TreeNode.Node,
   ): { present: true; value: unknown } | { present: false } | { present: true; error: string } => {
     if (argument.defaultValue?.type === 'default') {
@@ -128,7 +128,7 @@ namespace RuntimeLaunch {
   }
 
   const resolveDirectValues = (
-    argumentsList: readonly LaunchArgumentElement.Element[],
+    argumentsList: readonly LaunchArgument.Element[],
     launchValues: Readonly<Record<string, unknown>>,
     projectNode: TreeNode.Node,
   ): Result => {
@@ -175,7 +175,7 @@ namespace RuntimeLaunch {
   }
 
   const validateResolvedValues = (
-    argumentsList: readonly LaunchArgumentElement.Element[],
+    argumentsList: readonly LaunchArgument.Element[],
     bindings: readonly ComponentReference.Binding[],
     result: Result,
     projectNode: TreeNode.Node,
@@ -202,7 +202,7 @@ namespace RuntimeLaunch {
   }
 
   export const resolveBindings = (
-    appNode: TreeNode.Node & { element: AppElement.Element },
+    appNode: TreeNode.Node & { element: App.Element },
     bindings: readonly ComponentReference.Binding[],
     baseContext: FormulaContext.Value,
     projectNode: TreeNode.Node,
@@ -218,7 +218,7 @@ namespace RuntimeLaunch {
   }
 
   export const resolve = (options: {
-    appNode: TreeNode.Node & { element: AppElement.Element }
+    appNode: TreeNode.Node & { element: App.Element }
     projectNode: TreeNode.Node
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type TreeNode from '../../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import TransitionNamespace from './transition-namespace'
 
 const node = (

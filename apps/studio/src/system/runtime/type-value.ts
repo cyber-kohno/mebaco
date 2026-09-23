@@ -1,6 +1,6 @@
-import TypeExpression from '../element/kind/type/type-expression'
-import type TreeNode from '../tree/tree-node'
-import TypeCatalog from '../element/kind/type/type-catalog'
+import TypeExpression from '@system/model/type-system/type-expression'
+import type TreeNode from '@system/model/tree/tree-node'
+import TypeCatalog from '@system/model/type-system/type-catalog'
 
 namespace TypeValue {
   const isObject = (value: unknown): value is Record<string, unknown> => (

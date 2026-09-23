@@ -1,7 +1,7 @@
 <script lang="ts">
-  import TreeNode from '../../tree/tree-node'
-  import StyleElement from '../../element/kind/view/style/style-element'
-  import StyleParameterCatalog from '../../element/kind/view/style/style-parameter-catalog'
+  import TreeNode from '@system/model/tree/tree-node'
+  import StyleElement from '@system/model/view/style/style'
+  import StyleParameterCatalog from '@system/model/view/style/style-parameter-catalog'
   import FormulaContext from '../formula/formula-context'
   import StyleDeclarationResolver from './style-declaration-resolver'
   import ResolvedStyleMonitor from './ResolvedStyleMonitor.svelte'

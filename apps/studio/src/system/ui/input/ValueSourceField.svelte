@@ -2,9 +2,9 @@
   import FormulaLabelField from '../formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../formula/FormulaModeToggle.svelte'
   import SuggestTextInput from './SuggestTextInput.svelte'
-  import ValueSource from './value-source'
-  import ValueTypeDefinition from '../../element/kind/type/value-type-definition'
-  import TypeExpression from '../../element/kind/type/type-expression'
+  import ValueSource from '@system/model/value/value-source'
+  import ValueTypeDefinition from '@system/model/type-system/value-type-definition'
+  import TypeExpression from '@system/model/type-system/type-expression'
 
   type Props = {
     value: string

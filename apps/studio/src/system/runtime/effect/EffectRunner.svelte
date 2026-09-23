@@ -1,19 +1,19 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
-  import type EffectElement from '../../element/kind/variable/store/effect-element'
+  import type Effect from '@system/model/variable/effect'
   import type FormulaContext from '../formula/formula-context'
   import FormulaContextValue from '../formula/formula-context'
   import FormulaEvaluator from '../formula/formula-evaluator'
   import ActionEvaluator from '../action/action-evaluator'
   import ScriptError from '../script/script-error'
   import type ScriptErrorValue from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import type RuntimeStateDependency from '../runtime-state-dependency'
   import type EffectRuntimeGuard from './effect-runtime-guard'
   import EffectDependencyChange from './effect-dependency-change'
 
   type Props = {
-    node: TreeNode.Node & { element: EffectElement.Element }
+    node: TreeNode.Node & { element: Effect.Element }
     formulaContext: FormulaContext.Value
     renderRevision: number
     trackStateDependencies: RuntimeStateDependency.Tracker

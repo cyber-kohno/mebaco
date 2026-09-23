@@ -1,6 +1,6 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type TreeNode from '../../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
 

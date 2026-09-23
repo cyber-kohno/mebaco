@@ -72,6 +72,19 @@ describe('ActionEvaluator transition scope', () => {
     expect(state.value).toBe('settings')
   })
 
+  it('awaits promises in asynchronous Actions', async () => {
+    const state: Record<string, unknown> = {}
+    const context = FormulaContext.create({ $state: state })
+
+    const result = await ActionEvaluator.executeScriptAsync(
+      '$state.value = await Promise.resolve("loaded")',
+      context,
+    )
+
+    expect(result.ok).toBe(true)
+    expect(state.value).toBe('loaded')
+  })
+
   it('does not expose the Resource namespace to expressions', () => {
     const context = FormulaContext.create({
       $resource: { settings: { read: vi.fn() } },

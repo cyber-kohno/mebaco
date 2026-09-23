@@ -1,5 +1,6 @@
 import { get } from 'svelte/store'
-import ConfirmDialogController from '../feedback/confirm/confirm-dialog-controller'
+import { translate } from '@system/application/localization'
+import { ConfirmDialogController } from '@system/ui/feedback/confirm'
 import ProjectSession from './project-session-store'
 
 namespace ProjectGuard {
@@ -10,9 +11,12 @@ namespace ProjectGuard {
 
     return ConfirmDialogController.open({
       tone: 'danger',
-      title: 'Unsaved Changes',
-      message: 'There are unsaved changes. Discard them?',
-      choices: [{ label: 'Discard', role: 'proceed' }],
+      title: translate('project.unsavedChanges.title'),
+      message: translate('project.unsavedChanges.message'),
+      choices: [{
+        label: translate('project.unsavedChanges.action.discard'),
+        role: 'proceed',
+      }],
     })
   }
 }

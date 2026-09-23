@@ -1,4 +1,4 @@
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 
 export type CommandTone = 'normal' | 'success' | 'warning' | 'danger'
 export type CommandOutputKind = 'command' | 'log'

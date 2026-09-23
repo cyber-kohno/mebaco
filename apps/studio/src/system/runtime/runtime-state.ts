@@ -1,11 +1,11 @@
-import type StateElement from '../element/kind/variable/store/state-element'
-import TypeCatalog from '../element/kind/type/type-catalog'
-import TypeExpression from '../element/kind/type/type-expression'
+import type State from '@system/model/variable/state'
+import TypeCatalog from '@system/model/type-system/type-catalog'
+import TypeExpression from '@system/model/type-system/type-expression'
 import FormulaContext from './formula/formula-context'
 import FormulaEvaluator from './formula/formula-evaluator'
 import RuntimeStateDependency from './runtime-state-dependency'
 import type RuntimeTree from './runtime-tree'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 
 namespace RuntimeState {
   export type WriteHandler = (
@@ -17,7 +17,7 @@ namespace RuntimeState {
   }
 
   const getDefaultScalarValue = (
-    state: StateElement.Element,
+    state: State.Element,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
   ): unknown => {
     const base = TypeExpression.unwrapArray(state.valueType).base
@@ -38,7 +38,7 @@ namespace RuntimeState {
   }
 
   const getDefaultValue = (
-    state: StateElement.Element,
+    state: State.Element,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
   ): unknown => (
     state.nullable
@@ -49,7 +49,7 @@ namespace RuntimeState {
   )
 
   const coerceLiteralValue = (
-    state: StateElement.Element,
+    state: State.Element,
     value: string,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
   ): unknown => {
@@ -84,7 +84,7 @@ namespace RuntimeState {
   }
 
   const evaluateInitialValue = (
-    state: StateElement.Element,
+    state: State.Element,
     $state: Record<string, unknown>,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
     $launch: Record<string, unknown>,
@@ -115,7 +115,7 @@ namespace RuntimeState {
   }
 
   export const createPersistentInitialValue = (
-    item: StateElement.Element,
+    item: State.Element,
     projectNode: RuntimeTree.AppRuntime['projectNode'],
   ): unknown => item.initial.type === 'literal'
     ? coerceLiteralValue(item, item.initial.value, projectNode)

@@ -14,6 +14,8 @@
     "dialog:default",
     "fs:default",
     "fs:allow-applocaldata-write-recursive",
+    "fs:allow-appconfig-read-recursive",
+    "fs:allow-appconfig-write-recursive",
     "fs:allow-read-file",
     "fs:allow-write-file",
     "process:allow-restart"

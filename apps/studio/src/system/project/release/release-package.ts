@@ -1,0 +1,188 @@
+import JSZip from 'jszip'
+import type TreeNode from '@system/model/tree/tree-node'
+import type Bundle from '@system/model/release/bundle'
+import ReleaseBundle from './release-bundle'
+import { ExpressionSourceCatalog } from '@system/model/validation/expression/source-catalog'
+import { ExpressionVerificationRunner } from '@system/application/validation/expression'
+import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../version'
+import NativeDialogController from '../../ui/native-dialog-controller'
+import TauriFileSystem from '../../infra/tauri/filesystem'
+import ReleaseContentHash from './release-content-hash'
+
+namespace ReleasePackage {
+  export type SaveResult =
+    | { status: 'saved'; fileName: string }
+    | { status: 'cancelled' }
+    | { status: 'invalid'; errors: readonly string[] }
+
+  export type Manifest = {
+    format: 'mebaco-app'
+    formatVersion: 1
+    appVersion: string
+    schemaGen: number
+    apiGen: number
+    createdAt: string
+    bundle: {
+      bundleId: string
+      id: string
+      generation: number
+      contentHash: string
+      builtAt: string
+      launcherCount: number
+      appCount: number
+      resourceCount: number
+    }
+  }
+
+  export type ModuleJson = {
+    bundle: {
+      bundleId: string
+      id: string
+      launcherIds: readonly string[]
+    }
+    launchers: readonly ReleaseBundle.LauncherNode['element'][]
+    apps: readonly TreeNode.Node[]
+    common: TreeNode.Node | null
+    resources: readonly ReleaseBundle.ResourceNode['element'][]
+  }
+
+  const ensureExtension = (path: string): string => (
+    path.toLowerCase().endsWith('.mbcapp') ? path : `${path}.mbcapp`
+  )
+
+  const fileNameFromPath = (path: string): string => (
+    path.replaceAll('\\', '/').split('/').at(-1) ?? path
+  )
+
+  const collectNodes = (
+    roots: readonly TreeNode.Node[],
+  ): TreeNode.Node[] => {
+    const result: TreeNode.Node[] = []
+    const seen = new Set<number>()
+    const visit = (node: TreeNode.Node) => {
+      if (seen.has(node.id)) return
+      seen.add(node.id)
+      result.push(node)
+      node.children.forEach(visit)
+    }
+    roots.forEach(visit)
+    return result
+  }
+
+  const getCommonModule = (rootNode: TreeNode.Node): TreeNode.Node | null => {
+    const common = rootNode.children.find((node) => node.element.kind === 'common')
+    if (common == null) return null
+    return {
+      ...common,
+      children: common.children.filter((node) => node.element.kind !== 'resources'),
+    }
+  }
+
+  const verifyExpressions = async (
+    rootNode: TreeNode.Node,
+    analysis: ReleaseBundle.Analysis,
+  ): Promise<string[]> => {
+    const common = rootNode.children.find((node) => node.element.kind === 'common')
+    const nodes = collectNodes([
+      ...analysis.apps,
+      ...(common == null ? [] : [common]),
+    ])
+    const errors: string[] = []
+
+    for (const node of nodes) {
+      if (!ExpressionSourceCatalog.isVerificationCandidate(rootNode, node)) continue
+      const result = await ExpressionVerificationRunner.verify(rootNode, node)
+      if (result?.status !== 'error') continue
+      const detail = result.messages.join(' ')
+      errors.push(`node-${node.id} ${node.element.kind}: ${detail || 'Expression verification failed.'}`)
+    }
+    return errors
+  }
+
+  export const createRevisionCandidate = async (
+    rootNode: TreeNode.Node,
+    bundle: Bundle.Element,
+  ): Promise<{
+    analysis: ReleaseBundle.Analysis
+    moduleJson: ModuleJson
+    contentHash: string
+  } | { errors: readonly string[] }> => {
+    const analysis = ReleaseBundle.analyze(rootNode, bundle.launcherIds)
+    if (analysis.errors.length > 0) return { errors: analysis.errors }
+
+    const expressionErrors = await verifyExpressions(rootNode, analysis)
+    if (expressionErrors.length > 0) return { errors: expressionErrors }
+
+    const moduleJson: ModuleJson = {
+      bundle: {
+        bundleId: bundle.bundleId,
+        id: bundle.id,
+        launcherIds: bundle.launcherIds,
+      },
+      launchers: analysis.launchers.map((node) => node.element),
+      apps: analysis.apps,
+      common: getCommonModule(rootNode),
+      resources: analysis.resources.map((node) => node.element),
+    }
+    return { analysis, moduleJson, contentHash: await ReleaseContentHash.create(moduleJson) }
+  }
+
+  export const createArchive = async (
+    rootNode: TreeNode.Node,
+    bundle: Bundle.Element,
+  ): Promise<{ bytes: Uint8Array; analysis: ReleaseBundle.Analysis } | { errors: readonly string[] }> => {
+    const candidate = await createRevisionCandidate(rootNode, bundle)
+    if ('errors' in candidate) return candidate
+    if (bundle.revision == null) {
+      return { errors: [`Bundle '${bundle.id}' has not been built. Run 'build ${bundle.id}' before releasing.`] }
+    }
+    if (candidate.contentHash !== bundle.revision.contentHash) {
+      return { errors: [`Bundle '${bundle.id}' has changed since Revision ${bundle.revision.generation} was built. Run 'build ${bundle.id}' before releasing.`] }
+    }
+    const manifest: Manifest = {
+      format: 'mebaco-app',
+      formatVersion: 1,
+      appVersion: APP_VERSION,
+      schemaGen: SCHEMA_GEN,
+      apiGen: API_GEN,
+      createdAt: new Date().toISOString(),
+      bundle: {
+        bundleId: bundle.bundleId,
+        id: bundle.id,
+        generation: bundle.revision.generation,
+        contentHash: bundle.revision.contentHash,
+        builtAt: bundle.revision.builtAt,
+        launcherCount: candidate.analysis.launchers.length,
+        appCount: candidate.analysis.apps.length,
+        resourceCount: candidate.analysis.resources.length,
+      },
+    }
+    const zip = new JSZip()
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2))
+    zip.file('module.json', JSON.stringify(candidate.moduleJson, null, 2))
+    zip.folder('assets')
+    const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+    return { bytes, analysis: candidate.analysis }
+  }
+
+  export const save = async (
+    rootNode: TreeNode.Node,
+    bundle: Bundle.Element,
+  ): Promise<SaveResult> => {
+    const archive = await createArchive(rootNode, bundle)
+    if ('errors' in archive) return { status: 'invalid', errors: archive.errors }
+
+    const selectedPath = await NativeDialogController.save({
+      title: `Save Mebaco Application Package — ${bundle.id}`,
+      defaultPath: `${bundle.id}.mbcapp`,
+      filters: [{ name: 'Mebaco Application Package', extensions: ['mbcapp'] }],
+    })
+    if (selectedPath == null) return { status: 'cancelled' }
+
+    const targetPath = ensureExtension(selectedPath)
+    await TauriFileSystem.writeBinaryFile(targetPath, archive.bytes)
+    return { status: 'saved', fileName: fileNameFromPath(targetPath) }
+  }
+}
+
+export default ReleasePackage

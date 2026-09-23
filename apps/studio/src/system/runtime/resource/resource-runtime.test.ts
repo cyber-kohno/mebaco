@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type MebacoElement from '../../element/element'
-import type TreeNode from '../../tree/tree-node'
+import type MebacoElement from '@system/model/element/element'
+import type TreeNode from '@system/model/tree/tree-node'
 import ResourceRuntime from './resource-runtime'
 
 const node = (

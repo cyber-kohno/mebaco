@@ -13,7 +13,7 @@
   import RuntimeStateDependency from '../runtime-state-dependency'
   import type RuntimeState from '../runtime-state'
   import type ScriptError from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
 
   type Props = {
     node: TreeNode.Node

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaContext from './formula/formula-context'
 import RuntimeProps from './runtime-props'
 import type RuntimeTree from './runtime-tree'
-import type ValuePropElement from '../element/kind/component/definition/value-prop-element'
+import type ValuePropElement from '@system/model/component/value-prop'
 
 const componentNode = {
   id: 4,

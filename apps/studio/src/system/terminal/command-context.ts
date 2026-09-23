@@ -1,4 +1,4 @@
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import type { CommandContext, CommandTone } from './command-types'
 
 namespace CommandContextFactory {

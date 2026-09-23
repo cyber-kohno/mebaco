@@ -1,19 +1,20 @@
 import { get } from 'svelte/store'
 import JSZip from 'jszip'
-import TreeStore from '../store/tree-store'
-import TreeNode from '../tree/tree-node'
+import TreeStore from '@system/workspace/tree/state'
+import TreeNode from '@system/model/tree/tree-node'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../version'
-import ToastController from '../feedback/toast/toast-controller'
+import { ToastController } from '@system/ui/feedback/toast'
 import ProjectSession from './project-session-store'
-import ExpressionVerificationStore from '../validation/expression/expression-verification-store'
-import ResourceImportsElement from '../element/kind/app/import/resource-imports-element'
-import StorageImportsElement from '../element/kind/app/import/storage-imports-element'
-import StorageElement from '../element/kind/storage/storage-element'
-import ReleaseElement from '../element/kind/release/release-element'
-import BundlesElement from '../element/kind/release/bundles-element'
-import ConstantsElement from '../element/kind/declare/constants-element'
+import { ExpressionVerificationStore } from '@system/workspace/validation/state'
+import ResourceImports from '@system/model/app/import/resource-imports'
+import StorageImports from '@system/model/app/import/storage-imports'
+import Storage from '@system/model/storage/storage'
+import Release from '@system/model/release/release'
+import Bundles from '@system/model/release/bundles'
+import Constants from '@system/model/declaration/constants'
 import NativeDialogController from '../ui/native-dialog-controller'
 import TauriFileSystem from '../infra/tauri/filesystem'
+import { ProjectTreeFactory } from '@system/project/tree-factory'
 
 namespace ProjectFile {
   export type SaveResult =
@@ -111,7 +112,7 @@ namespace ProjectFile {
         if (!node.children.some((child) => child.element.kind === 'constants')) {
           node.children.unshift({
             id: nextNodeId,
-            element: ConstantsElement.create(),
+            element: Constants.create(),
             isOpen: true,
             children: [],
           })
@@ -128,7 +129,7 @@ namespace ProjectFile {
           imports.children.push({
             id: nextNodeId,
             element: {
-              ...ResourceImportsElement.create(),
+              ...ResourceImports.create(),
               resourceIds: [...resourceIds],
             },
             isOpen: true,
@@ -143,7 +144,7 @@ namespace ProjectFile {
         ) {
           imports.children.push({
             id: nextNodeId,
-            element: StorageImportsElement.create(),
+            element: StorageImports.create(),
             isOpen: true,
             children: [],
           })
@@ -159,7 +160,7 @@ namespace ProjectFile {
     if (common != null && !common.children.some((child) => child.element.kind === 'storage')) {
       common.children.push({
         id: nextNodeId,
-        element: StorageElement.create(),
+        element: Storage.create(),
         isOpen: true,
         children: [],
       })
@@ -171,7 +172,7 @@ namespace ProjectFile {
     if (releaseNode == null) {
       releaseNode = {
         id: nextNodeId,
-        element: ReleaseElement.create(),
+        element: Release.create(),
         isOpen: true,
         children: [],
       }
@@ -183,7 +184,7 @@ namespace ProjectFile {
     if (!releaseNode.children.some((child) => child.element.kind === 'bundles')) {
       releaseNode.children.push({
         id: nextNodeId,
-        element: BundlesElement.create(),
+        element: Bundles.create(),
         isOpen: true,
         children: [],
       })
@@ -271,14 +272,14 @@ namespace ProjectFile {
 
   export const startEmpty = () => {
     ExpressionVerificationStore.clear()
-    TreeStore.replaceRoot(TreeNode.createRootNode())
+    TreeStore.replaceRoot(ProjectTreeFactory.createRootNode())
     ProjectSession.startNew(get(TreeStore.rootNode))
   }
 
   export const close = () => {
     ExpressionVerificationStore.clear()
     ProjectSession.clear()
-    TreeStore.replaceRoot(TreeNode.createRootNode())
+    TreeStore.replaceRoot(ProjectTreeFactory.createRootNode())
   }
 
   export const saveWithAlert = async () => {

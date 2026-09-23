@@ -2,7 +2,7 @@ import { get } from 'svelte/store'
 import CommandRegistry from './command-registry'
 import CommandRunner from './command-runner'
 import { commandSessionStore } from './command-session-store'
-import TreeStore from '../store/tree-store'
+import TreeStore from '@system/workspace/tree/state'
 import NativeDialogController from '../ui/native-dialog-controller'
 import TerminalTextBuffer from './terminal-text-buffer'
 

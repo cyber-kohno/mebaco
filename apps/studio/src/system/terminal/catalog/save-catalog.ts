@@ -1,6 +1,6 @@
 import { get } from 'svelte/store'
-import { developScreenStore } from '../../area/develop/develop-screen-store'
-import { appAreaStore } from '../../navigation/app-area-store'
+import { developScreenStore } from '@system/workspace/screen'
+import { appAreaStore } from '@system/application/navigation'
 import ProjectFile from '../../project/project-file'
 import type { CommandContext, CommandDefinition } from '../command-types'
 

@@ -1,5 +1,5 @@
 import { get } from 'svelte/store'
-import TreeStore from '../store/tree-store'
+import TreeStore from '@system/workspace/tree/state'
 import PreviewController from '../runtime/preview/preview-controller'
 import CommandRegistry from './command-registry'
 import CommandContextFactory from './command-context'

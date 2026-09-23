@@ -2,7 +2,7 @@
   import type FormulaContext from '../formula/formula-context'
   import type ScriptError from '../script/script-error'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import RenderContent from './RenderContent.svelte'
   import SwitchResolver from '../switch/switch-resolver'
   import RuntimeStateDependency from '../runtime-state-dependency'

@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import ProjectDocument from './project-document'
 
 namespace ProjectSession {

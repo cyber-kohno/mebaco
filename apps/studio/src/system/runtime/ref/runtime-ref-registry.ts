@@ -12,7 +12,6 @@ namespace RuntimeRefRegistry {
   type State = {
     registrations: Map<string, Registration[]>
     queue: ScheduledCallback[]
-    actionStack: ActionScope[]
     flushScheduled: boolean
     disposed: boolean
     options: CreateSystemOptions
@@ -22,11 +21,15 @@ namespace RuntimeRefRegistry {
     nodeId: number
     callback: () => void
     cancelled: boolean
+    owner: ActionScope
   }
 
   type ActionScope = {
     nodeId: number
     callbacks: ScheduledCallback[]
+    completed: boolean
+    succeeded: boolean
+    activeCallbackScope?: ActionScope
   }
 
   export type CreateSystemOptions = {
@@ -36,6 +39,7 @@ namespace RuntimeRefRegistry {
   }
 
   export type ActionTransaction = {
+    system: FormulaContext.SystemValue
     complete: (succeeded: boolean) => void
   }
 
@@ -71,20 +75,27 @@ namespace RuntimeRefRegistry {
       callbacks.forEach((scheduled) => {
         if (scheduled.cancelled || state.disposed) return
         executed = true
-        const scope: ActionScope = { nodeId: scheduled.nodeId, callbacks: [] }
-        state.actionStack.push(scope)
+        const callbackScope: ActionScope = {
+          nodeId: scheduled.nodeId,
+          callbacks: [],
+          completed: false,
+          succeeded: false,
+        }
+        scheduled.owner.activeCallbackScope = callbackScope
         try {
           scheduled.callback()
-          state.queue.push(...scope.callbacks.filter((item) => !item.cancelled))
+          callbackScope.completed = true
+          callbackScope.succeeded = true
+          state.queue.push(...callbackScope.callbacks.filter((item) => !item.cancelled))
         } catch (error) {
-          scope.callbacks.forEach((item) => { item.cancelled = true })
+          callbackScope.completed = true
+          callbackScope.callbacks.forEach((item) => { item.cancelled = true })
           errors.push({
             nodeId: scheduled.nodeId,
             error: ScriptErrorValue.fromUnknown('runtime', error),
           })
         } finally {
-          const index = state.actionStack.lastIndexOf(scope)
-          if (index >= 0) state.actionStack.splice(index, 1)
+          scheduled.owner.activeCallbackScope = undefined
         }
       })
 
@@ -105,7 +116,6 @@ namespace RuntimeRefRegistry {
     const state: State = {
       registrations: new Map(),
       queue: [],
-      actionStack: [],
       flushScheduled: false,
       disposed: false,
       options,
@@ -120,19 +130,8 @@ namespace RuntimeRefRegistry {
         }
         return registrations[0]?.element ?? null
       },
-      afterRender: (callback) => {
-        if (state.disposed) return () => {}
-        const activeAction = state.actionStack.at(-1)
-        if (activeAction == null) {
-          throw new Error('$system.afterRender() can only be used while an Action is running.')
-        }
-        const scheduled: ScheduledCallback = {
-          nodeId: activeAction.nodeId,
-          callback,
-          cancelled: false,
-        }
-        activeAction.callbacks.push(scheduled)
-        return () => { scheduled.cancelled = true }
+      afterRender: () => {
+        throw new Error('$system.afterRender() can only be used while an Action is running.')
       },
     }
     states.set(system, state)
@@ -144,16 +143,40 @@ namespace RuntimeRefRegistry {
     nodeId: number,
   ): ActionTransaction => {
     const state = states.get(system)
-    if (state == null || state.disposed) return { complete: () => {} }
-    const scope: ActionScope = { nodeId, callbacks: [] }
-    state.actionStack.push(scope)
-    let completed = false
+    if (state == null || state.disposed) return { system, complete: () => {} }
+    const scope: ActionScope = {
+      nodeId,
+      callbacks: [],
+      completed: false,
+      succeeded: false,
+    }
+    const actionSystem: FormulaContext.SystemValue = {
+      ...system,
+      afterRender: (callback) => {
+        const targetScope = scope.activeCallbackScope ?? scope
+        if (state.disposed || (targetScope.completed && !targetScope.succeeded)) return () => {}
+        const scheduled: ScheduledCallback = {
+          nodeId: targetScope.nodeId,
+          callback,
+          cancelled: false,
+          owner: scope,
+        }
+        if (targetScope.completed) {
+          state.queue.push(scheduled)
+          scheduleFlush(state)
+        } else {
+          targetScope.callbacks.push(scheduled)
+        }
+        return () => { scheduled.cancelled = true }
+      },
+    }
+    states.set(actionSystem, state)
     return {
+      system: actionSystem,
       complete: (succeeded) => {
-        if (completed) return
-        completed = true
-        const index = state.actionStack.lastIndexOf(scope)
-        if (index >= 0) state.actionStack.splice(index, 1)
+        if (scope.completed) return
+        scope.completed = true
+        scope.succeeded = succeeded
         if (!succeeded || state.disposed) {
           scope.callbacks.forEach((item) => { item.cancelled = true })
           return
@@ -171,11 +194,7 @@ namespace RuntimeRefRegistry {
     if (state == null) return
     state.disposed = true
     state.queue.forEach((item) => { item.cancelled = true })
-    state.actionStack.forEach((scope) => {
-      scope.callbacks.forEach((item) => { item.cancelled = true })
-    })
     state.queue = []
-    state.actionStack = []
     state.registrations.clear()
     states.delete(system)
   }

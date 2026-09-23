@@ -1,6 +1,6 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type ResolvableValue from '../../element/kind/shared/resolvable-value'
+import type ResolvableValue from '@system/model/value/resolvable-value'
 import FormulaEvaluator from '../formula/formula-evaluator'
 import ScriptErrorValue from '../script/script-error'
 

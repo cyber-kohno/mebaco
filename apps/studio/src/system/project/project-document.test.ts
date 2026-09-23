@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import ProjectDocument from './project-document'
 
 const node = (

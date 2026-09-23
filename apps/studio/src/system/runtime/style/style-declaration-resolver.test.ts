@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import StyleFixture from '../../test-support/style-fixture'
+import StyleFixture from '@system/model/view/style/test-support/style-fixture'
 import FormulaContext from '../formula/formula-context'
 import StyleDeclarationResolver from './style-declaration-resolver'
-import type StyleElement from '../../element/kind/view/style/style-element'
-import StyleKeyframesElement from '../../element/kind/view/style/style-keyframes-element'
+import type StyleElement from '@system/model/view/style/style'
+import StyleKeyframesElement from '@system/model/view/style/style-keyframes'
 
 describe('runtime StyleDeclarationResolver', () => {
   const animation = (keyframesId: string): StyleElement.AnimationItem => ({

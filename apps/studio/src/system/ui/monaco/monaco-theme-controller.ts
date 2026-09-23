@@ -1,6 +1,6 @@
 import type * as Monaco from 'monaco-editor'
 import type { Unsubscriber } from 'svelte/store'
-import { appSettingsStore } from '../../settings/app-settings-store'
+import { appSettingsStore } from '@system/application/settings'
 import MonacoThemeCatalog from './monaco-theme-catalog'
 
 namespace MonacoThemeController {
@@ -39,7 +39,7 @@ namespace MonacoThemeController {
 
     if (unsubscribeSettings == null) {
       unsubscribeSettings = appSettingsStore.subscribe((settings) => {
-        apply(MonacoThemeCatalog.get(settings.develop.editor.monacoTheme))
+        apply(MonacoThemeCatalog.get(settings.codeEditor.monacoTheme))
       })
     } else {
       nextTarget.editor.setTheme(activeTheme.monacoThemeName)

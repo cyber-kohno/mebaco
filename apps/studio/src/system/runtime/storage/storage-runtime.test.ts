@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type TreeNode from '../../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import StorageRuntime from './storage-runtime'
 
 const node = (id: number, element: TreeNode.Node['element'], children: TreeNode.Node[] = []): TreeNode.Node => ({

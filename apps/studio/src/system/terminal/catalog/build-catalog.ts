@@ -1,13 +1,13 @@
 import { get } from 'svelte/store'
-import { appAreaStore } from '../../navigation/app-area-store'
-import { developScreenStore } from '../../area/develop/develop-screen-store'
-import type BundleElement from '../../element/kind/release/bundle-element'
-import ReleasePackage from '../../release/release-package'
-import TreeStore from '../../store/tree-store'
-import type TreeNode from '../../tree/tree-node'
+import { appAreaStore } from '@system/application/navigation'
+import { developScreenStore } from '@system/workspace/screen'
+import type Bundle from '@system/model/release/bundle'
+import { ReleasePackage } from '@system/project/release/package'
+import TreeStore from '@system/workspace/tree/state'
+import type TreeNode from '@system/model/tree/tree-node'
 import type { CommandContext, CommandDefinition } from '../command-types'
 
-type BundleNode = TreeNode.Node & { element: BundleElement.Element }
+type BundleNode = TreeNode.Node & { element: Bundle.Element }
 
 const collectBundles = (rootNode: TreeNode.Node): BundleNode[] => {
   const result: BundleNode[] = []

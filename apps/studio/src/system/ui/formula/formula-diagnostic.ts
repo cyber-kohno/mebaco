@@ -1,9 +1,9 @@
 import * as Monaco from 'monaco-editor'
-import ExpressionTypeInference from '../../element/kind/type/expression-type-inference'
+import ExpressionTypeInference from '@system/model/code-analysis/expression-type-inference'
 import ScriptPolicy from '../../runtime/script/script-policy'
-import MonacoDiagnostics from '../monaco/monaco-diagnostics'
-import MonacoFactory from '../monaco/monaco-factory'
-import MonacoInjection from '../monaco/monaco-injection'
+import { MonacoDiagnostics } from '@system/infra/monaco/diagnostics'
+import { MonacoFactory } from '@system/infra/monaco/factory'
+import { MonacoInjection } from '@system/model/code-analysis/injection'
 
 namespace FormulaDiagnostic {
   export type Options = {

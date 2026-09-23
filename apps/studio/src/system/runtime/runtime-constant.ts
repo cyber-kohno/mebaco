@@ -1,8 +1,8 @@
-import ConstantScope from '../element/kind/declare/constant-scope'
+import ConstantScope from '@system/model/declaration/constant-scope'
 import FormulaContext from './formula/formula-context'
 import FormulaEvaluator from './formula/formula-evaluator'
 import type ScriptError from './script/script-error'
-import type TreeNode from '../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 
 namespace RuntimeConstant {
   export type Error = {

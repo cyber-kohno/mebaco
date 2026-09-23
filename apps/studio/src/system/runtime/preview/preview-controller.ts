@@ -1,8 +1,8 @@
-import type AppElement from '../../element/kind/app/app-element'
-import type TreeNode from '../../tree/tree-node'
+import type App from '@system/model/app/app'
+import type TreeNode from '@system/model/tree/tree-node'
 import RuntimeSessionStore from '../runtime-session-store'
 import RuntimeTree from '../runtime-tree'
-import ToastController from '../../feedback/toast/toast-controller'
+import { ToastController } from '@system/ui/feedback/toast'
 import ResourceRuntime from '../resource/resource-runtime'
 import { get } from 'svelte/store'
 import RuntimeLog from '../log/runtime-log'
@@ -70,7 +70,7 @@ namespace PreviewController {
     )
 
     RuntimeSessionStore.open({
-      app: appNode.element as AppElement.Element,
+      app: appNode.element as App.Element,
       appNode,
       projectNode: rootNode,
       resourceSession: effectiveResourceSession,

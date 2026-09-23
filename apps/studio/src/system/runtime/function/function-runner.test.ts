@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import type MebacoElement from '../../element/element'
-import type TreeNode from '../../tree/tree-node'
+import type MebacoElement from '@system/model/element/element'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaContext from '../formula/formula-context'
 import FunctionRunner from './function-runner'
 import VariableFrame from '../variable/variable-frame'
-import SignatureDefinition from '../../element/kind/type/signature/signature-definition'
-import type TypeExpression from '../../element/kind/type/type-expression'
+import SignatureDefinition from '@system/model/type-system/signature/signature-definition'
+import type TypeExpression from '@system/model/type-system/type-expression'
 import RuntimeLog from '../log/runtime-log'
 
 let nextNodeId = 1

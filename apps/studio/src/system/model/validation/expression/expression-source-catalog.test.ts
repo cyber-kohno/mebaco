@@ -1,0 +1,250 @@
+import { describe, expect, it } from 'vitest'
+import ExpressionSourceCatalog from './expression-source-catalog'
+import type TreeNode from '@system/model/tree/tree-node'
+
+const node = (
+  id: number,
+  element: Record<string, unknown>,
+  children: TreeNode.Node[] = [],
+): TreeNode.Node => ({
+  id,
+  element: element as TreeNode.Node['element'],
+  isOpen: true,
+  children,
+})
+
+describe('ExpressionSourceCatalog', () => {
+  it('collects Text formulas with a string expectation', () => {
+    const textNode = node(2, {
+      kind: 'text',
+      source: { type: 'formula', source: '$state.title' },
+    })
+    const root = node(1, { kind: 'project' }, [textNode])
+
+    expect(ExpressionSourceCatalog.collect(root, textNode).sources).toEqual([{
+      source: '$state.title',
+      mode: 'expression',
+      label: 'source',
+      expectedTypeText: 'string',
+      allowAwait: false,
+      functionParameters: undefined,
+      eventType: undefined,
+    }])
+  })
+
+  it('requires a Promise expression matching the declared resolved type', () => {
+    const promise = node(2, {
+      kind: 'promise', id: 'users',
+      resultType: {
+        valueType: { type: 'array', item: { type: 'string' } },
+        nullable: false,
+      },
+      source: '$fs.searchUsers()',
+    })
+    const root = node(1, { kind: 'project' }, [promise])
+
+    expect(ExpressionSourceCatalog.collect(root, promise).sources).toEqual([{
+      source: '$fs.searchUsers()',
+      mode: 'expression',
+      label: 'source',
+      expectedTypeText: 'Promise<string[]>',
+      allowAwait: false,
+      functionParameters: undefined,
+      eventType: undefined,
+    }])
+  })
+
+  it('treats literal value-source fields as verification candidates', () => {
+    const state = node(3, {
+      kind: 'state',
+      id: 'name',
+      valueType: { type: 'primitive', primitive: 'string' },
+      nullable: false,
+      initial: { type: 'literal', value: 'fixed' },
+    })
+
+    const result = ExpressionSourceCatalog.collect(state, state)
+
+    expect(result.hasExpressionField).toBe(true)
+    expect(result.sources).toEqual([])
+  })
+
+  it('collects formulas embedded in serialized fields', () => {
+    const tag = node(21, {
+      kind: 'tag',
+      tagName: 'div',
+      attributes: JSON.stringify([
+        { type: 'attribute', name: 'class', value: { type: 'formula', source: '$state.name' } },
+      ]),
+      styles: '[]',
+    })
+
+    const result = ExpressionSourceCatalog.collect(tag, tag)
+
+    expect(result.hasExpressionField).toBe(true)
+    expect(result.sources).toHaveLength(1)
+    expect(result.sources[0]).toMatchObject({
+      source: '$state.name',
+      mode: 'expression',
+      label: 'attributes.value',
+    })
+  })
+
+  it('narrows value event targets to the owning form element', () => {
+    const tag = node(22, {
+      kind: 'tag',
+      tagName: 'input',
+      attributes: JSON.stringify([{
+        type: 'event',
+        name: 'change',
+        action: { type: 'script', source: '$state.name = $event.target.value' },
+      }]),
+      styles: '[]',
+    })
+
+    const result = ExpressionSourceCatalog.collect(tag, tag)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '$state.name = $event.target.value',
+        mode: 'action',
+        allowAwait: true,
+        eventType: 'Event & { readonly target: HTMLInputElement; readonly currentTarget: HTMLInputElement }',
+      }),
+    ])
+  })
+
+  it('marks action sources as actions and forbids await unless function is async', () => {
+    const action = node(31, {
+      kind: 'action',
+      source: 'return 1',
+    })
+
+    const result = ExpressionSourceCatalog.collect(action, action)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({ mode: 'action', allowAwait: false }),
+    ])
+  })
+
+  it('collects Effect dependencies and allows await in its Action', () => {
+    const effect = node(35, {
+      kind: 'effect',
+      comment: '',
+      dependencies: [{
+        dependencyId: 'feed',
+        type: 'formula',
+        source: '$props.feedUrl',
+      }],
+      action: {
+        type: 'script',
+        source: '$state.items = await $fn.load($props.feedUrl)',
+      },
+    })
+
+    const result = ExpressionSourceCatalog.collect(effect, effect)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '$props.feedUrl',
+        mode: 'expression',
+        allowAwait: false,
+      }),
+      expect.objectContaining({
+        source: '$state.items = await $fn.load($props.feedUrl)',
+        mode: 'action',
+        allowAwait: true,
+      }),
+    ])
+  })
+
+  it('assigns number expectation to count loops', () => {
+    const loop = node(41, {
+      kind: 'loop',
+      mode: 'count',
+      countSource: '1',
+      indexId: 'index',
+    })
+
+    const result = ExpressionSourceCatalog.collect(loop, loop)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '1',
+        expectedTypeText: 'number',
+      }),
+    ])
+  })
+
+  it('assigns the selected value type to Switch expressions', () => {
+    const switchNode = node(51, {
+      kind: 'switch',
+      valueType: { type: 'primitive', primitive: 'number' },
+      source: '$state.count',
+    })
+
+    const result = ExpressionSourceCatalog.collect(switchNode, switchNode)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: '$state.count',
+        expectedTypeText: 'number',
+      }),
+    ])
+  })
+
+  it('collects Function Code with direct typed parameters', () => {
+    const functionNode = node(61, {
+      kind: 'function',
+      id: 'double',
+      signature: {
+        mode: 'inline',
+        definition: {
+          async: false,
+          parameters: [{
+            parameterId: 'value-parameter', id: 'value',
+            valueType: { type: 'number' }, nullable: false,
+          }],
+          returnType: { valueType: { type: 'number' }, nullable: false },
+        },
+      },
+      implementation: { mode: 'code', source: 'return value * 2' },
+    })
+
+    const result = ExpressionSourceCatalog.collect(functionNode, functionNode)
+
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        source: 'return value * 2',
+        mode: 'code',
+        expectedTypeText: 'number',
+        functionParameters: [{ name: 'value', typeText: 'number' }],
+      }),
+    ])
+  })
+
+  it('allows await only for Variables owned by an async Function', () => {
+    const asyncVariable = node(4, {
+      kind: 'variable', id: 'loaded', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: 'await $fn.load()',
+    })
+    const asyncConditional = node(5, {
+      kind: 'if', condition: 'await $fn.isReady()',
+    })
+    const control = node(6, { kind: 'control-conditional' }, [asyncConditional])
+    const asyncFunction = node(2, {
+      kind: 'function', id: 'run',
+      signature: {
+        mode: 'inline',
+        definition: { async: true, parameters: [], returnType: null },
+      },
+      implementation: { mode: 'procedure' },
+    }, [node(3, { kind: 'function-procedure' }, [asyncVariable, control])])
+    const root = node(1, { kind: 'project' }, [asyncFunction])
+
+    expect(ExpressionSourceCatalog.collect(root, asyncVariable).sources)
+      .toEqual([expect.objectContaining({ allowAwait: true })])
+    expect(ExpressionSourceCatalog.collect(root, asyncConditional).sources)
+      .toEqual([expect.objectContaining({ allowAwait: false })])
+  })
+})

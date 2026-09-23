@@ -1,5 +1,5 @@
-import type StyleElement from '../../element/kind/view/style/style-element'
-import StylePropertyName from '../../element/kind/view/style/style-property-name'
+import type StyleElement from '@system/model/view/style/style'
+import StylePropertyName from '@system/model/view/style/style-property-name'
 import type StyleDeclarationResolver from './style-declaration-resolver'
 
 namespace StyleMonitor {

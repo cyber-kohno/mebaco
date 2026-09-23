@@ -2,7 +2,7 @@
   import FormulaLabelField from '../formula/FormulaLabelField.svelte'
   import FormulaModeToggle from '../formula/FormulaModeToggle.svelte'
   import SuggestTextInput from './SuggestTextInput.svelte'
-  import type ResolvableValue from '../../element/kind/shared/resolvable-value'
+  import type ResolvableValue from '@system/model/value/resolvable-value'
 
   type Primitive = string | number | boolean
   type PrimitiveType = 'string' | 'number' | 'boolean'

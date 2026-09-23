@@ -2,15 +2,15 @@
   import type FormulaContext from '../formula/formula-context'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
   import type ScriptError from '../script/script-error'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import RuntimeProps from '../runtime-props'
   import RuntimeStateDependency from '../runtime-state-dependency'
   import type RuntimeState from '../runtime-state'
   import ScriptErrorFactory from '../script/script-error'
   import FormulaContextFactory from '../formula/formula-context'
   import RenderContent from './RenderContent.svelte'
-  import type SlotUseElement from '../../element/kind/component/definition/slot/slot-use-element'
-  import type ValuePropElement from '../../element/kind/component/definition/value-prop-element'
+  import type SlotUseElement from '@system/model/component/slot-use'
+  import type ValuePropElement from '@system/model/component/value-prop'
 
   type Props = {
     node: TreeNode.Node & { element: SlotUseElement.Element }

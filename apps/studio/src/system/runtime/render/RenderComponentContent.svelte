@@ -8,7 +8,7 @@
   import type ScriptErrorValue from '../script/script-error'
   import RuntimeTree from '../runtime-tree'
   import type StyleDeclarationResolver from '../style/style-declaration-resolver'
-  import type TreeNode from '../../tree/tree-node'
+  import type TreeNode from '@system/model/tree/tree-node'
   import RenderContent from './RenderContent.svelte'
   import RenderEffects from '../effect/RenderEffects.svelte'
 

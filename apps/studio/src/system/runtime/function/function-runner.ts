@@ -1,17 +1,17 @@
 import type FormulaContext from '../formula/formula-context'
 import type ScriptError from '../script/script-error'
-import type TreeNode from '../../tree/tree-node'
+import type TreeNode from '@system/model/tree/tree-node'
 import ActionEvaluator from '../action/action-evaluator'
 import FormulaContextValue from '../formula/formula-context'
 import FormulaEvaluator from '../formula/formula-evaluator'
-import FunctionScope from '../../element/kind/function/function-scope'
+import FunctionScope from '@system/model/function/function-scope'
 import ScriptErrorValue from '../script/script-error'
 import TypeValue from '../type-value'
 import VariableFrame from '../variable/variable-frame'
 import ScriptPolicy from '../script/script-policy'
 import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
-import FunctionDefinition from '../../element/kind/function/function-definition'
+import FunctionDefinition from '@system/model/function/function-definition'
 import TransitionExecutor from '../transition/transition-executor'
 import FunctionCodeEvaluator from './function-code-evaluator'
 import RuntimeRefRegistry from '../ref/runtime-ref-registry'
@@ -374,6 +374,7 @@ namespace FunctionRunner {
     }
     const branchContext = FormulaContextValue.create({
       ...context,
+      $system: transaction.system,
       $var: branchFrame.values,
     })
     branchContext.$fn = createNamespace(projectNode, branchNode.id, branchContext)

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
-import type TreeNode from '../../tree/tree-node'
-import type StorageItemElement from '../../element/kind/storage/storage-item-element'
-import StorageImportCatalog from '../../element/kind/app/import/storage-import-catalog'
+import type TreeNode from '@system/model/tree/tree-node'
+import type StorageItem from '@system/model/storage/storage-item'
+import StorageImportCatalog from '@system/model/app/import/storage-import-catalog'
 import RuntimeState from '../runtime-state'
 
 namespace StorageRuntime {
@@ -27,7 +27,7 @@ namespace StorageRuntime {
     return JSON.parse(source) as unknown
   }
 
-  const collectItems = (node: TreeNode.Node, result: StorageItemElement.Element[] = []): StorageItemElement.Element[] => {
+  const collectItems = (node: TreeNode.Node, result: StorageItem.Element[] = []): StorageItem.Element[] => {
     if (node.element.kind === 'key-value') result.push(node.element)
     node.children.forEach((child) => collectItems(child, result))
     return result

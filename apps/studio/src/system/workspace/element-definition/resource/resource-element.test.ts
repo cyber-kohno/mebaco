@@ -1,0 +1,114 @@
+import { describe, expect, it } from 'vitest'
+import type TreeNode from '@system/model/tree/tree-node'
+import DirectoryResource from '@system/model/resource/directory-resource'
+import Resources from '@system/model/resource/resources'
+import SqliteResource from '@system/model/resource/sqlite-resource'
+import TextResource from '@system/model/resource/text-resource'
+import DirectoryResourceElementDefinition from './directory-resource-element-definition'
+import ResourcesElementDefinition from './resources-element-definition'
+import SqliteResourceElementDefinition from './sqlite-resource-element-definition'
+import TextResourceElementDefinition from './text-resource-element-definition'
+
+const node = (
+  id: number,
+  element: TreeNode.Node['element'],
+  children: TreeNode.Node[] = [],
+): TreeNode.Node => ({ id, element, children, isOpen: true })
+
+describe('Resource elements', () => {
+  it('uses detailed tree labels for every Resource kind', () => {
+    expect(DirectoryResourceElementDefinition.definition.treeLabel.type).toBe('component')
+    expect(TextResourceElementDefinition.definition.treeLabel.type).toBe('component')
+    expect(SqliteResourceElementDefinition.definition.treeLabel.type).toBe('component')
+  })
+
+  it('uses the requested action menu labels', () => {
+    const resources = node(2, Resources.create())
+    const project = node(1, { kind: 'project' }, [resources])
+    const items = ResourcesElementDefinition.definition.getContextMenu({
+      element: resources.element as Resources.Element,
+      node: resources,
+      parentNode: project,
+      rootNode: project,
+    })
+
+    expect(items.map((item) => item.label)).toEqual([
+      'Add directory',
+      'Add text file',
+      'Add sqlite',
+    ])
+  })
+
+  it('stores directory operations separately from derived Resource policies', () => {
+    const schema = DirectoryResourceElementDefinition.createSchema()
+    const resource = schema.create({
+      id: 'workspace',
+      access: 'read-write',
+      deleteFile: 'true',
+      deriveText: 'true',
+      textAccess: 'read',
+      textPattern: '**/*.json',
+      deriveSqlite: 'true',
+      sqliteAccess: 'read-write',
+      sqlitePattern: 'data/**/*.db',
+      sqliteCreate: 'true',
+    })
+
+    expect(resource).toMatchObject({
+      kind: 'directory-resource',
+      id: 'workspace',
+      permissions: {
+        access: 'read-write',
+        deleteFile: true,
+        text: { access: 'read', pattern: '**/*.json' },
+        sqlite: { access: 'read-write', pattern: 'data/**/*.db', create: true },
+      },
+    })
+  })
+
+  it('preserves stable Resource UUIDs while names and access change', () => {
+    const text = TextResource.create('config', 'text-resource-id')
+    const sqlite = SqliteResource.create('mainDb', 'sqlite-resource-id')
+
+    expect(TextResourceElementDefinition.createSchema().update(text, {
+      id: 'environment', access: 'read-write',
+    })).toMatchObject({ resourceId: 'text-resource-id', id: 'environment', access: 'read-write' })
+    expect(SqliteResourceElementDefinition.createSchema().update(sqlite, {
+      id: 'manageDb', access: 'read-write', create: 'true',
+    })).toMatchObject({ resourceId: 'sqlite-resource-id', id: 'manageDb', access: 'read-write', create: true })
+  })
+
+  it('stores Resource names only when they contain visible text', () => {
+    const schema = TextResourceElementDefinition.createSchema()
+    const unnamed = schema.create({ id: 'config', name: '   ', access: 'read' })
+    const named = schema.update(unnamed, { id: 'config', name: 'Configuration', access: 'read' })
+    const cleared = schema.update(named, { id: 'config', name: '', access: 'read' })
+
+    expect(unnamed).not.toHaveProperty('name')
+    expect(named).toHaveProperty('name', 'Configuration')
+    expect(cleared).not.toHaveProperty('name')
+  })
+
+  it('disables SQLite creation for read-only Resources', () => {
+    const sqlite = SqliteResource.create('database', 'sqlite-id', 'read-write', true)
+    expect(SqliteResourceElementDefinition.createSchema().update(sqlite, {
+      id: 'database',
+      access: 'read',
+      create: 'true',
+    })).toMatchObject({ access: 'read', create: false })
+
+    const directory = DirectoryResourceElementDefinition.createSchema().create({
+      id: 'workspace',
+      access: 'read',
+      deleteFile: 'false',
+      deriveText: 'false',
+      textAccess: 'read',
+      textPattern: '**/*',
+      deriveSqlite: 'true',
+      sqliteAccess: 'read',
+      sqlitePattern: '**/*.db',
+      sqliteCreate: 'true',
+    })
+    expect(directory.permissions.sqlite).toMatchObject({ access: 'read', create: false })
+  })
+})

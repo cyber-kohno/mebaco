@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type AppElement from '../element/kind/app/app-element'
-import type TreeNode from '../tree/tree-node'
+import type App from '@system/model/app/app'
+import type TreeNode from '@system/model/tree/tree-node'
 import FormulaContext from './formula/formula-context'
 import RuntimeLaunch from './runtime-launch'
 
@@ -37,7 +37,7 @@ describe('RuntimeLaunch Signature defaults', () => {
           }],
         }],
       }],
-    } as TreeNode.Node & { element: AppElement.Element }
+    } as TreeNode.Node & { element: App.Element }
     const projectNode = {
       id: 1,
       element: { kind: 'project' },
@@ -101,7 +101,7 @@ describe('RuntimeLaunch Signature defaults', () => {
           }],
         }],
       }],
-    } as TreeNode.Node & { element: AppElement.Element }
+    } as TreeNode.Node & { element: App.Element }
     const projectNode = {
       id: 1,
       element: { kind: 'project' },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type TreeNode from '../../tree/tree-node'
-import type TransitionElement from '../../element/kind/variable/transition-element'
+import type TreeNode from '@system/model/tree/tree-node'
+import type Transition from '@system/model/variable/transition'
 import FormulaContext from '../formula/formula-context'
 import TransitionExecutor from './transition-executor'
 
@@ -45,7 +45,7 @@ describe('TransitionExecutor', () => {
         kind: 'value',
         source: { type: 'formula', source: '$state.count + 1' },
       }],
-    } as TransitionElement.Element
+    } as Transition.Element
     const result = TransitionExecutor.execute(
       transitionNode.id,
       element,
