@@ -12,6 +12,7 @@ import FunctionRunner from '../function/function-runner'
 import ConditionalResolver from '../conditional/conditional-resolver'
 import SwitchResolver from '../switch/switch-resolver'
 import TransitionExecutor from '../transition/transition-executor'
+import ExecutionPolicy from '../execution-policy'
 
 namespace RetentionResolver {
   export type Result = {
@@ -25,9 +26,20 @@ namespace RetentionResolver {
     context: FormulaContext.Value,
     projectNode: TreeNode.Node,
   ): Result => {
-    const frame = VariableFrame.create(context.$var)
-    const nextContext = FormulaContextValue.create({ ...context, $var: frame.values })
     const retentionNode = ContentHost.getRetentionNode(hostNode)
+    const renderContext = FormulaContextValue.withExecutionPolicy(
+      context,
+      ExecutionPolicy.create(
+        'readonly',
+        retentionNode == null ? 'render' : 'retention',
+        retentionNode?.id ?? hostNode.id,
+      ),
+    )
+    const frame = VariableFrame.create(renderContext.$var)
+    const nextContext = FormulaContextValue.create({
+      ...renderContext,
+      $var: frame.values,
+    })
     nextContext.$fn = FunctionRunner.createNamespace(
       projectNode,
       retentionNode?.id ?? hostNode.id,
@@ -82,7 +94,10 @@ namespace RetentionResolver {
         }
 
       if (child.element.kind === 'variable') {
-        const evaluated = FormulaEvaluator.evaluateExpression(child.element.source, nextContext)
+        const evaluated = FormulaEvaluator.evaluateExpression(
+          child.element.source,
+          FormulaContextValue.forNode(nextContext, child.id),
+        )
         if (!evaluated.ok) {
           return { context: nextContext, error: evaluated.error, errorNodeId: child.id }
         }

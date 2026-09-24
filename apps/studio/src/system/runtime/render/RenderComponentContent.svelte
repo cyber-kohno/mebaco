@@ -106,6 +106,7 @@
       renderRevision={scopedRenderRevision}
       {trackStateDependencies}
       {setActionError}
+      {projectNode}
     />
   {/key}
 {/if}

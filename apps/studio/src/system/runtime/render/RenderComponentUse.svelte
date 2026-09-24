@@ -15,6 +15,8 @@ import type SlotElement from '@system/model/component/slot'
   import RuntimeRefRegistry from '../ref/runtime-ref-registry'
   import RuntimeStateDependency from '../runtime-state-dependency'
   import RuntimePartialRegistry from '../partial/runtime-partial-registry'
+  import StateView from '../state/state-view'
+  import ExecutionPolicy from '../execution-policy'
 
   type Props = {
     node: TreeNode.Node
@@ -114,7 +116,10 @@ import type SlotElement from '@system/model/component/slot'
 
     const created = RuntimeState.createComponentState(
       projectNode,
-      formulaContext.$state,
+      StateView.create(
+        formulaContext.$state,
+        ExecutionPolicy.create('mutable', 'runtime', node.id),
+      ),
       RuntimeTree.getComponentStateNodes(componentNode),
       formulaContext.$launch,
       formulaContext.$const,

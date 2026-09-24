@@ -7,6 +7,7 @@ import VariableFrame from '../variable/variable-frame'
 import SignatureDefinition from '@system/model/type-system/signature/signature-definition'
 import type TypeExpression from '@system/model/type-system/type-expression'
 import RuntimeLog from '../log/runtime-log'
+import ExecutionPolicy from '../execution-policy'
 
 let nextNodeId = 1
 type FunctionElementValue = Extract<MebacoElement.Element, { kind: 'function' }>
@@ -292,6 +293,84 @@ describe('FunctionRunner', () => {
     expect(FunctionRunner.run(increment, [], context, root)).toEqual({ ok: true, value: 1 })
     expect(FunctionRunner.run(increment, [], context, root)).toEqual({ ok: true, value: 1 })
     expect(context.$state.total).toBe(2)
+  })
+
+  it('uses the caller State policy without rebinding the Function lexical frame', () => {
+    nextNodeId = 1
+    const update = fn('update', [], [
+      node({ kind: 'action', comment: '', source: '$state.value += 1' }),
+    ], null)
+    const root = project([update])
+    const appNode = root.children
+      .find((child) => child.element.kind === 'apps')
+      ?.children[0]
+    const retentionNode = node({ kind: 'retention' })
+    appNode?.children.push(retentionNode)
+    const state = { value: 0 }
+    const appContext = FormulaContext.create({ $state: state })
+    appContext.$fn = FunctionRunner.createNamespace(
+      root,
+      appNode?.id ?? root.id,
+      appContext,
+    )
+    const retentionContext = FormulaContext.withExecutionPolicy(
+      FormulaContext.create({ ...appContext, $var: { callerOnly: 1 } }),
+      ExecutionPolicy.create('readonly', 'retention', 100),
+    )
+    retentionContext.$fn = FunctionRunner.createNamespace(
+      root,
+      retentionNode.id,
+      retentionContext,
+    )
+
+    expect(() => (retentionContext.$fn.update as () => void)())
+      .toThrow("State '$state.value' cannot be updated during retention evaluation")
+    expect(state.value).toBe(0)
+
+    const eventContext = FormulaContext.withExecutionPolicy(
+      retentionContext,
+      ExecutionPolicy.create('mutable', 'event', 101),
+    )
+    eventContext.$fn = FunctionRunner.createNamespace(
+      root,
+      retentionNode.id,
+      eventContext,
+    )
+    expect(() => (eventContext.$fn.update as () => void)()).not.toThrow()
+    expect(state.value).toBe(1)
+  })
+
+  it('keeps the caller State policy across an awaited Function Action', async () => {
+    nextNodeId = 1
+    const update = fn('update', [], [
+      node({
+        kind: 'action', comment: '',
+        source: 'await Promise.resolve(); $state.value = 1',
+      }),
+    ], null, true)
+    const root = project([update])
+    const state = { value: 0 }
+    const definitionContext = FormulaContext.create({ $state: state })
+    const invocationContext = FormulaContext.withExecutionPolicy(
+      definitionContext,
+      ExecutionPolicy.create('readonly', 'retention', 100),
+    )
+
+    const result = await FunctionRunner.runAsync(
+      update,
+      [],
+      definitionContext,
+      root,
+      invocationContext,
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        message: "State '$state.value' cannot be updated during retention evaluation (set).",
+      },
+    })
+    expect(state.value).toBe(0)
   })
 
   it('rejects Return statements inside an Action', () => {
@@ -769,6 +848,55 @@ describe('FunctionRunner', () => {
 
     expect(context.$state.result).toBe(42)
     expect(renderRequests).toBe(1)
+  })
+
+  it('keeps a readonly caller policy in a detached Promise branch', async () => {
+    nextNodeId = 1
+    let resolveSearch: (value: number) => void = () => {
+      throw new Error('Search Promise was not started.')
+    }
+    const promise = node({
+      kind: 'promise', id: 'result',
+      resultType: { valueType: { type: 'number' }, nullable: false },
+      source: '$system.search()',
+    }, [
+      node({ kind: 'promise-then' }, [
+        node({ kind: 'action', comment: '', source: '$state.result = $var.result' }),
+      ]),
+    ])
+    const search = fn('search', [], [promise], null)
+    const root = project([search])
+    const state = { result: 0 }
+    const reports: string[] = []
+    const definitionContext = FormulaContext.create({
+      $state: state,
+      $system: {
+        getRef: () => null,
+        afterRender: () => () => {},
+        search: () => new Promise<number>((resolve) => { resolveSearch = resolve }),
+      },
+      reportError: (_nodeId, error) => reports.push(error.message),
+    })
+    const invocationContext = FormulaContext.withExecutionPolicy(
+      definitionContext,
+      ExecutionPolicy.create('readonly', 'retention', 100),
+    )
+
+    expect(FunctionRunner.run(
+      search,
+      [],
+      definitionContext,
+      root,
+      invocationContext,
+    )).toEqual({ ok: true, value: undefined })
+
+    resolveSearch(42)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(state.result).toBe(0)
+    expect(reports).toContain(
+      "State '$state.result' cannot be updated during retention evaluation (set).",
+    )
   })
 
   it('runs Catch for a rejected Promise and reports an unhandled rejection', async () => {

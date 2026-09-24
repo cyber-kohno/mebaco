@@ -476,7 +476,7 @@
   }
 
   .setting-navigation button:hover {
-    background: var(--mbc-color-primary-soft);
+    background: rgba(31, 43, 50, 0.08);
     color: #236f7a;
   }
 

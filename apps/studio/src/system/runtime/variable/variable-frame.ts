@@ -1,3 +1,6 @@
+import type ExecutionPolicy from '../execution-policy'
+import StateView from '../state/state-view'
+
 namespace VariableFrame {
   type Binding = 'const' | 'let'
   type Metadata = {
@@ -129,6 +132,23 @@ namespace VariableFrame {
         target[id] = value
       },
     }
+  }
+
+  export const rebindStateViews = (
+    values: Record<string, unknown>,
+    policy: ExecutionPolicy.Value,
+  ): Record<string, unknown> => {
+    const rebound = StateView.rebindNamespace(values, policy)
+    const sourceMetadata = metadata.get(values)
+    if (sourceMetadata != null && rebound !== values) {
+      metadata.set(rebound, {
+        target: sourceMetadata.target,
+        bindings: sourceMetadata.bindings,
+        inherited: sourceMetadata.inherited,
+        getBinding: sourceMetadata.getBinding,
+      })
+    }
+    return rebound
   }
 }
 export default VariableFrame

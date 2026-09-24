@@ -129,6 +129,7 @@ namespace MebacoInjectionSource {
   const createStateDeclaration = (
     states: readonly State.Element[],
     rootNode: TreeNode.Node,
+    readonlyState: boolean,
   ): string | null => {
     if (states.length === 0) return null
 
@@ -136,11 +137,26 @@ namespace MebacoInjectionSource {
       .map((state) => `  ${state.id}: ${getValueType(state, rootNode)};`)
       .join('\n')
 
-    return [
-      'declare var $state: {',
-      fields,
-      '};',
-    ].join('\n')
+    const value = ['{', fields, '}'].join('\n')
+    return readonlyState
+      ? [
+          'type $MebacoDeepReadonly<T> =',
+          '  T extends (...args: never[]) => unknown ? T :',
+          '  T extends readonly (infer Item)[] ? readonly $MebacoDeepReadonly<Item>[] :',
+          '  T extends object ? { readonly [Key in keyof T]: $MebacoDeepReadonly<T[Key]> } : T;',
+          `declare var $state: $MebacoDeepReadonly<${value}>;`,
+        ].join('\n')
+      : `declare var $state: ${value};`
+  }
+
+  const usesReadonlyState = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+  ): boolean => {
+    const path = findPath(rootNode, targetNodeId) ?? []
+    const inRetention = path.some((node) => node.element.kind === 'retention')
+    const inFunction = path.some((node) => node.element.kind === 'function')
+    return inRetention && !inFunction
   }
 
   const createConstantDeclaration = (
@@ -665,6 +681,7 @@ namespace MebacoInjectionSource {
     const stateDeclaration = createStateDeclaration(
       collectScopedStates(targetNode, rootNode),
       rootNode,
+      usesReadonlyState(rootNode, targetNodeId),
     )
     const constantDeclaration = createConstantDeclaration(
       rootNode,

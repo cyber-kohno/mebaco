@@ -11,6 +11,8 @@
   import type RuntimeStateDependency from '../runtime-state-dependency'
   import type EffectRuntimeGuard from './effect-runtime-guard'
   import EffectDependencyChange from './effect-dependency-change'
+  import ExecutionPolicy from '../execution-policy'
+  import FunctionRunner from '../function/function-runner'
 
   type Props = {
     node: TreeNode.Node & { element: Effect.Element }
@@ -19,6 +21,7 @@
     trackStateDependencies: RuntimeStateDependency.Tracker
     setActionError: (nodeId: number, error: ScriptErrorValue.Value | null) => void
     guard: EffectRuntimeGuard.Guard
+    projectNode: TreeNode.Node
   }
 
   let {
@@ -28,6 +31,7 @@
     trackStateDependencies,
     setActionError,
     guard,
+    projectNode,
   }: Props = $props()
 
   let mounted = $state(false)
@@ -83,11 +87,20 @@
     const runGeneration = ++generation
     controller = new AbortController()
     const signal = controller.signal
-    const context = FormulaContextValue.forNode(FormulaContextValue.create({
-      ...formulaContext,
-      $state: guardedState(formulaContext.$state, signal),
+    const mutableContext = FormulaContextValue.withExecutionPolicy(
+      formulaContext,
+      ExecutionPolicy.create('mutable', 'effect', node.id),
+    )
+    const context = FormulaContextValue.create({
+      ...mutableContext,
+      $state: guardedState(mutableContext.$state, signal),
       $effect: { signal },
-    }), node.id)
+    })
+    context.$fn = FunctionRunner.createNamespace(
+      projectNode,
+      node.id,
+      context,
+    )
     const result = await ActionEvaluator.executeScriptAsync(
       node.element.action.source,
       context,

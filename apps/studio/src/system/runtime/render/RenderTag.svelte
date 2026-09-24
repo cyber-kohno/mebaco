@@ -21,6 +21,8 @@
   import RuntimePartialKey from '../partial/runtime-partial-key'
   import RuntimePartialRegistry from '../partial/runtime-partial-registry'
   import { getRenderInstanceKey } from './render-instance-scope'
+  import ExecutionPolicy from '../execution-policy'
+  import FunctionRunner from '../function/function-runner'
 
   type Props = {
     node: TreeNode.Node
@@ -165,13 +167,18 @@
     if (attribute.stopPropagation) event.stopPropagation()
 
     const transaction = RuntimeRefRegistry.beginAction(retentionResult.context.$system, node.id)
-    const eventContext = FormulaContextValue.forNode(
+    const eventContext = FormulaContextValue.withExecutionPolicy(
       FormulaContextValue.create({
         ...retentionResult.context,
         $system: transaction.system,
         $event: event,
       }),
+      ExecutionPolicy.create('mutable', 'event', node.id),
+    )
+    eventContext.$fn = FunctionRunner.createNamespace(
+      projectNode,
       node.id,
+      eventContext,
     )
     const result = await ActionEvaluator.executeScriptAsync(
       attribute.action.source,

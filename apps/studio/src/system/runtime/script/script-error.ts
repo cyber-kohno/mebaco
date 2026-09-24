@@ -1,4 +1,14 @@
 namespace ScriptError {
+  class Raised extends Error {
+    readonly scriptError: Value
+
+    constructor(scriptError: Value) {
+      super(scriptError.message)
+      this.name = 'MebacoScriptError'
+      this.scriptError = scriptError
+    }
+  }
+
   export type Stage = 'compile' | 'runtime'
 
   export type Value = {
@@ -27,10 +37,16 @@ namespace ScriptError {
   export const fromUnknown = (
     stage: Stage,
     error: unknown,
-  ): Value => create(
-    stage,
-    error instanceof Error ? error.message : String(error),
-  )
+  ): Value => error instanceof Raised
+    ? error.scriptError
+    : create(
+        stage,
+        error instanceof Error ? error.message : String(error),
+      )
+
+  export const toError = (
+    error: Value,
+  ): Error => new Raised(error)
 
   export const format = (
     error: Value,

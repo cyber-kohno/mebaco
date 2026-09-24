@@ -26,6 +26,7 @@
   import ResourceImportCatalog from '@system/model/app/import/resource-import-catalog'
   import type StorageRuntime from '../storage/storage-runtime'
   import RenderEffects from '../effect/RenderEffects.svelte'
+  import ExecutionPolicy from '../execution-policy'
 
   type Props = {
     appNode: TreeNode.Node
@@ -115,6 +116,7 @@
     requestTransition,
     reportError: (nodeId, error) => setActionError(nodeId, error),
     requestRender: () => invalidateRuntime(),
+    executionPolicy: ExecutionPolicy.create('mutable', 'launch', appNode.id),
   }))
   const launchResult = $derived(RuntimeLaunch.resolve({
     appNode: appNode as TreeNode.Node & { element: App.Element },
@@ -165,6 +167,7 @@
       $launch: launchResult.values,
       $state: effectiveRuntimeState,
       $system: runtimeSystem,
+      executionPolicy: ExecutionPolicy.create('readonly', 'render', appNode.id),
     })
     context.$fn = FunctionRunner.createAppNamespace(
       projectNode,
@@ -411,6 +414,7 @@
         {renderRevision}
         {trackStateDependencies}
         {setActionError}
+        {projectNode}
       />
     {/key}
   {/if}

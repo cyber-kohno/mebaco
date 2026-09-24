@@ -1,8 +1,8 @@
 # RetentionにおけるState更新検出の設計メモ
 
-更新日: 2026-08-18
+更新日: 2026-09-24
 
-ステータス: 将来検討（未実装）
+ステータス: 実装済み
 
 ## 目的
 
@@ -16,7 +16,7 @@ Retention Action
   -> Retention Action再実行
 ```
 
-将来的にはFunction要素とProcedure要素が実装される予定である。ProcedureはRetentionと同様にVariableやActionを持ち、Function／Procedureの呼び出しを何段か経由した先でStateが更新される可能性がある。
+Function要素とProcedure要素は実装済みである。ProcedureはRetentionと同様にVariableやActionを持ち、Function／Procedureの呼び出しを何段か経由した先でStateが更新される可能性がある。
 
 本資料は、Retentionから直接または間接的にStateの書き込みが試みられた場合に、書き込みを適用せず、明確なランタイムエラーとして検出するための設計方針を残すものである。
 
@@ -32,21 +32,24 @@ Retention Action
 - エラーは書き込み元のRetention Actionノードへ関連付ける。
 - Monaco上の静的診断は補助とし、ランタイム検出を最終的な判定とする。
 
-## 現状のランタイム
+## 現行ランタイム
 
-調査時点の関連実装は次のとおり。
+現在の関連実装は次のとおり。
 
-- `RuntimeState.createState()`が生成するApp Stateのルートは通常のObjectである。
-- `RuntimeState.createComponentState()`は、親StateとローカルStateを重ねるためにルートだけをProxy化している。
-- State内のObjectやArrayは深いProxyではない。
+- `RuntimeState.createState()`と`createComponentState()`は、依存追跡用のルートProxyを生成する。
+- ユーザーScriptへ渡すStateは`StateView`が深いProxyとして公開する。
+- `ExecutionPolicy`がStateの`readonly`／`mutable`と実行起点を保持する。
 - `RetentionResolver`はRetention内のActionを`ActionEvaluator.executeScript()`で直接実行する。
 - `ActionEvaluator`はAction内で発生した例外をランタイムエラーへ変換できる。
 - `RetentionResolver`はエラーが発生したActionのノードIDを返せる。
-- Scriptは`FormulaContext`を引数として実行されるため、Function／Procedureも同様のコンテキスト引数方式へ拡張できる。
+- Function／Procedureは定義位置のレキシカルContextと、呼び出し元の実行Contextを分離して実行する。
+- Retention／描画評価は読み取り専用、Event／Effect／Launchは書き込み可能なState Viewを使用する。
 
 関連ファイル:
 
 - `apps/studio/src/system/runtime/runtime-state.ts`
+- `apps/studio/src/system/runtime/execution-policy.ts`
+- `apps/studio/src/system/runtime/state/state-view.ts`
 - `apps/studio/src/system/runtime/retention/retention-resolver.ts`
 - `apps/studio/src/system/runtime/action/action-evaluator.ts`
 - `apps/studio/src/system/runtime/formula/formula-context.ts`
@@ -264,6 +267,8 @@ type DeepReadonly<T> = {
 ただし、型キャスト、動的アクセス、Function内部の副作用などでは静的検査を回避できるため、ランタイム検出の代替にはしない。
 
 ## 段階的な実装案
+
+2026-09-24時点でPhase 1〜4と、Phase 5のDeepReadonly診断を実装済みである。Function Effect情報、Mebaco Scheduler、非同期API全般のCapability設計は引き続き将来検討とする。
 
 ### Phase 1: 実行コンテキストの権限モデル
 

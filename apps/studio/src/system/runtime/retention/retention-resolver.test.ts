@@ -86,7 +86,7 @@ describe('RetentionResolver', () => {
     expect(result.context.$var.color).toBe('#fcc-done')
   })
 
-  it('executes the selected control Conditional branch', () => {
+  it('rejects a State update in the selected Conditional branch', () => {
     const hostNode = host([
       node({ kind: 'control-conditional' }, [
         node({ kind: 'if', condition: '$state.focused' }, [
@@ -100,11 +100,13 @@ describe('RetentionResolver', () => {
     const context = FormulaContext.create({ $state: { focused: false, result: 0 } })
     const result = RetentionResolver.resolve(hostNode, context, node({ kind: 'project' }))
 
-    expect(result.error).toBeNull()
-    expect(context.$state.result).toBe(2)
+    expect(result.error?.message).toContain(
+      "State '$state.result' cannot be updated during retention evaluation",
+    )
+    expect(context.$state.result).toBe(0)
   })
 
-  it('exposes Retention Functions through $fn', () => {
+  it('exposes pure Retention Functions through $fn', () => {
     const functionNode = node({
       kind: 'function',
       id: 'scale',
@@ -129,7 +131,8 @@ describe('RetentionResolver', () => {
       }),
       functionNode,
       node({
-        kind: 'action', comment: '', source: '$state.result = $fn.scale(4)',
+        kind: 'variable', id: 'result', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '$fn.scale(4)',
       }),
     ])
     const projectNode = node({ kind: 'project' }, [hostNode])
@@ -137,7 +140,8 @@ describe('RetentionResolver', () => {
     const result = RetentionResolver.resolve(hostNode, context, projectNode)
 
     expect(result.error).toBeNull()
-    expect(context.$state.result).toBe(12)
+    expect(result.context.$var.result).toBe(12)
+    expect(context.$state.result).toBe(0)
   })
 
   it('lets a Retention Function update a captured let Variable', () => {
@@ -164,9 +168,13 @@ describe('RetentionResolver', () => {
         kind: 'variable', id: 'count', binding: 'let',
         typeSetting: { type: 'inferred' }, source: '1',
       }),
+      node({
+        kind: 'variable', id: 'result', binding: 'let',
+        typeSetting: { type: 'inferred' }, source: '0',
+      }),
       functionNode,
       node({
-        kind: 'action', comment: '', source: '$state.result = $fn.increment()',
+        kind: 'action', comment: '', source: '$var.result = $fn.increment()',
       }),
     ])
     const projectNode = node({ kind: 'project' }, [hostNode])
@@ -175,6 +183,73 @@ describe('RetentionResolver', () => {
 
     expect(result.error).toBeNull()
     expect(result.context.$var.count).toBe(2)
-    expect(context.$state.result).toBe(2)
+    expect(result.context.$var.result).toBe(2)
+    expect(context.$state.result).toBe(0)
+  })
+
+  it('rejects a State update inside a Retention Function', () => {
+    const functionNode = node({
+      kind: 'function',
+      id: 'update',
+      signature: {
+        mode: 'inline',
+        definition: SignatureDefinition.create(false, [], null),
+      },
+      implementation: { mode: 'procedure' },
+    }, [
+      node({ kind: 'function-procedure' }, [
+        node({ kind: 'action', comment: '', source: '$state.result = 1' }),
+      ]),
+    ])
+    const hostNode = host([
+      functionNode,
+      node({ kind: 'action', comment: '', source: '$fn.update()' }),
+    ])
+    const projectNode = node({ kind: 'project' }, [hostNode])
+    const context = FormulaContext.create({ $state: { result: 0 } })
+
+    const result = RetentionResolver.resolve(hostNode, context, projectNode)
+
+    expect(result.error?.message).toContain(
+      "State '$state.result' cannot be updated during retention evaluation",
+    )
+    expect(context.$state.result).toBe(0)
+  })
+
+  it('rejects deep and aliased State updates', () => {
+    const hostNode = host([
+      node({
+        kind: 'variable', id: 'data', binding: 'const',
+        typeSetting: { type: 'inferred' }, source: '$state.data',
+      }),
+      node({ kind: 'action', comment: '', source: '$var.data.count += 1' }),
+    ])
+    const state = { data: { count: 1 } }
+
+    const result = RetentionResolver.resolve(
+      hostNode,
+      FormulaContext.create({ $state: state }),
+      node({ kind: 'project' }),
+    )
+
+    expect(result.error?.message).toContain("State '$state.data.count'")
+    expect(state.data.count).toBe(1)
+  })
+
+  it('rejects State writes in Retention Variable formulas', () => {
+    const hostNode = host([node({
+      kind: 'variable', id: 'result', binding: 'const',
+      typeSetting: { type: 'inferred' }, source: '($state.result = 1)',
+    })])
+    const state = { result: 0 }
+
+    const result = RetentionResolver.resolve(
+      hostNode,
+      FormulaContext.create({ $state: state }),
+      node({ kind: 'project' }),
+    )
+
+    expect(result.error?.message).toContain("State '$state.result'")
+    expect(state.result).toBe(0)
   })
 })

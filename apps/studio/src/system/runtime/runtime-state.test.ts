@@ -4,6 +4,8 @@ import TypeExpression from '@system/model/type-system/type-expression'
 import type TreeNode from '@system/model/tree/tree-node'
 import RuntimeState from './runtime-state'
 import RuntimeStateDependency from './runtime-state-dependency'
+import ExecutionPolicy from './execution-policy'
+import StateView from './state/state-view'
 import type RuntimeTree from './runtime-tree'
 
 let nextNodeId = 1
@@ -197,5 +199,54 @@ describe('RuntimeState', () => {
     expect(writes.flat()).toContain(parentRead.dependencies[0])
     expect((appState.obj as { text: string }).text).toBe('changed')
     expect((parentState.obj as { text: string }).text).toBe('changed')
+  })
+
+  it('applies the same State policy to local and inherited Component State', () => {
+    const projectNode = node({ kind: 'project' })
+    const appNode = node({ kind: 'app', appId: 'app-id', id: 'app' })
+    const appStateNode = node({
+      kind: 'state', id: 'appValue',
+      valueType: TypeExpression.createPrimitive('number'),
+      nullable: false,
+      initial: { type: 'literal', value: '1' },
+    })
+    const localStateNode = node({
+      kind: 'state', id: 'localValue',
+      valueType: TypeExpression.createPrimitive('number'),
+      nullable: false,
+      initial: { type: 'literal', value: '2' },
+    })
+    const runtime: RuntimeTree.AppRuntime = {
+      projectNode,
+      appNode,
+      entryNode: null,
+      stateNodes: [appStateNode],
+      componentNodes: [],
+      styleNodes: [],
+    }
+    const appState = RuntimeState.createState(runtime)
+    const componentState = RuntimeState.createComponentState(
+      projectNode,
+      appState,
+      [localStateNode],
+    )
+    const guarded = StateView.create(
+      componentState,
+      ExecutionPolicy.create('readonly', 'retention', 1),
+    )
+
+    expect(() => { guarded.appValue = 3 }).toThrow('cannot be updated')
+    expect(() => { guarded.localValue = 4 }).toThrow('cannot be updated')
+    expect(appState.appValue).toBe(1)
+    expect(componentState.localValue).toBe(2)
+
+    const writable = StateView.create(
+      guarded,
+      ExecutionPolicy.create('mutable', 'event', 2),
+    )
+    writable.appValue = 3
+    writable.localValue = 4
+    expect(appState.appValue).toBe(3)
+    expect(componentState.localValue).toBe(4)
   })
 })

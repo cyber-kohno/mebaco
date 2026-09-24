@@ -1,5 +1,8 @@
 import type ScriptError from '../script/script-error'
 import RuntimeLog from '../log/runtime-log'
+import ExecutionPolicy from '../execution-policy'
+import StateView from '../state/state-view'
+import VariableFrame from '../variable/variable-frame'
 
 namespace FormulaContext {
   export type ErrorReporter = (
@@ -50,6 +53,7 @@ namespace FormulaContext {
     reportError?: ErrorReporter
     requestRender?: () => void
     logSession: RuntimeLog.Session
+    executionPolicy: ExecutionPolicy.Value
   }
 
   export type CreateOptions = Partial<Value>
@@ -76,10 +80,11 @@ namespace FormulaContext {
     options: CreateOptions = {},
   ): Value => {
     const logSession = options.logSession ?? RuntimeLog.noOutputSession
+    const executionPolicy = options.executionPolicy ?? ExecutionPolicy.mutable
     return {
       $args: options.$args ?? {},
       $launch: options.$launch ?? {},
-      $state: options.$state ?? {},
+      $state: StateView.create(options.$state ?? {}, executionPolicy),
       $const: options.$const ?? Object.freeze(Object.create(null)) as Readonly<Record<string, unknown>>,
       $param: options.$param ?? {},
       $local: options.$local ?? {},
@@ -98,15 +103,29 @@ namespace FormulaContext {
       reportError: options.reportError,
       requestRender: options.requestRender,
       logSession,
+      executionPolicy,
     }
   }
 
   export const forNode = (
     context: Value,
     nodeId: number,
-  ): Value => create({
+  ): Value => ({
     ...context,
     $log: context.logSession.forNode(nodeId),
+    executionPolicy: ExecutionPolicy.forNode(context.executionPolicy, nodeId),
+  })
+
+  export const withExecutionPolicy = (
+    context: Value,
+    executionPolicy: ExecutionPolicy.Value,
+  ): Value => create({
+    ...context,
+    $args: StateView.rebindNamespace(context.$args, executionPolicy),
+    $props: StateView.rebindNamespace(context.$props, executionPolicy),
+    $var: VariableFrame.rebindStateViews(context.$var, executionPolicy),
+    $local: StateView.rebindNamespace(context.$local, executionPolicy),
+    executionPolicy,
   })
 
   export const createEmpty = (): Value => create()

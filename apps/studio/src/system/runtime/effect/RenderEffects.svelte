@@ -13,6 +13,7 @@
     renderRevision: number
     trackStateDependencies: RuntimeStateDependency.Tracker
     setActionError: (nodeId: number, error: ScriptError.Value | null) => void
+    projectNode: TreeNode.Node
   }
 
   let {
@@ -21,6 +22,7 @@
     renderRevision,
     trackStateDependencies,
     setActionError,
+    projectNode,
   }: Props = $props()
 
   const guard = EffectRuntimeGuard.create()
@@ -42,5 +44,6 @@
     {trackStateDependencies}
     {setActionError}
     {guard}
+    {projectNode}
   />
 {/each}

@@ -15,8 +15,19 @@ import FunctionDefinition from '@system/model/function/function-definition'
 import TransitionExecutor from '../transition/transition-executor'
 import FunctionCodeEvaluator from './function-code-evaluator'
 import RuntimeRefRegistry from '../ref/runtime-ref-registry'
+import StateView from '../state/state-view'
 
 namespace FunctionRunner {
+  type RuntimeFunction = (...args: unknown[]) => unknown
+
+  type FunctionBinding = {
+    entry: FunctionScope.Entry
+    definitionContext: FormulaContext.Value
+    projectNode: TreeNode.Node
+  }
+
+  const functionBindings = new WeakMap<RuntimeFunction, FunctionBinding>()
+
   export type Success = {
     ok: true
     value: unknown
@@ -505,22 +516,55 @@ namespace FunctionRunner {
     projectNode: TreeNode.Node,
     targetNodeId: number,
     definitionContext: FormulaContext.Value,
-  ): Record<string, (...args: unknown[]) => unknown> => {
-    const namespace: Record<string, (...args: unknown[]) => unknown> = {
-      ...definitionContext.$fn as Record<string, (...args: unknown[]) => unknown>,
-    }
-    FunctionScope.collectDefinedFunctions(projectNode, targetNodeId).forEach((entry) => {
-      namespace[entry.element.id] = FunctionDefinition.getAsync(projectNode, entry.element)
+    invocationContext: FormulaContext.Value = definitionContext,
+  ): Record<string, RuntimeFunction> => {
+    const createFunction = (
+      binding: FunctionBinding,
+    ): RuntimeFunction => {
+      const runtimeFunction: RuntimeFunction = FunctionDefinition.getAsync(
+        binding.projectNode,
+        binding.entry.element,
+      )
         ? async (...args: unknown[]) => {
-            const result = await runAsync(entry.node, args, definitionContext, projectNode)
-            if (!result.ok) throw new Error(result.error.message)
+            const result = await runAsync(
+              binding.entry.node,
+              args,
+              binding.definitionContext,
+              binding.projectNode,
+              invocationContext,
+            )
+            if (!result.ok) throw ScriptErrorValue.toError(result.error)
             return result.value
           }
         : (...args: unknown[]) => {
-            const result = run(entry.node, args, definitionContext, projectNode)
-            if (!result.ok) throw new Error(result.error.message)
+            const result = run(
+              binding.entry.node,
+              args,
+              binding.definitionContext,
+              binding.projectNode,
+              invocationContext,
+            )
+            if (!result.ok) throw ScriptErrorValue.toError(result.error)
             return result.value
           }
+      functionBindings.set(runtimeFunction, binding)
+      return runtimeFunction
+    }
+
+    const namespace: Record<string, RuntimeFunction> = {}
+    Object.entries(definitionContext.$fn).forEach(([id, value]) => {
+      if (typeof value !== 'function') return
+      const binding = functionBindings.get(value as RuntimeFunction)
+      namespace[id] = binding == null
+        ? value as RuntimeFunction
+        : createFunction(binding)
+    })
+    FunctionScope.collectDefinedFunctions(projectNode, targetNodeId).forEach((entry) => {
+      namespace[entry.element.id] = createFunction({
+        entry,
+        definitionContext,
+        projectNode,
+      })
     })
     return namespace
   }
@@ -553,6 +597,7 @@ namespace FunctionRunner {
     argumentValues: readonly unknown[],
     definitionContext: FormulaContext.Value,
     projectNode: TreeNode.Node,
+    invocationContext: FormulaContext.Value = definitionContext,
   ): Result => {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
@@ -571,10 +616,13 @@ namespace FunctionRunner {
     const args = Object.fromEntries(parameters.map((parameter, index) => (
       [parameter.id, argumentValues[index]]
     )))
-    const frame = VariableFrame.createLinked(definitionContext.$var)
+    const frame = VariableFrame.createLinked(VariableFrame.rebindStateViews(
+      definitionContext.$var,
+      invocationContext.executionPolicy,
+    ))
     const context = FormulaContextValue.create({
-      ...definitionContext,
-      $args: args,
+      ...invocationContext,
+      $args: StateView.rebindNamespace(args, invocationContext.executionPolicy),
       $var: frame.values,
       $fn: definitionContext.$fn,
     })
@@ -621,12 +669,19 @@ namespace FunctionRunner {
     argumentValues: readonly unknown[],
     definitionContext: FormulaContext.Value,
     projectNode: TreeNode.Node,
+    invocationContext: FormulaContext.Value = definitionContext,
   ): Promise<Result> => {
     if (functionNode.element.kind !== 'function') {
       return failure(functionNode.id, 'The target node is not a Function.')
     }
     if (!FunctionDefinition.getAsync(projectNode, functionNode.element)) {
-      return run(functionNode, argumentValues, definitionContext, projectNode)
+      return run(
+        functionNode,
+        argumentValues,
+        definitionContext,
+        projectNode,
+        invocationContext,
+      )
     }
     if (FunctionDefinition.resolveSignature(projectNode, functionNode.element) == null) {
       return failure(functionNode.id, `Function '${functionNode.element.id}' has no valid Signature.`)
@@ -639,10 +694,13 @@ namespace FunctionRunner {
     const args = Object.fromEntries(parameters.map((parameter, index) => (
       [parameter.id, argumentValues[index]]
     )))
-    const frame = VariableFrame.createLinked(definitionContext.$var)
+    const frame = VariableFrame.createLinked(VariableFrame.rebindStateViews(
+      definitionContext.$var,
+      invocationContext.executionPolicy,
+    ))
     const context = FormulaContextValue.create({
-      ...definitionContext,
-      $args: args,
+      ...invocationContext,
+      $args: StateView.rebindNamespace(args, invocationContext.executionPolicy),
       $var: frame.values,
       $fn: definitionContext.$fn,
     })

@@ -486,6 +486,51 @@ describe('MebacoInjectionSource Loop variables', () => {
     expect(source).toContain('label: string;')
   })
 
+  it('injects deeply readonly State inside Retention but not inside a Function', () => {
+    const retentionAction = node(8, { kind: 'action', comment: '', source: '' })
+    const functionAction = node(12, { kind: 'action', comment: '', source: '' })
+    const functionNode = node(9, inlineFunction('update'), [
+      node(10, { kind: 'function-procedure' }, [functionAction]),
+    ])
+    const retentionNode = node(7, { kind: 'retention' }, [
+      retentionAction,
+      functionNode,
+    ])
+    const rootNode = node(1, { kind: 'project' }, [
+      node(2, {
+        kind: 'state',
+        id: 'data',
+        valueType: TypeExpression.createObject([
+          TypeExpression.createProperty(
+            'count',
+            TypeExpression.createPrimitive('number'),
+          ),
+        ]),
+        nullable: false,
+        initial: { type: 'default' },
+      }),
+      retentionNode,
+    ])
+
+    const retentionSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      retentionAction.id,
+      'action',
+    )
+    const functionSource = MebacoInjectionSource.createForNode(
+      rootNode,
+      functionAction.id,
+      'action',
+    )
+
+    expect(retentionSource).toContain('type $MebacoDeepReadonly<T> =')
+    expect(retentionSource).toContain(
+      'declare var $state: $MebacoDeepReadonly<{',
+    )
+    expect(functionSource).not.toContain('$MebacoDeepReadonly')
+    expect(functionSource).toContain('declare var $state: {')
+  })
+
   it('only exposes earlier Variables while editing a Retention child', () => {
     const first = node(3, {
       kind: 'variable', id: 'first', binding: 'const',
