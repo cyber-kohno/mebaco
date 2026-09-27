@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   cancelInteraction: vi.fn(),
   returnToDestinationSelection: vi.fn(),
   launchAppShortcut: vi.fn(),
+  undo: vi.fn(),
+  redo: vi.fn(),
 }))
 
 vi.mock('svelte/store', () => ({
@@ -78,6 +80,9 @@ vi.mock('../../project/project-file', () => ({
 vi.mock('../../project/project-session-store', () => ({
   default: { store: mocks.projectSessionStore },
 }))
+vi.mock('@system/workspace/history/controller', () => ({
+  EditHistoryController: { undo: mocks.undo, redo: mocks.redo },
+}))
 vi.mock('@system/workspace/tree/state', () => ({
   default: {
     rootNode: mocks.rootNodeStore,
@@ -125,6 +130,8 @@ describe('AppKeyboardController blocking layers', () => {
     mocks.openElementSearch.mockClear()
     mocks.cancelInteraction.mockClear()
     mocks.returnToDestinationSelection.mockClear()
+    mocks.undo.mockClear()
+    mocks.redo.mockClear()
     mocks.appAreaStore.value = 'develop'
     mocks.developScreenStore.value = 'workspace'
     mocks.developInteractionStore.value = { type: 'normal' }
@@ -230,6 +237,32 @@ describe('AppKeyboardController blocking layers', () => {
     } as unknown as KeyboardEvent)
 
     expect(mocks.saveWithAlert).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['z', mocks.undo],
+    ['y', mocks.redo],
+  ])('runs edit history for Ctrl+%s', (key, operation) => {
+    vi.stubGlobal('HTMLElement', class HTMLElement {})
+    mocks.elementDialogStore.value = null
+    const event = {
+      defaultPrevented: false,
+      key,
+      ctrlKey: true,
+      altKey: false,
+      metaKey: false,
+      shiftKey: false,
+      repeat: false,
+      target: null,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as KeyboardEvent
+
+    AppKeyboardController.handleKeydown(event)
+
+    expect(operation).toHaveBeenCalledOnce()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopPropagation).toHaveBeenCalledOnce()
   })
 
   it.each([

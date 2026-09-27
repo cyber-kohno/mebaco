@@ -47,6 +47,7 @@ namespace ReferenceGraph {
 
   export type Snapshot = {
     select: (selectedNodeId: number) => Result
+    semanticDependencies: () => readonly SemanticDependency[]
   }
 
   type Target = {
@@ -863,12 +864,7 @@ namespace ReferenceGraph {
 
   export const collectSemanticDependencies = (
     rootNode: TreeNode.Node,
-  ): readonly SemanticDependency[] => [...collectEdges(rootNode).dependencies]
-    .sort((left, right) => left.sourceNodeId - right.sourceNodeId
-      || left.sourceLabel.localeCompare(right.sourceLabel)
-      || left.sourceType.localeCompare(right.sourceType)
-      || left.targetNodeId - right.targetNodeId
-      || left.targetLabel.localeCompare(right.targetLabel))
+  ): readonly SemanticDependency[] => createSnapshot(rootNode).semanticDependencies()
 
   const selectFromEdges = (
     rootNode: TreeNode.Node,
@@ -925,6 +921,12 @@ namespace ReferenceGraph {
         results.set(selectedNodeId, result)
         return result
       },
+      semanticDependencies: () => [...edges.dependencies]
+        .sort((left, right) => left.sourceNodeId - right.sourceNodeId
+          || left.sourceLabel.localeCompare(right.sourceLabel)
+          || left.sourceType.localeCompare(right.sourceType)
+          || left.targetNodeId - right.targetNodeId
+          || left.targetLabel.localeCompare(right.targetLabel)),
     }
   }
 

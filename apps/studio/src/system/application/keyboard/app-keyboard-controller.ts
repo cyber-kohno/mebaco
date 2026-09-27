@@ -28,6 +28,7 @@ import { ShortcutRegistry } from '@system/workspace/shortcut/registry'
 import DebugLaunchShortcutController from '@system/application/debug/debug-launch-shortcut-controller'
 import ProjectFile from '../../project/project-file'
 import ProjectSession from '../../project/project-session-store'
+import { EditHistoryController } from '@system/workspace/history/controller'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -127,6 +128,26 @@ namespace AppKeyboardController {
         && get(ProjectSession.store).isDirty
       ) {
         void ProjectFile.saveWithAlert()
+      }
+      return
+    }
+    if (
+      ['z', 'y'].includes(event.key.toLowerCase())
+      && event.ctrlKey
+      && !event.altKey
+      && !event.metaKey
+      && !event.shiftKey
+    ) {
+      if (
+        !event.repeat
+        && interaction.type === 'normal'
+        && !hasBlockingLayer()
+        && !isEditableTarget(event.target)
+      ) {
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.key.toLowerCase() === 'z') void EditHistoryController.undo()
+        else void EditHistoryController.redo()
       }
       return
     }

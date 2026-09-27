@@ -32,6 +32,9 @@
   } from '@system/client'
   import TauriClientLaunch from './infra/tauri/client-launch'
   import DirectRuntimeRoot from './runtime/view/DirectRuntimeRoot.svelte'
+  import McpToolHandler from './mcp/mcp-tool-handler'
+  import McpExitGuard from './mcp/mcp-exit-guard'
+  import { EditHistoryController } from '@system/workspace/history/controller'
 
   type RootMode = 'loading' | 'studio' | 'runtime' | 'direct-error'
   let rootMode = $state<RootMode>('loading')
@@ -114,14 +117,25 @@
     })
     const unsubscribeTitle = WindowTitle.subscribe()
     const unsubscribeInteraction = DevelopInteractionController.connectTreeLifecycle()
+    const unsubscribeEditHistory = EditHistoryController.connect()
     let isClosing = false
     let unlistenClose: (() => void) | undefined
+    let unlistenMcp: (() => void) | undefined
+
+    void McpToolHandler.connect().then((unlisten) => {
+      unlistenMcp = unlisten
+    }).catch(() => undefined)
 
     try {
       void TauriWindow.onCloseRequested(async (event) => {
-        if (isClosing || !ProjectGuard.isDirty()) return
+        if (isClosing) return
 
-        if (!await ProjectGuard.confirmDiscard()) {
+        if (ProjectGuard.isDirty() && !await ProjectGuard.confirmDiscard()) {
+          event.preventDefault()
+          return
+        }
+
+        if (!await McpExitGuard.stopBeforeExit()) {
           event.preventDefault()
           return
         }
@@ -140,7 +154,9 @@
       unsubscribeRoot()
       unsubscribeTitle()
       unsubscribeInteraction()
+      unsubscribeEditHistory()
       unlistenClose?.()
+      unlistenMcp?.()
     }
   })
 

@@ -4,9 +4,11 @@
   import { ClientOperations } from '@system/client/operations'
   import { appAreaStore } from '@system/application/navigation'
   import { translatorStore } from '@system/application/localization'
+  import McpStatusBadge from '@system/mcp/McpStatusBadge.svelte'
 </script>
 
 <nav class="operations" aria-label={$translatorStore('shell.operations.label')}>
+  <McpStatusBadge />
   {#if $appAreaStore === 'client'}
     <ClientOperations />
   {:else if $appAreaStore === 'develop'}

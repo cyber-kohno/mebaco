@@ -1,6 +1,8 @@
 use tauri::{webview::PageLoadEvent, Manager};
 
 mod client_launch;
+mod edit_history;
+mod mcp;
 mod resource;
 mod storage;
 
@@ -14,10 +16,21 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        .manage(edit_history::EditHistory::default())
         .manage(resource::ResourceSessions::default())
+        .manage(mcp::McpSessions::default())
         .invoke_handler(tauri::generate_handler![
             client_launch::client_get_startup_launch_request,
             client_launch::client_create_launcher_shortcut,
+            edit_history::edit_history_record,
+            edit_history::edit_history_undo,
+            edit_history::edit_history_redo,
+            edit_history::edit_history_clear,
+            edit_history::edit_history_status,
+            mcp::session::mcp_start_session,
+            mcp::session::mcp_stop_session,
+            mcp::session::mcp_probe_session,
+            mcp::bridge::mcp_respond,
             resource::resource_create_session,
             resource::resource_dispose_session,
             resource::resource_validate_path,

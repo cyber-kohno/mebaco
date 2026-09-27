@@ -4,6 +4,7 @@ import createSaveCatalog from '../catalog/save-catalog'
 import createVerifyCatalog from '../catalog/verify-catalog'
 import createReleaseCatalog from '../catalog/release-catalog'
 import createBuildCatalog from '../catalog/build-catalog'
+import createMcpCatalog from '../catalog/mcp-catalog'
 
 const createProjectProvider = () => ({
   getCatalogs: (_context: CommandContext): CommandDefinition[] => [
@@ -12,6 +13,7 @@ const createProjectProvider = () => ({
     createVerifyCatalog(),
     createBuildCatalog(),
     createReleaseCatalog(),
+    createMcpCatalog(),
   ],
 })
 
