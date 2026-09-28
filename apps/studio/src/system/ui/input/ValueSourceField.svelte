@@ -71,10 +71,6 @@
   $effect(() => {
     if (literalOnly && source.type === 'formula') {
       emit(ValueSource.createDefault())
-      return
-    }
-    if (!literalAvailable && source.type === 'literal') {
-      emit(ValueSource.createDefault())
     }
   })
 
@@ -159,6 +155,7 @@
         <input
           type={resolvedValueType === 'number' ? 'number' : 'text'}
           value={source.value}
+          readonly={!literalAvailable}
           aria-label="Literal value"
           oninput={(event) => emit({ type: 'literal', value: event.currentTarget.value })}
         />
