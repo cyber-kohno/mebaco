@@ -29,6 +29,22 @@ const treeStore = vi.hoisted(() => {
   const transformNode = vi.fn((nodeId: number, transform: (node: Record<string, any>, createNode: unknown) => boolean) => (
     nodeId === rootNode.value.id ? transform(rootNode.value, createNode) : false
   ))
+  const findNode = (node: Record<string, any>, nodeId: number): Record<string, any> | null => {
+    if (node.id === nodeId) return node
+    for (const child of node.children) {
+      const found = findNode(child, nodeId)
+      if (found != null) return found
+    }
+    return null
+  }
+  const addChildAndGetId = vi.fn((parentNodeId: number, element: Record<string, any>, index?: number) => {
+    const parent = findNode(rootNode.value, parentNodeId)
+    if (parent == null) throw new Error(`Parent node ${parentNodeId} was not found.`)
+    const child = createNode({ element })
+    if (index == null) parent.children.push(child)
+    else parent.children.splice(index, 0, child)
+    return child.id
+  })
   const transaction = vi.fn((options: { expectedRevision?: number }, callback: () => unknown) => {
     if (options.expectedRevision != null && options.expectedRevision !== revision.value) {
       throw new RevisionConflictError(options.expectedRevision, revision.value)
@@ -46,6 +62,7 @@ const treeStore = vi.hoisted(() => {
     onLifecycle: vi.fn(() => vi.fn()),
     transaction,
     transformNode,
+    addChildAndGetId,
     RevisionConflictError,
     resetNodeIds: () => { nextNodeId = 10 },
   }
@@ -348,6 +365,104 @@ describe('McpToolHandler', () => {
       error: expect.objectContaining({
         code: 'EDIT_NOT_SUPPORTED',
         message: expect.stringContaining('must be empty before it can be removed'),
+      }),
+    })
+  })
+
+  it('creates the initial supported Retention declarations through applyChanges', async () => {
+    treeStore.rootNode.value = {
+      id: 1,
+      element: { kind: 'component', id: 'Main', componentId: 'main' },
+      children: [{ id: 2, element: { kind: 'retention' }, children: [], isOpen: true }],
+      isOpen: true,
+    }
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-retention-create',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        operations: [
+          { type: 'createVariable', parentNodeId: 2, id: 'count', source: '0' },
+          { type: 'createAction', parentNodeId: 2, comment: 'initialize', source: '' },
+          { type: 'createFunction', parentNodeId: 2, id: 'format', implementationMode: 'code', source: 'return String(value)' },
+          { type: 'createLocalComponent', parentNodeId: 2, id: 'Item' },
+        ],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children[0].children.map((node: Record<string, any>) => node.element.kind)).toEqual([
+      'variable', 'action', 'function', 'component',
+    ])
+    expect(treeStore.rootNode.value.children[0].children[3].element).toEqual(expect.objectContaining({
+      id: 'Item', local: true,
+    }))
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-retention-create',
+      result: expect.objectContaining({ changed: true, previousRevision: 0, revision: 1 }),
+    })
+  })
+
+  it('rejects Retention declarations outside Retention and rolls back the transaction', async () => {
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-retention-invalid-parent',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        operations: [{ type: 'createVariable', parentNodeId: 1, id: 'count', source: '0' }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children).toHaveLength(0)
+    expect(treeStore.revision.value).toBe(0)
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-retention-invalid-parent',
+      error: expect.objectContaining({ code: 'EDIT_NOT_SUPPORTED' }),
+    })
+  })
+
+  it('rejects rendered nodes in Retention', async () => {
+    treeStore.rootNode.value = {
+      id: 1,
+      element: { kind: 'component', id: 'Main', componentId: 'main' },
+      children: [{ id: 2, element: { kind: 'retention' }, children: [], isOpen: true }],
+      isOpen: true,
+    }
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-retention-rendered-node',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        operations: [{ type: 'insertNode', parentNodeId: 2, kind: 'text', value: 'invalid' }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children[0].children).toHaveLength(0)
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-retention-rendered-node',
+      error: expect.objectContaining({
+        code: 'EDIT_NOT_SUPPORTED',
+        message: expect.stringContaining('paired Elements branch'),
       }),
     })
   })

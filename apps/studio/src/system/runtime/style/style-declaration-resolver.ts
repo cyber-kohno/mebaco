@@ -12,6 +12,7 @@ import type ScriptError from '../script/script-error'
 import TypeValue from '../type-value'
 import VariableFrame from '../variable/variable-frame'
 import TypeScript from 'typescript'
+import { MebacoInjectionSource } from '@system/model/code-analysis/source'
 
 namespace StyleDeclarationResolver {
   export type DeclarationSource = {
@@ -88,6 +89,7 @@ namespace StyleDeclarationResolver {
   type StyleRecord = {
     element: StyleElement.Element
     parameters: Map<string, StyleParamElement.Element>
+    visibleVariableIds: readonly string[]
     locals: readonly TreeNode.Node[]
     keyframes: ReadonlyMap<string, StyleKeyframesElement.Element>
   }
@@ -218,10 +220,24 @@ namespace StyleDeclarationResolver {
   const createFormulaContext = (
     context: FormulaContext.Value,
     parameters: Readonly<Record<string, unknown>>,
+    visibleVariableIds: readonly string[],
   ): FormulaContext.Value => FormulaContext.create({
     ...context,
     $param: { ...parameters },
     $local: {},
+    $var: new Proxy(
+      Object.fromEntries(visibleVariableIds
+        .filter((id) => id in context.$var)
+        .map((id) => [id, context.$var[id]])),
+      {
+        get: (target, property, receiver) => {
+          if (typeof property === 'string' && !Object.prototype.hasOwnProperty.call(target, property)) {
+            throw new ReferenceError(`Variable '${property}' is not in scope for this Style.`)
+          }
+          return Reflect.get(target, property, receiver)
+        },
+      },
+    ),
   })
 
   const resolveLocals = (
@@ -423,6 +439,7 @@ namespace StyleDeclarationResolver {
         records.set(node.element.styleId, {
           element: node.element,
           parameters: collectParameters(node),
+          visibleVariableIds: MebacoInjectionSource.collectVisibleVariableIds(rootNode, node.id),
           locals: collectLocals(node),
           keyframes: collectKeyframes(node),
         })
@@ -468,7 +485,11 @@ namespace StyleDeclarationResolver {
         }
       }
 
-      const parameterContext = createFormulaContext(globalContext, parameters)
+      const parameterContext = createFormulaContext(
+        globalContext,
+        parameters,
+        record.visibleVariableIds,
+      )
       const declarations: Declaration[] = []
       const errors: Error[] = []
       const keyframes: KeyframesDefinition[] = []

@@ -70,6 +70,31 @@ describe('runtime StyleDeclarationResolver', () => {
     })
   })
 
+  it('rejects runtime variables that are not visible at the Style definition site', () => {
+    const style = StyleFixture.style('global', {
+      rules: [StyleFixture.formula(
+        'background-color',
+        "$var.index % 2 === 0 ? '#ffffff' : '#f3f4f6'",
+      )],
+    })
+    const result = StyleDeclarationResolver
+      .createCatalog(StyleFixture.project([style]))
+      .resolve(
+        [StyleFixture.application('global')],
+        FormulaContext.create({ $var: { index: 0 } }),
+      )
+
+    expect(result.declarations).toEqual([])
+    expect(result.errors).toMatchObject([{
+      type: 'formula',
+      message: "Failed to evaluate 'background-color' in style 'global'.",
+      scriptError: {
+        stage: 'runtime',
+        message: "Variable 'index' is not in scope for this Style.",
+      },
+    }])
+  })
+
   it('compiles multiple local Keyframes references and animation longhands', () => {
     const fade = StyleKeyframesElement.create('fade', [], 'keyframes:fade')
     const from = StyleKeyframesElement.createFrame(0)

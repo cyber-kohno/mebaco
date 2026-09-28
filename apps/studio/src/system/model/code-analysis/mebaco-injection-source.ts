@@ -60,6 +60,43 @@ namespace MebacoInjectionSource {
     return null
   }
 
+  /** Runtime consumers such as Style evaluation must enforce the same lexical `$var` names as verification. */
+  export const collectVisibleVariableIds = (
+    rootNode: TreeNode.Node,
+    targetNodeId: number,
+    includeTargetScope = false,
+  ): string[] => {
+    const path = findPath(rootNode, targetNodeId) ?? []
+    const ids = new Set<string>()
+
+    path.forEach((node, index) => {
+      const isTarget = index === path.length - 1
+      const nextNode = path[index + 1]
+
+      if (node.element.kind === 'promise-catch' && (!isTarget || includeTargetScope)) {
+        ids.add(node.element.id)
+      }
+      if (node.element.kind === 'loop' && (!isTarget || includeTargetScope)) {
+        if (node.element.mode === 'collection') ids.add(node.element.itemId)
+        ids.add(node.element.indexId)
+      }
+
+      const retentionNode = ContentHost.getRetentionNode(node)
+      const elementsNode = ContentHost.getElementsNode(node)
+      if (retentionNode != null && nextNode === elementsNode) {
+        SequentialVariableScope.collectDeclarations(retentionNode.children)
+          .forEach(({ element }) => ids.add(element.id))
+      }
+      SequentialVariableScope.collectPrecedingDeclarations(
+        node,
+        nextNode,
+        isTarget && includeTargetScope,
+      ).forEach(({ element }) => ids.add(element.id))
+    })
+
+    return [...ids]
+  }
+
   const findOwnerApp = (
     node: TreeNode.Node,
     targetNodeId: number,

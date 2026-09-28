@@ -17,12 +17,136 @@ import ResolvableValue from '@system/model/value/resolvable-value'
 import App from '@system/model/app/app'
 import Component from '@system/model/component/component'
 import Style from '@system/model/view/style/style'
+import StyleParams from '@system/model/view/style/style-params'
+import StyleParam from '@system/model/view/style/style-param'
+import StyleParameterCatalog from '@system/model/view/style/style-parameter-catalog'
+import StyleArgumentContract from '@system/model/view/style/style-argument-contract'
+import StyleParameterValue from '@system/model/view/style/style-parameter-value'
 import State from '@system/model/variable/state'
 import Loop from '@system/model/directive/loop'
 import ToastController from '@system/ui/feedback/toast/toast-controller'
 import ContentHost from '@system/model/element/content-host'
+import Variable from '@system/model/variable/variable'
+import Action from '@system/model/variable/action'
+import FunctionDefinition from '@system/model/function/function-definition'
+import FunctionScope from '@system/model/function/function-scope'
+import TypeCatalog from '@system/model/type-system/type-catalog'
+import ObjectShape from '@system/model/type-system/object/object-shape'
+import ObjectType from '@system/model/type-system/object/object-type'
+import UnionDefinition from '@system/model/type-system/union/union-definition'
+import UnionType from '@system/model/type-system/union/union-type'
+import SignatureDefinition from '@system/model/type-system/signature/signature-definition'
+import SignatureType from '@system/model/type-system/signature/signature-type'
+import ControlConditional from '@system/model/directive/control-conditional'
+import ControlSwitch from '@system/model/directive/control-switch'
+import Switch from '@system/model/directive/switch'
+import SwitchValueType from '@system/model/directive/switch-value-type'
+import Transition from '@system/model/variable/transition'
+import Block from '@system/model/block/block'
+import { ExpressionSourceCatalog } from '@system/model/validation/expression/source-catalog'
+import { ExpressionVerificationRunner } from '@system/application/validation/expression'
 
 namespace McpToolHandler {
+  const identifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/
+
+  const getRetentionFrame = (
+    rootNode: TreeNode.Node,
+    parentNodeId: number,
+  ): TreeNode.Node | null => {
+    const path = FunctionScope.findPath(rootNode, parentNodeId) ?? []
+    const parent = path[path.length - 1]
+    if (parent?.element.kind === 'retention') return parent
+    if (parent?.element.kind !== 'block') return null
+    return [...path].reverse().find((node) => node.element.kind === 'retention') ?? null
+  }
+
+  const requireRetentionParent = (
+    rootNode: TreeNode.Node,
+    parentNodeId: unknown,
+  ): { parent: TreeNode.Node; frame: TreeNode.Node } => {
+    if (typeof parentNodeId !== 'number' || !Number.isInteger(parentNodeId)) {
+      throw new Error('A Retention parentNodeId is required.')
+    }
+    const parent = TreeNode.findNode(rootNode, parentNodeId)
+    const frame = getRetentionFrame(rootNode, parentNodeId)
+    if (parent == null || frame == null) {
+      throw new Error(`Node ${parentNodeId} is not a Retention or a Block inside Retention.`)
+    }
+    return { parent, frame }
+  }
+
+  const requireUniqueFrameId = (
+    frame: TreeNode.Node,
+    kind: 'variable' | 'function',
+    id: string,
+  ) => {
+    const entries = kind === 'variable'
+      ? FunctionScope.collectFrameVariables(frame)
+      : FunctionScope.collectFrameFunctions(frame)
+    if (entries.some((entry) => entry.element.id === id)) {
+      throw new Error(`${kind === 'variable' ? 'Variable' : 'Function'} '${id}' is already declared in this Retention scope.`)
+    }
+  }
+
+  const requireUniqueNamedTypeId = (
+    rootNode: TreeNode.Node,
+    parentNodeId: number,
+    id: string,
+  ) => {
+    const duplicate = TypeCatalog.collectVisibleNamedTypes(rootNode, parentNodeId)
+      .some((entry) => entry.element.id === id)
+    if (duplicate) throw new Error(`Named type '${id}' is already declared in this scope.`)
+  }
+
+  const collectFrameStyles = (frame: TreeNode.Node): TreeNode.Node[] => {
+    const styles: TreeNode.Node[] = []
+    const visit = (node: TreeNode.Node) => node.children.forEach((child) => {
+      if (child.element.kind === 'style') styles.push(child)
+      else if (child.element.kind === 'block') visit(child)
+    })
+    visit(frame)
+    return styles
+  }
+
+  const findStyleById = (rootNode: TreeNode.Node, styleId: string): TreeNode.Node | null => {
+    if (rootNode.element.kind === 'style' && rootNode.element.styleId === styleId) return rootNode
+    for (const child of rootNode.children) {
+      const found = findStyleById(child, styleId)
+      if (found != null) return found
+    }
+    return null
+  }
+
+  const parseStyleArguments = (value: unknown): Style.Argument[] | null => {
+    if (!Array.isArray(value)) return null
+    const parsed: Style.Argument[] = []
+    for (const item of value) {
+      if (item == null || typeof item !== 'object') return null
+      const candidate = item as Record<string, unknown>
+      if (typeof candidate.parameterId !== 'string' || candidate.binding == null || typeof candidate.binding !== 'object') return null
+      const binding = candidate.binding as Record<string, unknown>
+      if (binding.type === 'default') {
+        parsed.push({ parameterId: candidate.parameterId, binding: { type: 'default' } })
+      } else if (binding.type === 'value' && binding.value != null && typeof binding.value === 'object') {
+        const parameterValue = binding.value as Record<string, unknown>
+        if (parameterValue.type === 'formula' && typeof parameterValue.source === 'string' && parameterValue.source.trim() !== '' && parameterValue.source.length <= 8000) {
+          parsed.push({ parameterId: candidate.parameterId, binding: { type: 'value', value: { type: 'formula', source: parameterValue.source } } })
+        } else if (parameterValue.type === 'literal' && ['string', 'number', 'boolean'].includes(typeof parameterValue.value) && !(typeof parameterValue.value === 'number' && !Number.isFinite(parameterValue.value))) {
+          parsed.push({ parameterId: candidate.parameterId, binding: { type: 'value', value: { type: 'literal', value: parameterValue.value as string | number | boolean } } })
+        } else return null
+      } else return null
+    }
+    return parsed
+  }
+
+  const parseStyleValue = (value: unknown): Style.StyleValue | null => {
+    if (typeof value === 'string') return ResolvableValue.createLiteral(value)
+    const parsed = ResolvableValue.parse(value, (candidate): candidate is string => typeof candidate === 'string')
+    if (parsed == null) return null
+    if (parsed.type === 'formula' && (parsed.source.trim() === '' || parsed.source.length > 8000)) return null
+    return parsed
+  }
+
   const isOptionalRetentionHost = (node: TreeNode.Node): boolean => {
     if (node.element.kind === 'tag' && !HtmlTag.canHaveChildren(node.element.tagName)) return false
     return ElementRegistry.get(node.element.kind).contentHost?.retention === 'optional'
@@ -223,10 +347,10 @@ namespace McpToolHandler {
         const invalidOperation = operations.find((operation) => {
           if (typeof operation !== 'object' || operation == null) return true
           const type = (operation as Record<string, unknown>).type
-          return !['insertNode', 'createState', 'createLoop', 'createStyle', 'applyStyle', 'setContentHostRetention', 'setTextFormula', 'setTagAttributeFormula', 'setTagEvent', 'updateNodeProperty', 'updateNodeAttribute', 'moveNode', 'deleteNode'].includes(type as string)
+          return !['insertNode', 'createState', 'createLoop', 'createStyle', 'createStyleParameter', 'createObjectType', 'createUnionType', 'createSignatureType', 'applyStyle', 'setStyleRuleValue', 'setContentHostRetention', 'createVariable', 'createAction', 'createFunction', 'createLocalComponent', 'createTransition', 'createConditional', 'createSwitch', 'createBlock', 'setTextFormula', 'setTagAttributeFormula', 'setTagEvent', 'updateNodeProperty', 'updateNodeAttribute', 'moveNode', 'deleteNode'].includes(type as string)
         })
         if (invalidOperation != null) {
-          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'Supported operation types are insertNode, createState, createLoop, createStyle, applyStyle, setContentHostRetention, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode.' } })
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'Supported operation types are insertNode, createState, createLoop, createStyle, createStyleParameter, createObjectType, createUnionType, createSignatureType, applyStyle, setStyleRuleValue, setContentHostRetention, createVariable, createAction, createFunction, createLocalComponent, createTransition, createConditional, createSwitch, createBlock, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode.' } })
           return
         }
         const operationLabels = [...new Set(
@@ -234,6 +358,11 @@ namespace McpToolHandler {
             typeof operation.type === 'string' ? operation.type : 'unknown'
           )),
         )]
+        const createdVariableIds = new Set<string>()
+        const createdFunctionIds = new Set<string>()
+        const createdLocalComponentIds = new Set<string>()
+        const createdLocalStyleIds = new Set<string>()
+        const createdNamedTypeIds = new Set<string>()
         let transaction: { result: Array<Record<string, unknown>>; changed: boolean }
         try {
           transaction = TreeStore.transaction({
@@ -249,6 +378,7 @@ namespace McpToolHandler {
               const parentNodeId = operation.parentNodeId
               const kind = operation.kind
               if (typeof parentNodeId !== 'number' || !Number.isInteger(parentNodeId) || !['tag', 'text'].includes(kind as string)) throw new Error('Invalid insertNode operation.')
+              if (getRetentionFrame(root, parentNodeId) != null) throw new Error(`${String(kind)} cannot be created in Retention. Use the paired Elements branch.`)
               const tagName = operation.tagName ?? 'div'
               const value = operation.value ?? ''
               if (typeof tagName !== 'string' || !HtmlTag.isTagName(tagName) || typeof value !== 'string' || value.length > 8000) throw new Error('Invalid insertNode values.')
@@ -269,6 +399,7 @@ namespace McpToolHandler {
               const itemId = operation.itemId
               const indexId = operation.indexId
               if (typeof parentNodeId !== 'number' || typeof collectionSource !== 'string' || typeof itemId !== 'string' || typeof indexId !== 'string' || !/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(itemId) || !/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(indexId)) throw new Error('Invalid createLoop operation.')
+              if (getRetentionFrame(root, parentNodeId) != null) throw new Error('Loop cannot be created in Retention because Studio does not expose it there.')
               const nodeId = TreeStore.addChildAndGetId(parentNodeId, Loop.createCollection(collectionSource, itemId, indexId))
               results.push({ type, nodeId, itemId, indexId })
             } else if (type === 'createStyle') {
@@ -277,41 +408,297 @@ namespace McpToolHandler {
               const styleId = typeof operation.styleId === 'string' && operation.styleId.length > 0 ? operation.styleId : crypto.randomUUID()
               const rules = operation.rules
               const parent = typeof parentNodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), parentNodeId) : null
-              if (typeof parentNodeId !== 'number' || parent == null || parent.element.kind !== 'styles' || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(id) || !Array.isArray(rules) || rules.length > 100) throw new Error('Invalid createStyle operation.')
+              if (typeof parentNodeId !== 'number' || parent == null || !['styles', 'retention', 'block'].includes(parent.element.kind) || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(id) || !Array.isArray(rules) || rules.length > 100) throw new Error('Invalid createStyle operation.')
+              const retentionFrame = getRetentionFrame(get(TreeStore.rootNode), parentNodeId)
+              if (parent.element.kind === 'block' && retentionFrame == null) throw new Error('A Block outside Retention cannot be used to create a local Style.')
+              if (retentionFrame != null) {
+                const localStyleKey = `${retentionFrame.id}:${id}`
+                if (createdLocalStyleIds.has(localStyleKey) || collectFrameStyles(retentionFrame).some((node) => node.element.kind === 'style' && node.element.id === id)) throw new Error(`Style '${id}' is already declared in this Retention scope.`)
+                createdLocalStyleIds.add(localStyleKey)
+              }
               const parsedRules = rules.map((rule) => {
                 if (typeof rule !== 'object' || rule == null) throw new Error('Style rules must be objects.')
                 const property = (rule as Record<string, unknown>).property
                 const value = (rule as Record<string, unknown>).value
-                if (typeof property !== 'string' || property.trim() === '' || typeof value !== 'string' || value.length > 8000) throw new Error('Style rules require a property and string value.')
-                return { type: 'declaration' as const, property: property.trim(), value: ResolvableValue.createLiteral(value) }
+                const styleValue = parseStyleValue(value)
+                if (typeof property !== 'string' || property.trim() === '' || styleValue == null) throw new Error('Style rules require a property and a valid literal or formula value.')
+                return { type: 'declaration' as const, property: property.trim(), value: styleValue }
               })
               const nodeId = TreeStore.addChildAndGetId(parentNodeId, Style.create(id, parsedRules, [], styleId))
               results.push({ type, nodeId, styleId, id })
+            } else if (type === 'createStyleParameter') {
+              const parentNodeId = operation.parentNodeId
+              const parent = typeof parentNodeId === 'number'
+                ? TreeNode.findNode(get(TreeStore.rootNode), parentNodeId)
+                : null
+              if (parent == null || !['style', 'style-params'].includes(parent.element.kind)) throw new Error('createStyleParameter requires a Style or its Parameters container as parentNodeId.')
+              const styleNode = parent.element.kind === 'style'
+                ? parent
+                : (FunctionScope.findPath(get(TreeStore.rootNode), parentNodeId as number) ?? []).slice(-2, -1)[0]
+              if (styleNode == null || styleNode.element.kind !== 'style') throw new Error('Style Parameters container is not inside a Style.')
+              const paramsNode = parent.element.kind === 'style-params'
+                ? parent
+                : parent.children.find((child) => child.element.kind === 'style-params')
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const valueType = operation.valueType ?? 'string'
+              const parameterId = typeof operation.parameterId === 'string' && operation.parameterId.trim() !== ''
+                ? operation.parameterId.trim()
+                : crypto.randomUUID()
+              const hasDefault = Object.prototype.hasOwnProperty.call(operation, 'defaultValue')
+              const defaultValue = operation.defaultValue
+              if (!/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(id) || !StyleParam.valueTypes.includes(valueType as StyleParam.ValueType) || parameterId.length > 128) throw new Error('Invalid createStyleParameter id, valueType, or parameterId.')
+              let parameterIdExists = false
+              const checkParameterId = (candidate: TreeNode.Node) => {
+                if (candidate.element.kind === 'style-param' && candidate.element.parameterId === parameterId) parameterIdExists = true
+                candidate.children.forEach(checkParameterId)
+              }
+              checkParameterId(get(TreeStore.rootNode))
+              if (parameterIdExists) throw new Error(`Style parameter ID '${parameterId}' already exists.`)
+              if (parent.element.kind === 'style-params' && parent.children.some((child) => child.element.kind === 'style-param' && child.element.id === id) || paramsNode?.children.some((child) => child.element.kind === 'style-param' && child.element.id === id)) throw new Error(`Style parameter '${id}' already exists.`)
+              if (hasDefault) {
+                const validDefault = valueType === 'number'
+                  ? typeof defaultValue === 'number' && Number.isFinite(defaultValue)
+                  : valueType === 'boolean'
+                    ? typeof defaultValue === 'boolean'
+                    : typeof defaultValue === 'string'
+                if (!validDefault || valueType === 'color' && StyleParameterValue.validateColor(defaultValue as string) != null) throw new Error('Style parameter defaultValue does not match valueType.')
+              }
+              let targetParamsNodeId = paramsNode?.id
+              if (targetParamsNodeId == null) targetParamsNodeId = TreeStore.addChildAndGetId(styleNode.id, StyleParams.create(), 0)
+              const nodeId = TreeStore.addChildAndGetId(targetParamsNodeId, StyleParam.create(id, valueType as StyleParam.ValueType, hasDefault ? defaultValue as StyleParam.Literal : undefined, parameterId), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, id, parameterId })
+            } else if (type === 'createObjectType') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const rootNode = get(TreeStore.rootNode)
+              const { parent, frame } = requireRetentionParent(rootNode, parentNodeId)
+              if (!/^[A-Z][A-Za-z0-9_$]{0,31}$/.test(id)) throw new Error('Invalid createObjectType id.')
+              requireUniqueNamedTypeId(rootNode, parentNodeId as number, id)
+              const declarationKey = `${frame.id}:${id}`
+              if (createdNamedTypeIds.has(declarationKey)) throw new Error(`Named type '${id}' is already declared in this scope.`)
+              createdNamedTypeIds.add(declarationKey)
+              const shapeSource = operation.shape == null ? JSON.stringify(ObjectShape.create()) : JSON.stringify(operation.shape)
+              const shape = ObjectShape.parse(shapeSource)
+              if (shape == null) throw new Error('Invalid createObjectType shape.')
+              const objectOptions = TypeCatalog.getObjectOptions(rootNode, parentNodeId as number)
+              const namedTypeOptions = TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId as number)
+              const shapeError = ObjectShape.validate(shape, objectOptions, namedTypeOptions)
+              if (shapeError != null) throw new Error(shapeError)
+              const nodeId = TreeStore.addChildAndGetId(parent.id, ObjectType.create(id, undefined, shape.properties, shape.baseObjectIds))
+              results.push({ type, nodeId, id })
+            } else if (type === 'createUnionType') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const rootNode = get(TreeStore.rootNode)
+              const { parent, frame } = requireRetentionParent(rootNode, parentNodeId)
+              if (!/^[A-Z][A-Za-z0-9_$]{0,31}$/.test(id)) throw new Error('Invalid createUnionType id.')
+              requireUniqueNamedTypeId(rootNode, parentNodeId as number, id)
+              const declarationKey = `${frame.id}:${id}`
+              if (createdNamedTypeIds.has(declarationKey)) throw new Error(`Named type '${id}' is already declared in this scope.`)
+              createdNamedTypeIds.add(declarationKey)
+              const definition = UnionDefinition.parse(JSON.stringify(operation.definition ?? UnionDefinition.create()))
+              if (definition == null) throw new Error('Invalid createUnionType definition.')
+              const definitionError = UnionDefinition.validate(definition, TypeCatalog.getObjectOptions(rootNode, parentNodeId as number))
+              if (definitionError != null) throw new Error(definitionError)
+              const nodeId = TreeStore.addChildAndGetId(parent.id, UnionType.create(id, definition))
+              results.push({ type, nodeId, id })
+            } else if (type === 'createSignatureType') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const rootNode = get(TreeStore.rootNode)
+              const { parent, frame } = requireRetentionParent(rootNode, parentNodeId)
+              if (!/^[A-Z][A-Za-z0-9_$]{0,31}$/.test(id)) throw new Error('Invalid createSignatureType id.')
+              requireUniqueNamedTypeId(rootNode, parentNodeId as number, id)
+              const declarationKey = `${frame.id}:${id}`
+              if (createdNamedTypeIds.has(declarationKey)) throw new Error(`Named type '${id}' is already declared in this scope.`)
+              createdNamedTypeIds.add(declarationKey)
+              const definition = SignatureDefinition.parse(JSON.stringify(operation.definition ?? SignatureDefinition.create()))
+              if (definition == null) throw new Error('Invalid createSignatureType definition.')
+              const definitionError = SignatureDefinition.validate(
+                definition,
+                TypeCatalog.getObjectOptions(rootNode, parentNodeId as number),
+                TypeCatalog.getNamedTypeOptions(rootNode, parentNodeId as number),
+              )
+              if (definitionError != null) throw new Error(definitionError)
+              const nodeId = TreeStore.addChildAndGetId(parent.id, SignatureType.create(id, definition))
+              results.push({ type, nodeId, id })
             } else if (type === 'applyStyle') {
               const nodeId = operation.nodeId
               const styleId = operation.styleId
               const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
               if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'tag' || typeof styleId !== 'string' || styleId.length === 0) throw new Error('Invalid applyStyle operation.')
-              let styleExists = false
-              const visit = (candidate: TreeNode.Node) => {
-                if (candidate.element.kind === 'style' && candidate.element.styleId === styleId) styleExists = true
-                candidate.children.forEach(visit)
+              const styleNode = findStyleById(get(TreeStore.rootNode), styleId)
+              if (styleNode == null || styleNode.element.kind !== 'style') throw new Error(`Style ${styleId} was not found.`)
+              const parameterResult = StyleParameterCatalog.createCatalog(get(TreeStore.rootNode)).resolve(styleId)
+              if (parameterResult.issues.length > 0) throw new Error(parameterResult.issues[0]?.message ?? `Style ${styleId} has an invalid parameter contract.`)
+              let styleArguments: Style.Argument[]
+              if (operation.arguments == null) {
+                styleArguments = StyleArgumentContract.createArguments(parameterResult.parameters, 'application')
+              } else {
+                const parsedArguments = parseStyleArguments(operation.arguments)
+                if (parsedArguments == null) throw new Error('applyStyle arguments must contain valid parameter bindings.')
+                styleArguments = parsedArguments
               }
-              visit(get(TreeStore.rootNode))
-              if (!styleExists) throw new Error(`Style ${styleId} was not found.`)
+              const argumentError = StyleArgumentContract.getInvariantError(styleArguments, parameterResult.parameters, 'application')
+              if (argumentError != null) throw new Error(argumentError)
+              for (const argument of styleArguments) {
+                if (argument.binding.type !== 'value') continue
+                const parameter = parameterResult.parameters.find((item) => item.parameterId === argument.parameterId)
+                const value = argument.binding.value
+                if (parameter == null || value == null || typeof value !== 'object') throw new Error('Invalid applyStyle parameter value.')
+                if (value.type === 'formula') {
+                  if (value.source.trim() === '' || value.source.length > 8000) throw new Error(`Style parameter '${parameter.id}' has an invalid formula.`)
+                } else {
+                  const correctType = parameter.valueType === 'number'
+                    ? typeof value.value === 'number' && Number.isFinite(value.value)
+                    : parameter.valueType === 'boolean'
+                      ? typeof value.value === 'boolean'
+                      : typeof value.value === 'string'
+                  if (!correctType || parameter.valueType === 'color' && StyleParameterValue.validateColor(value.value as string) != null) throw new Error(`Style parameter '${parameter.id}' value does not match ${parameter.valueType}.`)
+                }
+              }
               TreeStore.transformNode(nodeId, (target) => {
                 if (target.element.kind !== 'tag') return false
-                if (target.element.styles.some((style) => style.styleId === styleId)) return false
-                target.element = { ...target.element, styles: [...target.element.styles, { referenceId: crypto.randomUUID(), styleId, arguments: [] }] }
+                const styles = [...target.element.styles]
+                const existingIndex = styles.findIndex((style) => style.styleId === styleId)
+                if (existingIndex >= 0) {
+                  styles[existingIndex] = { ...styles[existingIndex], arguments: styleArguments }
+                } else {
+                  styles.push({ referenceId: crypto.randomUUID(), styleId, arguments: styleArguments })
+                }
+                target.element = { ...target.element, styles }
                 return true
               })
-              results.push({ type, nodeId, styleId })
+              results.push({ type, nodeId, styleId, arguments: styleArguments })
+            } else if (type === 'setStyleRuleValue') {
+              const nodeId = operation.nodeId
+              const ruleIndex = operation.ruleIndex
+              const declarationIndex = operation.declarationIndex
+              const nextValue = parseStyleValue(operation.value)
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (
+                typeof nodeId !== 'number' || !Number.isInteger(nodeId)
+                || node == null || node.element.kind !== 'style'
+                || typeof ruleIndex !== 'number' || !Number.isInteger(ruleIndex) || ruleIndex < 0
+                || declarationIndex != null && (typeof declarationIndex !== 'number' || !Number.isInteger(declarationIndex) || declarationIndex < 0)
+                || nextValue == null
+              ) throw new Error('Invalid setStyleRuleValue operation.')
+              const targetRule = node.element.rules[ruleIndex]
+              if (targetRule == null) throw new Error(`Style rule index ${ruleIndex} does not exist on node ${nodeId}.`)
+              let previousValue: Style.StyleValue
+              if (targetRule.type === 'declaration') {
+                if (declarationIndex != null) throw new Error('declarationIndex must be omitted for a top-level declaration rule.')
+                previousValue = targetRule.value
+              } else {
+                if (declarationIndex == null) throw new Error('declarationIndex is required for a state rule.')
+                const declaration = targetRule.declarations[declarationIndex]
+                if (declaration == null) throw new Error(`Declaration index ${declarationIndex} does not exist in style rule ${ruleIndex}.`)
+                previousValue = declaration.value
+              }
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'style') return false
+                const rules = [...target.element.rules]
+                const currentRule = rules[ruleIndex]
+                if (currentRule?.type === 'declaration') {
+                  rules[ruleIndex] = { ...currentRule, value: nextValue }
+                } else if (currentRule?.type === 'state' && declarationIndex != null) {
+                  const declarations = [...currentRule.declarations]
+                  const declaration = declarations[declarationIndex]
+                  if (declaration == null) return false
+                  declarations[declarationIndex] = { ...declaration, value: nextValue }
+                  rules[ruleIndex] = { ...currentRule, declarations }
+                } else return false
+                target.element = { ...target.element, rules }
+                return true
+              })
+              results.push({ type, nodeId, ruleIndex, declarationIndex: declarationIndex ?? null, previousValue, value: nextValue })
             } else if (type === 'setContentHostRetention') {
               const nodeId = operation.nodeId
               const enabled = operation.enabled
               if (typeof nodeId !== 'number' || !Number.isInteger(nodeId) || typeof enabled !== 'boolean') throw new Error('Invalid setContentHostRetention operation.')
               const changed = setContentHostRetention(nodeId, enabled)
               results.push({ type, nodeId, enabled, changed })
+            } else if (type === 'createVariable') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const binding = operation.binding ?? 'const'
+              const source = operation.source
+              const { frame } = requireRetentionParent(root, parentNodeId)
+              if (!identifierPattern.test(id) || !['const', 'let'].includes(binding as string) || typeof source !== 'string' || source.trim() === '' || source.length > 4000) throw new Error('Invalid createVariable operation.')
+              requireUniqueFrameId(frame, 'variable', id)
+              const declarationKey = `${frame.id}:${id}`
+              if (createdVariableIds.has(declarationKey)) throw new Error(`Variable '${id}' is already declared in this Retention scope.`)
+              createdVariableIds.add(declarationKey)
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, Variable.create(id, binding as Variable.Element['binding'], { type: 'inferred' }, source), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, id })
+            } else if (type === 'createAction') {
+              const parentNodeId = operation.parentNodeId
+              const comment = operation.comment ?? ''
+              const source = operation.source
+              requireRetentionParent(root, parentNodeId)
+              if (typeof comment !== 'string' || comment.length > 8000 || typeof source !== 'string' || source.length > 8000) throw new Error('Invalid createAction operation.')
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, Action.create(comment, source), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId })
+            } else if (type === 'createFunction') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const implementationMode = operation.implementationMode ?? 'procedure'
+              const source = operation.source ?? ''
+              const { frame } = requireRetentionParent(root, parentNodeId)
+              if (!identifierPattern.test(id) || !['code', 'procedure'].includes(implementationMode as string) || typeof source !== 'string' || source.length > 8000) throw new Error('Invalid createFunction operation.')
+              requireUniqueFrameId(frame, 'function', id)
+              const declarationKey = `${frame.id}:${id}`
+              if (createdFunctionIds.has(declarationKey)) throw new Error(`Function '${id}' is already declared in this Retention scope.`)
+              createdFunctionIds.add(declarationKey)
+              const implementation: FunctionDefinition.Implementation = implementationMode === 'code'
+                ? { mode: 'code', source }
+                : { mode: 'procedure' }
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, FunctionDefinition.createInline(id, undefined, implementation), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, id, implementationMode })
+            } else if (type === 'createLocalComponent') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const { parent } = requireRetentionParent(root, parentNodeId)
+              if (!identifierPattern.test(id)) throw new Error('Invalid createLocalComponent operation.')
+              const duplicate = parent.children.some((child) => child.element.kind === 'component' && child.element.local === true && child.element.id === id)
+              const declarationKey = `${parent.id}:${id}`
+              if (duplicate || createdLocalComponentIds.has(declarationKey)) throw new Error(`Local component '${id}' is already declared in this Retention scope.`)
+              createdLocalComponentIds.add(declarationKey)
+              const element = Component.createLocal(id)
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, element, typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, id, componentId: element.componentId })
+            } else if (type === 'createTransition') {
+              const parentNodeId = operation.parentNodeId
+              requireRetentionParent(root, parentNodeId)
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, Transition.create(), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId })
+            } else if (type === 'createConditional') {
+              const parentNodeId = operation.parentNodeId
+              requireRetentionParent(root, parentNodeId)
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, ControlConditional.create(), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId })
+            } else if (type === 'createSwitch') {
+              const parentNodeId = operation.parentNodeId
+              const { parent } = requireRetentionParent(root, parentNodeId)
+              const valueType = operation.valueType == null
+                ? SwitchValueType.createPrimitive()
+                : SwitchValueType.parse(JSON.stringify(operation.valueType))
+              const source = operation.source ?? ''
+              if (valueType == null || typeof source !== 'string' || source.trim() === '' || source.length > 4000) throw new Error('Invalid createSwitch valueType or source.')
+              if (valueType.type === 'union') {
+                const options = Switch.getLiteralUnionOptions(get(TreeStore.rootNode), parent.id)
+                const validationError = SwitchValueType.validate(valueType, options)
+                if (validationError != null) throw new Error(validationError)
+              }
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, ControlSwitch.create(valueType, source), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, valueType })
+            } else if (type === 'createBlock') {
+              const parentNodeId = operation.parentNodeId
+              requireRetentionParent(root, parentNodeId)
+              const label = operation.label ?? ''
+              if (typeof label !== 'string' || label.length > 64) throw new Error('Invalid createBlock label.')
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId as number, Block.create(label), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId, label })
             } else if (type === 'setTextFormula') {
               const nodeId = operation.nodeId
               const source = operation.source
@@ -566,6 +953,40 @@ namespace McpToolHandler {
         }, nodeId, params.includeSource === true)
         const error = 'error' in result ? result.error as { code: string; message: string } : null
         await TauriMcp.respond(error == null ? { id: request.id, result } : { id: request.id, error })
+        return
+      }
+
+      if (request.method === 'verifyExpression') {
+        const params = typeof request.params === 'object' && request.params != null
+          ? request.params as Record<string, unknown>
+          : {}
+        const nodeId = typeof params.nodeId === 'number' && Number.isInteger(params.nodeId)
+          ? params.nodeId
+          : null
+        if (nodeId == null || nodeId < 0) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'nodeId must be a non-negative integer.' } })
+          return
+        }
+        const revision = get(TreeStore.revision)
+        const rootNode = structuredClone(get(TreeStore.rootNode)) as TreeNode.Node
+        const node = TreeNode.findNode(rootNode, nodeId)
+        if (node == null) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'NODE_NOT_FOUND', message: `Node ${nodeId} was not found.` } })
+          return
+        }
+        if (!ExpressionSourceCatalog.isVerificationCandidate(rootNode, node)) {
+          await TauriMcp.respond({ id: request.id, result: { nodeId, kind: node.element.kind, status: 'not-applicable', messages: [], revision, stale: get(TreeStore.revision) !== revision } })
+          return
+        }
+        const result = await ExpressionVerificationRunner.verify(rootNode, node)
+        await TauriMcp.respond({ id: request.id, result: {
+          nodeId,
+          kind: node.element.kind,
+          status: result?.status ?? 'not-applicable',
+          messages: result?.messages ?? [],
+          revision,
+          stale: get(TreeStore.revision) !== revision,
+        } })
         return
       }
 
@@ -830,6 +1251,10 @@ namespace McpToolHandler {
         }
         if (TreeNode.findNode(get(TreeStore.rootNode), parentNodeId) == null) {
           await TauriMcp.respond({ id: request.id, error: { code: 'NODE_NOT_FOUND', message: 'No parent node matches parentNodeId.' } })
+          return
+        }
+        if (getRetentionFrame(get(TreeStore.rootNode), parentNodeId) != null) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'EDIT_NOT_SUPPORTED', message: `${kind} cannot be created in Retention. Use the paired Elements branch.` } })
           return
         }
         const tagName = params.tagName ?? 'div'

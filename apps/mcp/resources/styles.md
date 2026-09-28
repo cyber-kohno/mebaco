@@ -20,7 +20,22 @@ A declaration rule has a property and a value. A style value can be:
 - `literal`: a fixed string value;
 - `formula`: an expression evaluated in the available runtime scope.
 
+MCP callers can read a style node with `get_node_details` and `includeSource: true` to inspect its `rules` and the current project `revision`. To update an existing value, `apply_changes` supports `setStyleRuleValue` with the style node ID, the zero-based index in `rules`, and a discriminated value object:
+
+```json
+{
+  "type": "setStyleRuleValue",
+  "nodeId": 42,
+  "ruleIndex": 0,
+  "value": { "type": "formula", "source": "$state.color" }
+}
+```
+
+For a state rule, also pass its zero-based `declarationIndex` within that rule. For a top-level declaration, omit `declarationIndex`. The operation changes only the selected value, reports the previous value, and requires `expectedRevision` from the read snapshot; if the project changed after reading, the update is rejected. `createStyle` also accepts this same `{type: "literal", value: string}` or `{type: "formula", source: string}` value shape for each declaration. Plain string values remain accepted by `createStyle` as literals for compatibility.
+
 Do not assume that the stored source is the final CSS value. Formula values can depend on props, state, retained declarations, or other available inputs.
+
+Runtime Style formulas receive the Tag's runtime context, but `$var` access is restricted to variables visible at the Style's definition site. A global Style cannot read a Loop's item or index merely because the Style is applied to a Tag inside that Loop. Pass caller-specific values through declared Style parameters instead. Runtime resolution reports an out-of-scope `$var` access as a formula error, matching Studio's static expression verification.
 
 Styles can also define state-specific declarations for:
 
@@ -43,6 +58,12 @@ A `style-param` defines a reusable style input with:
 - an optional default value.
 
 Parameters form part of the style's public contract. They are not merely documentation. Inherited and applied styles bind arguments by stable parameter ID.
+
+MCP `apply_changes` adds a parameter with `createStyleParameter` targeting either a Style node or its `style-params` folder. The operation accepts `id`, optional `valueType` (`string`, `number`, `boolean`, or `color`), optional `defaultValue`, and an optional caller-supplied `parameterId`; otherwise Studio generates the stable ID. When targeting a Style without a Parameters folder, MCP creates the folder first. Studio's normal tree-mutation synchronization updates existing inheritance and application bindings when the parameter is added.
+
+`applyStyle` accepts optional `arguments` keyed by `parameterId`. A binding is either `{ "type": "value", "value": { "type": "literal", "value": ... } }`, `{ "type": "value", "value": { "type": "formula", "source": ... } }`, or `{ "type": "default" }`. Applications cannot delegate parameters. If `arguments` is omitted, MCP supplies Studio's normal resolved binding for each exposed parameter (declared default when available, otherwise the value type's default). Applying a Style already present on the Tag updates that reference's arguments rather than creating a duplicate.
+
+To check a formula, call MCP `verify_expression` with the node ID that owns the formula (for example, the Tag node for a style-parameter argument formula, or the Style node for a formula-valued rule). The result follows Studio's expression verification, including scope and type checks where defined. It verifies one node at a time and returns `not-applicable` when that node has no verifiable expression fields.
 
 ## Inheritance
 

@@ -139,6 +139,15 @@ struct NodeDetailsRequest {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct VerifyExpressionRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The live tree node ID returned by a project read tool. The node and all expression fields on it are verified.")]
+    node_id: u32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct NodeReferencesRequest {
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
@@ -318,7 +327,7 @@ impl MebacoMcpServer {
         }
     }
 
-    #[tool(description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, applyStyle, setContentHostRetention, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setContentHostRetention enables or removes optional Retention on supported content hosts using the same model operation as the Studio action menu. Pass expectedRevision and use dryRun to validate without changing Studio.")]
+    #[tool(description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, createStyleParameter, createObjectType, createUnionType, createSignatureType, applyStyle, setStyleRuleValue, setContentHostRetention, createVariable, createAction, createFunction, createLocalComponent, createTransition, createConditional, createSwitch, createBlock, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setStyleRuleValue takes {nodeId,ruleIndex,declarationIndex?,value}; ruleIndex addresses style.rules, and declarationIndex is required when that rule is a state rule. value is {type:'literal',value:string} or {type:'formula',source:string}. createStyleParameter {parentNodeId,id,valueType?,defaultValue?,parameterId?} adds a parameter under a Style or its Parameters folder; valueType is string, number, boolean, or color. applyStyle {nodeId,styleId,arguments?} applies a Style or updates its arguments; arguments use {parameterId,binding:{type:'value',value:{type:'literal',value} | {type:'formula',source}}} or {parameterId,binding:{type:'default'}}. Omit arguments to use Studio's default/type-default bindings. Read the style node first with get_node_details(includeSource:true), and pass its revision as expectedRevision. Retention menu operations matching Studio are createVariable {parentNodeId,id,source,binding?}, createFunction {parentNodeId,id,implementationMode?,source?}, createLocalComponent {parentNodeId,id}, createStyle {parentNodeId,id,rules}, createObjectType {parentNodeId,id,shape?}, createUnionType {parentNodeId,id,definition?}, createSignatureType {parentNodeId,id,definition?}, createAction {parentNodeId,comment?,source?}, createTransition {parentNodeId}, createConditional {parentNodeId}, createSwitch {parentNodeId,valueType?,source}, and createBlock {parentNodeId,label?}. Each accepts a Retention node or a Block inside Retention as parentNodeId. createStyle also accepts the global styles container as before. Pass expectedRevision and use dryRun to validate without changing Studio.")]
     async fn apply_changes(
         &self,
         Parameters(request): Parameters<ApplyChangesRequest>,
@@ -585,6 +594,37 @@ impl MebacoMcpServer {
     }
 
     #[tool(
+        description = "Verify expressions on one live Studio node using Studio's expression parser, scope resolution, and type checks. This is read-only and returns status (verified, error, or not-applicable), messages, the checked revision, and whether the project changed during verification. It checks only the selected node, not descendants."
+    )]
+    async fn verify_expression(
+        &self,
+        Parameters(request): Parameters<VerifyExpressionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "verifyExpression",
+            serde_json::json!({ "nodeId": request.node_id }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
         description = "Read incoming references and outgoing dependencies reported by Mebaco's ReferenceGraph for a live tree node. This covers supported semantic/structural relationships, not every textual mention."
     )]
     async fn get_node_references(
@@ -826,7 +866,7 @@ impl ServerHandler for MebacoMcpServer {
             )
             .with_protocol_version(ProtocolVersion::V_2024_11_05)
             .with_instructions(
-                "Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Before an update, read the current revision and pass it as expectedRevision; use dryRun when available."
+                "Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Use verify_expression to run Studio's expression checks on a node. Before an update, read the current revision and pass it as expectedRevision; use dryRun when available."
                     .to_string(),
             )
     }

@@ -104,6 +104,8 @@ For state-related analysis, identify:
 
 Do not infer a complete data flow from parent-child structure alone. References, formulas, bindings, and event handlers also form relationships.
 
+The MCP `verify_expression` tool runs Studio's expression verification for all verifiable expression fields on one node. It checks parsing, visible names/scope, expected types where defined, and script policy. It does not traverse descendants; call it for each relevant node. A `not-applicable` status means Studio has no verification candidate on that node. Check the returned `stale` flag before relying on the result, because the project may have changed while asynchronous verification was running.
+
 ## Styles
 
 Styles are reusable definitions referenced by view elements. A style can define parameters, literal or formula-based property values, state-specific rules, animations, and base styles.

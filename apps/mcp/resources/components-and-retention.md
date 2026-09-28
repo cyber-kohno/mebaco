@@ -58,13 +58,18 @@ Retention can be removed only when its branch is empty; removing it restores the
 
 Retention is not a display group. Its children are not rendered merely because they appear in the tree. They can nevertheless affect runtime behavior through state, references, functions, actions, effects, transitions, styles, types, and component definitions.
 
-Retention is a structural host for declarations and definitions associated with the content host. Its children are not all visible everywhere merely by being placed under Retention: visibility depends on the referenced kind, the target's ancestor path, and, in sequential procedural frames, declaration order. Typical retained content includes:
+Retention is a structural host for declarations and definitions associated with the content host. Its children are not all visible everywhere merely by being placed under Retention: visibility depends on the referenced kind, the target's ancestor path, and, in sequential procedural frames, declaration order.
 
-- local stores, states, variables, actions, effects, and transitions;
-- local functions and procedural behavior;
-- local object, union, or signature types;
-- local styles;
-- local component definitions.
+Studio currently allows the following children to be created in Retention:
+
+- declarations: variables, functions, local components, styles, and object, union, or signature types;
+- statements: actions and transitions;
+- directives: conditionals and switches;
+- blocks, which expose the corresponding Retention statement and declaration menus.
+
+State and Effect belong to their Store branches and are not direct Retention children. Rendered Tag and Text content belongs in the paired Elements branch, not Retention.
+
+MCP `apply_changes` exposes these Studio Retention menu items as `createVariable`, `createFunction`, `createLocalComponent`, `createStyle`, `createObjectType`, `createUnionType`, `createSignatureType`, `createAction`, `createTransition`, `createConditional`, `createSwitch`, and `createBlock`. Each takes `parentNodeId` referring to the Retention node or a Block inside Retention. `createStyle` also accepts the global Styles container as before. `createSwitch` accepts an optional `valueType` (defaulting to string) and requires a non-empty `source` expression, as Studio does. `createBlock` optionally accepts a label. Local Style parameters can be added with `createStyleParameter` after creating the Style; see the style resource for parameter IDs and argument binding. Style formulas stored in a local Style can therefore be defined within that Retention scope and used by its paired Elements content. The style's formula must still reference names using the expression syntax and scope made available by Studio.
 
 Placement rules still depend on the element kind. The presence of Retention does not make every kind valid there.
 
