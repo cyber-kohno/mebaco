@@ -100,6 +100,7 @@ namespace ExpressionVerifier {
 
         ScriptPolicy.validate(source.source, {
           allowAwait: source.allowAwait === true,
+          allowVoidReturn: source.mode === 'action',
           forbidReturn: source.mode === 'action',
         }).forEach((message) => messages.push(message))
 

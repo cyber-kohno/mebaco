@@ -44,6 +44,7 @@ vi.mock('@system/workspace/tree/tree-viewport-controller', () => ({
 }))
 
 import EditHistoryController from './edit-history-controller'
+import EditHistoryLog from './edit-history-log'
 
 describe('EditHistoryController', () => {
   beforeEach(() => {
@@ -68,7 +69,12 @@ describe('EditHistoryController', () => {
     mocks.transactionListener?.({
       options: { source: 'user', label: 'Update' },
       previousRootNode: previousRoot,
+      rootNode: previousRoot,
       previousSelectedNodeId: 1,
+      selectedNodeId: 1,
+      previousRevision: 0,
+      revision: 1,
+      lifecycleEvents: [],
     })
 
     await vi.waitFor(() => expect(mocks.record).toHaveBeenCalledOnce())
@@ -92,6 +98,32 @@ describe('EditHistoryController', () => {
 
     expect(mocks.restoreHistorySnapshot).toHaveBeenCalledWith(restoredRoot, 1, 'undo')
     expect(mocks.setViewRootNodeId).toHaveBeenCalledWith(mocks.rootNode.value, 1)
+    expect(mocks.requestReveal).toHaveBeenCalledWith(1)
+  })
+
+  it('restores a selected history entry as a restore transaction', async () => {
+    EditHistoryController.connect()
+    const targetRoot = { id: 1, element: { kind: 'project' }, isOpen: false, children: [] } as any
+    EditHistoryLog.record({
+      options: { source: 'user', label: 'Original change' },
+      previousRootNode: mocks.rootNode.value as any,
+      rootNode: targetRoot,
+      previousSelectedNodeId: 1,
+      selectedNodeId: 1,
+      previousRevision: 0,
+      revision: 1,
+      lifecycleEvents: [],
+    })
+
+    await expect(EditHistoryController.restore(1)).resolves.toBe(true)
+
+    expect(mocks.restoreHistorySnapshot).toHaveBeenCalledWith(
+      targetRoot,
+      1,
+      'restore',
+      'Restore history #1',
+    )
+    expect(mocks.setViewRootNodeId).toHaveBeenCalledWith(mocks.rootNode.value, null)
     expect(mocks.requestReveal).toHaveBeenCalledWith(1)
   })
 })

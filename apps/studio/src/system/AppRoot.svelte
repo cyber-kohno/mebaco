@@ -34,6 +34,7 @@
   import DirectRuntimeRoot from './runtime/view/DirectRuntimeRoot.svelte'
   import McpToolHandler from './mcp/mcp-tool-handler'
   import McpExitGuard from './mcp/mcp-exit-guard'
+  import McpSessionController from './mcp/mcp-session-controller'
   import { EditHistoryController } from '@system/workspace/history/controller'
 
   type RootMode = 'loading' | 'studio' | 'runtime' | 'direct-error'
@@ -115,6 +116,9 @@
       ProjectSession.updateFromRoot(rootNode)
       ExpressionVerificationStore.syncRoot(rootNode)
     })
+    const unsubscribeProjectSession = ProjectSession.store.subscribe((project) => {
+      void McpSessionController.syncDirty(project.isDirty)
+    })
     const unsubscribeTitle = WindowTitle.subscribe()
     const unsubscribeInteraction = DevelopInteractionController.connectTreeLifecycle()
     const unsubscribeEditHistory = EditHistoryController.connect()
@@ -152,6 +156,7 @@
 
     return () => {
       unsubscribeRoot()
+      unsubscribeProjectSession()
       unsubscribeTitle()
       unsubscribeInteraction()
       unsubscribeEditHistory()

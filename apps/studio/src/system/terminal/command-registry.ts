@@ -15,7 +15,7 @@ namespace CommandRegistry {
   const matches = (definition: CommandDefinition, query: string): boolean => {
     const normalized = query.trim().toLowerCase()
     if (normalized === '') return true
-    return [definition.id, definition.label, ...(definition.aliases ?? [])]
+    return [definition.id, definition.label]
       .some((value) => value.toLowerCase().startsWith(normalized))
   }
 
@@ -40,7 +40,6 @@ namespace CommandRegistry {
     if (tokens.length === 0 || !hasArgumentInput) {
       const exactDefinition = definitions.find((definition) => (
         definition.id.toLowerCase() === (tokens[0] ?? '').toLowerCase()
-        || definition.aliases?.some((alias) => alias.toLowerCase() === (tokens[0] ?? '').toLowerCase()) === true
       ))
       if (exactDefinition != null && query.trim().toLowerCase() === tokens[0].toLowerCase()) return []
       return definitions
@@ -57,7 +56,6 @@ namespace CommandRegistry {
 
     const command = definitions.find((definition) => (
       definition.id.toLowerCase() === tokens[0].toLowerCase()
-      || definition.aliases?.some((alias) => alias.toLowerCase() === tokens[0].toLowerCase()) === true
     ))
     if (command?.complete == null) return []
     const argumentPrefix = /\s$/.test(query) ? '' : (tokens[tokens.length - 1] ?? '')
@@ -81,7 +79,6 @@ namespace CommandRegistry {
     const normalized = name.trim().toLowerCase()
     return getAvailable(context).find((definition) => (
       definition.id.toLowerCase() === normalized
-      || definition.aliases?.some((alias) => alias.toLowerCase() === normalized) === true
     )) ?? null
   }
 }

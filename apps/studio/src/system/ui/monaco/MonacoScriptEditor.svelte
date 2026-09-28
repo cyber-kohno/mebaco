@@ -167,6 +167,7 @@ import { appSettingsStore } from '@system/application/settings'
     }
     ScriptPolicy.validate(userModel.getValue(), {
       allowAwait,
+      allowVoidReturn: mode === 'action',
       forbidReturn: mode === 'action',
     }).forEach((message) => {
       markers.push(MonacoDiagnostics.createWholeModelErrorMarker(

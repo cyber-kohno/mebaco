@@ -270,6 +270,7 @@ namespace FunctionRunner {
           FormulaContextValue.forNode(context, child.id),
           {
             allowAwait: false,
+            allowVoidReturn: true,
             forbidReturn: true,
           },
         )

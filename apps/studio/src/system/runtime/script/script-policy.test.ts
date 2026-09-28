@@ -9,11 +9,24 @@ describe('ScriptPolicy', () => {
       .toEqual([])
   })
 
-  it('rejects Return statements in Action source without matching comments', () => {
+  it('allows void early returns but rejects value returns in Action source', () => {
+    expect(ScriptPolicy.validate('if ($state.ready) return;', {
+      allowVoidReturn: true,
+      forbidReturn: true,
+    })).toEqual([])
     expect(ScriptPolicy.validate('return $var.value', { forbidReturn: true }))
+      .toContain('A value-returning return is not allowed in an Action. Use return; to exit the current Action, or the Function Return element to return from the enclosing Function.')
+    expect(ScriptPolicy.validate('return;', { forbidReturn: true }))
       .toContain('return is not allowed in an Action. Use the Function Return element.')
     expect(ScriptPolicy.validate('// return is documented', { forbidReturn: true }))
       .toEqual([])
+  })
+
+  it('does not treat returns inside nested JavaScript functions as Action returns', () => {
+    expect(ScriptPolicy.validate(
+      '[1].map((value) => { return value })',
+      { allowVoidReturn: true, forbidReturn: true },
+    )).toEqual([])
   })
 
   it('reports browser globals that are not provided by the script runtime', () => {

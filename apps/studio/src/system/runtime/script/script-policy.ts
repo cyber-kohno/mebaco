@@ -4,6 +4,7 @@ import RestrictedGlobals from './restricted-globals'
 namespace ScriptPolicy {
   export type Options = {
     allowAwait?: boolean
+    allowVoidReturn?: boolean
     forbidReturn?: boolean
   }
 
@@ -20,6 +21,7 @@ namespace ScriptPolicy {
     )
     let hasAwait = false
     let hasReturn = false
+    let hasValueReturn = false
     const restrictedGlobalMessages = new Set<string>()
     const restrictedGlobalNames = new Map(
       RestrictedGlobals.entries.map((entry) => [entry.name, entry.message]),
@@ -36,9 +38,21 @@ namespace ScriptPolicy {
       TypeScript.isShorthandPropertyAssignment(node.parent)
       && node.parent.name === node
     )
-    const visit = (node: TypeScript.Node) => {
+    const isFunctionLike = (node: TypeScript.Node): boolean => (
+      TypeScript.isFunctionDeclaration(node)
+      || TypeScript.isFunctionExpression(node)
+      || TypeScript.isArrowFunction(node)
+      || TypeScript.isMethodDeclaration(node)
+      || TypeScript.isGetAccessorDeclaration(node)
+      || TypeScript.isSetAccessorDeclaration(node)
+      || TypeScript.isConstructorDeclaration(node)
+    )
+    const visit = (node: TypeScript.Node, insideNestedFunction = false) => {
       hasAwait ||= TypeScript.isAwaitExpression(node)
-      hasReturn ||= TypeScript.isReturnStatement(node)
+      if (!insideNestedFunction && TypeScript.isReturnStatement(node)) {
+        hasReturn = true
+        hasValueReturn ||= node.expression != null
+      }
       if (
         TypeScript.isIdentifier(node)
         && !isPropertyAccessName(node)
@@ -48,7 +62,8 @@ namespace ScriptPolicy {
         const message = restrictedGlobalNames.get(node.text)
         if (message != null) restrictedGlobalMessages.add(message)
       }
-      TypeScript.forEachChild(node, visit)
+      const childInsideNestedFunction = insideNestedFunction || isFunctionLike(node)
+      TypeScript.forEachChild(node, (child) => visit(child, childInsideNestedFunction))
     }
     visit(file)
 
@@ -56,8 +71,11 @@ namespace ScriptPolicy {
       ...(options.allowAwait === true || !hasAwait
         ? []
         : ['await is only available in an async Function.']),
-      ...(options.forbidReturn === true && hasReturn
-        ? ['return is not allowed in an Action. Use the Function Return element.']
+      ...(options.forbidReturn === true
+        && (hasValueReturn || (hasReturn && options.allowVoidReturn !== true))
+        ? [hasValueReturn
+          ? 'A value-returning return is not allowed in an Action. Use return; to exit the current Action, or the Function Return element to return from the enclosing Function.'
+          : 'return is not allowed in an Action. Use the Function Return element.']
         : []),
       ...restrictedGlobalMessages,
     ]

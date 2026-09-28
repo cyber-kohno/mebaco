@@ -31,7 +31,7 @@ pub struct McpStartResult {
     pid: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SessionDescriptor {
     session_id: String,
@@ -234,6 +234,25 @@ pub async fn mcp_probe_session(
     tauri::async_runtime::spawn_blocking(move || probe_bridge(address, token))
         .await
         .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub fn mcp_update_session_dirty(
+    sessions: State<'_, McpSessions>,
+    dirty: bool,
+) -> Result<(), String> {
+    let active = sessions
+        .active
+        .lock()
+        .map_err(|_| "MCP session state is unavailable.".to_string())?;
+    let session = active
+        .as_ref()
+        .ok_or_else(|| "No MCP development session is running.".to_string())?;
+    let source = fs::read(&session.descriptor_path).map_err(|error| error.to_string())?;
+    let mut descriptor: SessionDescriptor = serde_json::from_slice(&source)
+        .map_err(|error| format!("MCP session descriptor is invalid: {error}"))?;
+    descriptor.dirty = dirty;
+    write_descriptor(&session.descriptor_path, &descriptor)
 }
 
 #[tauri::command]

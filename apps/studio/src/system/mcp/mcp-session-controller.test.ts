@@ -7,6 +7,7 @@ import McpSessionState from './mcp-session-state'
 const tauriMcp = vi.hoisted(() => ({
   startSession: vi.fn(),
   stopSession: vi.fn(),
+  updateSessionDirty: vi.fn(),
   probeSession: vi.fn(),
 }))
 
@@ -29,6 +30,7 @@ describe('McpSessionController', () => {
       pid: 123,
     })
     tauriMcp.stopSession.mockResolvedValue(undefined)
+    tauriMcp.updateSessionDirty.mockResolvedValue(undefined)
     tauriMcp.probeSession.mockResolvedValue({ ok: true })
   })
 
@@ -76,6 +78,15 @@ describe('McpSessionController', () => {
       outcome: 'unchanged',
       status: 'stopped',
     })
+  })
+
+  it('synchronizes dirty state while a session is available', async () => {
+    ProjectSession.startNew(rootNode)
+    await McpSessionController.start()
+
+    await McpSessionController.syncDirty(true)
+
+    expect(tauriMcp.updateSessionDirty).toHaveBeenCalledWith(true)
   })
 
   it('moves to error when the native bridge cannot start', async () => {

@@ -384,8 +384,26 @@ describe('FunctionRunner', () => {
     expect(FunctionRunner.run(invalid, [], FormulaContext.createEmpty(), root))
       .toMatchObject({
         ok: false,
-        error: { message: 'return is not allowed in an Action. Use the Function Return element.' },
+        error: {
+          message: 'A value-returning return is not allowed in an Action. Use return; to exit the current Action, or the Function Return element to return from the enclosing Function.',
+        },
       })
+  })
+
+  it('allows an Action to exit itself without returning from the enclosing Function', () => {
+    nextNodeId = 1
+    const execute = fn('execute', [], [
+      node({ kind: 'action', comment: '', source: 'return; $state.after = true' }),
+      node({ kind: 'action', comment: '', source: '$state.continued = true' }),
+      node({ kind: 'function-return', source: '1' }),
+    ])
+    const root = project([execute])
+    const context = FormulaContext.create({
+      $state: { after: false, continued: false },
+    })
+
+    expect(FunctionRunner.run(execute, [], context, root)).toEqual({ ok: true, value: 1 })
+    expect(context.$state).toEqual({ after: false, continued: true })
   })
 
   it('reports a missing Return at runtime after executing the Procedure', () => {

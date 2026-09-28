@@ -181,6 +181,39 @@ namespace ElementRegistry {
   ): ElementDefinition.Definition<TElement> =>
     definitions[kind] as ElementDefinition.Definition<TElement>
 
+  export const listKinds = (): readonly MebacoElement.Kind[] => Object.keys(definitions) as MebacoElement.Kind[]
+
+  export const getMcpSchema = (kind: MebacoElement.Kind) => {
+    const definition = get(kind)
+    const fields = kind === 'tag'
+      ? [
+          { key: 'tagName', type: 'string', required: true },
+          { key: 'comment', type: 'string', required: false },
+          { key: 'attributes', type: 'attribute-list', required: false },
+          { key: 'styles', type: 'style-application-list', required: false },
+        ]
+      : kind === 'text'
+        ? [{ key: 'source', type: 'resolvable-value', required: true }]
+        : []
+    return {
+      kind,
+      contentHost: definition.contentHost ?? null,
+      canDisable: definition.canDisable,
+      reorderGroup: definition.reorderGroup ?? null,
+      childSlots: definition.childSlots.map((slot) => slot.name),
+      fields,
+      operations: {
+        inspect: true,
+        select: true,
+        create: kind === 'tag' || kind === 'text',
+        update: kind === 'tag' || kind === 'text',
+        delete: true,
+        move: definition.reorderGroup != null,
+        disable: definition.canDisable,
+      },
+    }
+  }
+
   export const getHierarchyText = (
     rootNode: TreeNode.Node,
     node: TreeNode.Node,

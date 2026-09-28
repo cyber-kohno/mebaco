@@ -30,6 +30,7 @@ namespace ActionEvaluator {
   ): Promise<FormulaResult.Value> => {
     const policyError = ScriptPolicy.validate(code, {
       allowAwait: true,
+      allowVoidReturn: true,
       forbidReturn: true,
     })[0]
     if (policyError != null) {

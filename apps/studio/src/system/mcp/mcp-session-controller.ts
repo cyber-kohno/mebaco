@@ -5,6 +5,8 @@ import type { McpSessionActionResult, McpSessionStatus } from './mcp-types'
 import TauriMcp from '@system/infra/tauri/mcp'
 
 namespace McpSessionController {
+  let dirtySyncQueue = Promise.resolve()
+
   export const getStatus = (): McpSessionStatus => get(McpSessionState.store)
 
   export const getDetails = (): TauriMcp.StartResult | null => get(McpSessionState.detailsStore)
@@ -91,6 +93,19 @@ namespace McpSessionController {
         message: `MCP development session could not be stopped: ${String(error)}`,
       }
     }
+  }
+
+  export const syncDirty = (dirty: boolean): Promise<void> => {
+    dirtySyncQueue = dirtySyncQueue.then(async () => {
+      const current = getStatus()
+      if (current !== 'available' && current !== 'connected') return
+      try {
+        await TauriMcp.updateSessionDirty(dirty)
+      } catch {
+        // The session may stop between the status check and the native call.
+      }
+    })
+    return dirtySyncQueue
   }
 }
 

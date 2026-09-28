@@ -8,6 +8,7 @@ const tauriMcp = vi.hoisted(() => ({
 }))
 
 const confirmDialogController = vi.hoisted(() => ({ openNotice: vi.fn() }))
+const toastController = vi.hoisted(() => ({ show: vi.fn() }))
 
 const treeStore = vi.hoisted(() => {
   class RevisionConflictError extends Error {
@@ -16,18 +17,27 @@ const treeStore = vi.hoisted(() => {
       super(`Tree revision conflict: expected ${expectedRevision}, actual ${actualRevision}.`)
     }
   }
-  const rootNode = { value: { id: 1, element: { kind: 'tag' }, children: [], isOpen: true } as Record<string, any>, subscribe: (run: (value: unknown) => void) => { run(rootNode.value); return () => {} } }
+  let nextNodeId = 10
+  const createNode = (seed: { element: Record<string, any>; children?: Array<Record<string, any>>; isOpen?: boolean }) => ({
+    id: nextNodeId++,
+    element: seed.element,
+    children: seed.children ?? [],
+    isOpen: seed.isOpen ?? true,
+  })
+  const rootNode = { value: { id: 1, element: { kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [] }, children: [], isOpen: true } as Record<string, any>, subscribe: (run: (value: unknown) => void) => { run(rootNode.value); return () => {} } }
   const revision = { value: 0, subscribe: (run: (value: unknown) => void) => { run(revision.value); return () => {} } }
-  const transformNode = vi.fn((nodeId: number, transform: (node: Record<string, any>) => boolean) => (
-    nodeId === rootNode.value.id ? transform(rootNode.value) : false
+  const transformNode = vi.fn((nodeId: number, transform: (node: Record<string, any>, createNode: unknown) => boolean) => (
+    nodeId === rootNode.value.id ? transform(rootNode.value, createNode) : false
   ))
   const transaction = vi.fn((options: { expectedRevision?: number }, callback: () => unknown) => {
     if (options.expectedRevision != null && options.expectedRevision !== revision.value) {
       throw new RevisionConflictError(options.expectedRevision, revision.value)
     }
-    const changed = callback() === true
+    const previousSnapshot = JSON.stringify(rootNode.value)
+    const result = callback()
+    const changed = JSON.stringify(rootNode.value) !== previousSnapshot
     if (changed) revision.value += 1
-    return { result: changed, changed }
+    return { result, changed }
   })
   return {
     rootNode,
@@ -37,14 +47,23 @@ const treeStore = vi.hoisted(() => {
     transaction,
     transformNode,
     RevisionConflictError,
+    resetNodeIds: () => { nextNodeId = 10 },
   }
 })
 
 vi.mock('@system/infra/tauri/mcp', () => ({ default: tauriMcp }))
 vi.mock('@system/ui/feedback/confirm/confirm-dialog-controller', () => ({ default: confirmDialogController }))
+vi.mock('@system/ui/feedback/toast/toast-controller', () => ({ default: toastController }))
 vi.mock('@system/workspace/tree/state', () => ({ default: treeStore }))
 vi.mock('@system/workspace/element-definition/element-registry', () => ({
-  default: { get: vi.fn(() => ({ canDisable: true })) },
+  default: {
+    get: vi.fn((kind: string) => ({
+      canDisable: true,
+      contentHost: ['tag', 'loop', 'if', 'else-if', 'else', 'case', 'default', 'slot-content'].includes(kind)
+        ? { retention: 'optional' }
+        : undefined,
+    })),
+  },
 }))
 vi.mock('@system/project/project-session-store', () => ({
   default: { store: { value: { isDirty: true, savedFingerprint: 'saved' }, subscribe: (run: (value: unknown) => void) => { run({ isDirty: true, savedFingerprint: 'saved' }); return () => {} } } },
@@ -62,7 +81,8 @@ describe('McpToolHandler', () => {
       pid: 123,
     })
     tauriMcp.respond.mockResolvedValue(undefined)
-    treeStore.rootNode.value = { id: 1, element: { kind: 'tag' }, children: [], isOpen: true }
+    treeStore.resetNodeIds()
+    treeStore.rootNode.value = { id: 1, element: { kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [] }, children: [], isOpen: true }
     treeStore.revision.value = 0
   })
 
@@ -166,6 +186,7 @@ describe('McpToolHandler', () => {
         disabled: true,
       }),
     })
+    expect(toastController.show).toHaveBeenCalledWith('エージェントにより変更が適用されました')
   })
 
   it('returns REVISION_CONFLICT without changing the node', async () => {
@@ -190,6 +211,143 @@ describe('McpToolHandler', () => {
         code: 'REVISION_CONFLICT',
         expectedRevision: 1,
         actualRevision: 2,
+      }),
+    })
+  })
+
+  it('uses and removes Retention through the shared ContentHost mutation', async () => {
+    treeStore.rootNode.value.children = [{
+      id: 2,
+      element: { kind: 'text', source: { type: 'literal', value: 'Todo' } },
+      children: [],
+      isOpen: true,
+    }]
+
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-7-enable',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: true }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children.map((node: Record<string, any>) => node.element.kind)).toEqual(['retention', 'elements'])
+    expect(treeStore.rootNode.value.children[1].children.map((node: Record<string, any>) => node.id)).toEqual([2])
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-7-enable',
+      result: expect.objectContaining({ changed: true, previousRevision: 0, revision: 1 }),
+    })
+
+    await handler?.({
+      id: 'request-7-disable',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 1,
+        operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children.map((node: Record<string, any>) => node.id)).toEqual([2])
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-7-disable',
+      result: expect.objectContaining({ changed: true, previousRevision: 1, revision: 2 }),
+    })
+  })
+
+  it('supports every optional Retention content-host kind exposed by the registry', async () => {
+    const optionalKinds = ['tag', 'loop', 'if', 'else-if', 'else', 'case', 'default', 'slot-content']
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    for (const kind of optionalKinds) {
+      treeStore.rootNode.value = {
+        id: 1,
+        element: kind === 'tag'
+          ? { kind, tagName: 'div', comment: '', styles: [], attributes: [] }
+          : { kind },
+        children: [{
+          id: 2,
+          element: { kind: 'text', source: { type: 'literal', value: 'content' } },
+          children: [],
+          isOpen: true,
+        }],
+        isOpen: true,
+      }
+      treeStore.revision.value = 0
+
+      await handler?.({
+        id: `request-enable-${kind}`,
+        method: 'applyChanges',
+        params: {
+          expectedRevision: 0,
+          operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: true }],
+        },
+      })
+      expect(treeStore.rootNode.value.children.map((node: Record<string, any>) => node.element.kind)).toEqual(['retention', 'elements'])
+
+      await handler?.({
+        id: `request-disable-${kind}`,
+        method: 'applyChanges',
+        params: {
+          expectedRevision: 1,
+          operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
+        },
+      })
+      expect(treeStore.rootNode.value.children.map((node: Record<string, any>) => node.id)).toEqual([2])
+    }
+  })
+
+  it('rejects removing a Retention branch that contains nodes', async () => {
+    treeStore.rootNode.value.children = [
+      {
+        id: 3,
+        element: { kind: 'retention' },
+        children: [{
+          id: 4,
+          element: { kind: 'text', source: { type: 'literal', value: 'local' } },
+          children: [],
+          isOpen: true,
+        }],
+        isOpen: true,
+      },
+      { id: 5, element: { kind: 'elements' }, children: [], isOpen: true },
+    ]
+
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-8',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
+      },
+    })
+
+    expect(treeStore.revision.value).toBe(0)
+    expect(treeStore.rootNode.value.children).toHaveLength(2)
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-8',
+      error: expect.objectContaining({
+        code: 'EDIT_NOT_SUPPORTED',
+        message: expect.stringContaining('must be empty before it can be removed'),
       }),
     })
   })

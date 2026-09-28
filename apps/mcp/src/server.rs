@@ -47,6 +47,41 @@ struct SessionRequest {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct KindSchemaRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "Optional Studio element kind. Omit to list all registered kinds.")]
+    kind: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct CreateApplicationRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The new app identifier, using 1-32 lowercase kebab-case characters.")]
+    app_name: String,
+    #[schemars(description = "The revision returned by a current project read.")]
+    expected_revision: u64,
+    #[schemars(description = "Validate without changing Studio. Defaults to false.")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ApplyChangesRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The revision returned by a current project read.")]
+    expected_revision: u64,
+    #[schemars(description = "The ordered list of supported change operations to apply.")]
+    operations: Vec<serde_json::Value>,
+    #[schemars(description = "Validate without changing Studio. Defaults to false.")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct SelectNodeRequest {
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
@@ -228,6 +263,82 @@ impl MebacoMcpServer {
         let json = serde_json::to_string(&sessions)
             .map_err(|error| McpError::internal_error(error.to_string(), None))?;
         Ok(CallToolResult::success(vec![ContentBlock::text(json)]))
+    }
+
+    #[tool(description = "Read the current Kind capabilities from Mebaco Studio's ElementRegistry. Omit kind to list all registered kinds; pass a kind to inspect its structural and supported MCP operations. Call list_development_sessions first.")]
+    async fn get_kind_schema(
+        &self,
+        Parameters(request): Parameters<KindSchemaRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "getKindSchema",
+            serde_json::json!({ "kind": request.kind }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(description = "Create a new application from the Studio-standard initial structure using only an app name. Creates the App, its generated declarations/store/entry structure, a Main Component, and connects the Entry to Main. Pass expectedRevision and use dryRun to validate without changing Studio.")]
+    async fn create_application(
+        &self,
+        Parameters(request): Parameters<CreateApplicationRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "createApplication",
+            serde_json::json!({
+                "appName": request.app_name,
+                "expectedRevision": request.expected_revision,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(error).map_err(|e| McpError::internal_error(e.to_string(), None))?)]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(serde_json::to_string(&result).map_err(|e| McpError::internal_error(e.to_string(), None))?)]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(&error).map_err(|e| McpError::internal_error(e.to_string(), None))?)])),
+        }
+    }
+
+    #[tool(description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, applyStyle, setContentHostRetention, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setContentHostRetention enables or removes optional Retention on supported content hosts using the same model operation as the Studio action menu. Pass expectedRevision and use dryRun to validate without changing Studio.")]
+    async fn apply_changes(
+        &self,
+        Parameters(request): Parameters<ApplyChangesRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.session_id.trim().is_empty() || request.operations.len() > 100 {
+            return Err(McpError::invalid_params("sessionId is required and operations must contain at most 100 items.", None));
+        }
+        match call_development_session(&request.session_id, "applyChanges", serde_json::json!({
+            "expectedRevision": request.expected_revision,
+            "dryRun": request.dry_run.unwrap_or(false),
+            "operations": request.operations,
+        })) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(error).map_err(|e| McpError::internal_error(e.to_string(), None))?)]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(serde_json::to_string(&result).map_err(|e| McpError::internal_error(e.to_string(), None))?)]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(&error).map_err(|e| McpError::internal_error(e.to_string(), None))?)])),
+        }
     }
 
     #[tool(
@@ -740,6 +851,9 @@ mod tests {
         assert!(router.has_route("list_development_sessions"));
         assert!(router.has_route("show_message"));
         assert!(router.has_route("get_project_summary"));
+        assert!(router.has_route("get_kind_schema"));
+        assert!(router.has_route("apply_changes"));
+        assert!(router.has_route("create_application"));
         assert!(router.has_route("get_project_overview"));
         assert!(router.has_route("get_app_context"));
         assert!(router.has_route("get_app_analysis_context"));
@@ -748,7 +862,7 @@ mod tests {
         assert!(router.has_route("get_node_references"));
         assert!(router.has_route("set_node_disabled"));
         assert!(router.has_route("select_node"));
-        assert_eq!(router.list_all().len(), 12);
+        assert_eq!(router.list_all().len(), 20);
     }
 
     #[test]

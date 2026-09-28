@@ -29,6 +29,7 @@ pub fn run() {
             edit_history::edit_history_status,
             mcp::session::mcp_start_session,
             mcp::session::mcp_stop_session,
+            mcp::session::mcp_update_session_dirty,
             mcp::session::mcp_probe_session,
             mcp::bridge::mcp_respond,
             resource::resource_create_session,

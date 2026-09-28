@@ -29,6 +29,34 @@ const DETAIL_CHILD_LIMIT = 100
 const ANALYSIS_NODE_LIMIT = 200
 const ANALYSIS_EDGE_LIMIT = 300
 
+export type McpKindSchema = {
+  modelVersion: string
+  source: 'studio-element-registry'
+  kind?: string
+  kinds?: readonly string[]
+  definition?: ReturnType<typeof ElementRegistry.getMcpSchema>
+}
+
+export const getMcpKindSchema = (kind?: string): McpKindSchema | { error: { code: string, message: string } } => {
+  const kinds = ElementRegistry.listKinds()
+  if (kind == null || kind === '') {
+    return {
+      modelVersion: MODEL_VERSION,
+      source: 'studio-element-registry',
+      kinds,
+    }
+  }
+  if (!kinds.includes(kind as typeof kinds[number])) {
+    return { error: { code: 'UNKNOWN_KIND', message: `Unknown element kind: ${kind}.` } }
+  }
+  return {
+    modelVersion: MODEL_VERSION,
+    source: 'studio-element-registry',
+    kind,
+    definition: ElementRegistry.getMcpSchema(kind as typeof kinds[number]),
+  }
+}
+
 const childOfKind = (
   node: TreeNode.Node,
   kind: string,
@@ -752,6 +780,7 @@ export const getMcpComponentStructure = (
 }
 
 export default {
+  getMcpKindSchema,
   getProjectOverview: getMcpProjectOverview,
   getAppContext: getMcpAppContext,
   getAppAnalysisContext: getMcpAppAnalysisContext,

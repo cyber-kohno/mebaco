@@ -33,7 +33,6 @@ export type CommandDefinition = {
   id: string
   label: string
   description: string
-  aliases?: readonly string[]
   isAvailable?: (context: CommandContext) => boolean
   complete?: (context: CommandContext, args: readonly string[]) => readonly CommandCompletion[]
   execute: (context: CommandContext, args: readonly string[]) => void | Promise<void>

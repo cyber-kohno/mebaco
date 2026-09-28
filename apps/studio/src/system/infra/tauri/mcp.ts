@@ -38,6 +38,10 @@ namespace TauriMcp {
 
   export const stopSession = (): Promise<void> => invoke('mcp_stop_session')
 
+  export const updateSessionDirty = (dirty: boolean): Promise<void> => (
+    invoke('mcp_update_session_dirty', { dirty })
+  )
+
   export const probeSession = (): Promise<unknown> => invoke('mcp_probe_session')
 
   export const respond = (

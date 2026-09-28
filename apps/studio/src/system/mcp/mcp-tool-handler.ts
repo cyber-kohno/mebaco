@@ -14,8 +14,57 @@ import Text from '@system/model/view/text'
 import HtmlTag from '@system/model/element/html-tag'
 import TagAttributeCatalog from '@system/model/view/tag-attribute-catalog'
 import ResolvableValue from '@system/model/value/resolvable-value'
+import App from '@system/model/app/app'
+import Component from '@system/model/component/component'
+import Style from '@system/model/view/style/style'
+import State from '@system/model/variable/state'
+import Loop from '@system/model/directive/loop'
+import ToastController from '@system/ui/feedback/toast/toast-controller'
+import ContentHost from '@system/model/element/content-host'
 
 namespace McpToolHandler {
+  const isOptionalRetentionHost = (node: TreeNode.Node): boolean => {
+    if (node.element.kind === 'tag' && !HtmlTag.canHaveChildren(node.element.tagName)) return false
+    return ElementRegistry.get(node.element.kind).contentHost?.retention === 'optional'
+  }
+
+  const setContentHostRetention = (
+    nodeId: number,
+    enabled: boolean,
+  ): boolean => {
+    const node = TreeNode.findNode(get(TreeStore.rootNode), nodeId)
+    if (node == null || !isOptionalRetentionHost(node)) {
+      throw new Error(`Node ${nodeId} does not support optional Retention.`)
+    }
+
+    if (enabled) {
+      if (ContentHost.usesRetention(node)) return false
+      if (!ContentHost.canUseRetention(node)) {
+        throw new Error(`Node ${nodeId} has an invalid Retention/Elements structure.`)
+      }
+      return TreeStore.transformNode(nodeId, (target, createNode) => (
+        ContentHost.useRetention(target, createNode)
+      ))
+    }
+
+    if (!ContentHost.usesRetention(node)) {
+      if (!ContentHost.canUseRetention(node)) {
+        throw new Error(`Node ${nodeId} has an invalid Retention/Elements structure.`)
+      }
+      return false
+    }
+    if (!ContentHost.canRemoveRetention(node)) {
+      throw new Error(`Retention on node ${nodeId} must be empty before it can be removed.`)
+    }
+    return TreeStore.transformNode(nodeId, (target) => (
+      ContentHost.removeRetention(target)
+    ))
+  }
+
+  const notifyAgentChangeApplied = (changed: boolean) => {
+    if (changed) ToastController.show('エージェントにより変更が適用されました')
+  }
+
   const handle = async (request: TauriMcp.BridgeRequest): Promise<void> => {
     if (get(McpSessionState.store) === 'available') {
       McpSessionState.set('connected')
@@ -81,6 +130,310 @@ namespace McpToolHandler {
           get(TreeStore.revision),
         )
         await TauriMcp.respond({ id: request.id, result: summary })
+        return
+      }
+
+      if (request.method === 'getKindSchema') {
+        const kind = typeof request.params === 'object'
+          && request.params != null
+          && 'kind' in request.params
+          && typeof request.params.kind === 'string'
+          ? request.params.kind
+          : undefined
+        const result = McpProjectReader.getMcpKindSchema(kind)
+        const error = 'error' in result ? result.error : null
+        await TauriMcp.respond(error == null
+          ? { id: request.id, result }
+          : { id: request.id, error })
+        return
+      }
+
+      if (request.method === 'createApplication') {
+        const params = typeof request.params === 'object' && request.params != null
+          ? request.params as Record<string, unknown>
+          : {}
+        const appName = typeof params.appName === 'string' ? params.appName.trim() : ''
+        const expectedRevision = typeof params.expectedRevision === 'number'
+          && Number.isSafeInteger(params.expectedRevision)
+          && params.expectedRevision >= 0
+          ? params.expectedRevision
+          : null
+        const dryRun = params.dryRun ?? false
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(appName) || appName.length > 32 || expectedRevision == null || typeof dryRun !== 'boolean') {
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'appName must be a kebab-case identifier of 1-32 characters, with expectedRevision and dryRun.' } })
+          return
+        }
+        const actualRevision = get(TreeStore.revision)
+        if (actualRevision !== expectedRevision) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'REVISION_CONFLICT', message: `Tree revision conflict: expected ${expectedRevision}, actual ${actualRevision}.`, expectedRevision, actualRevision } })
+          return
+        }
+        const rootNode = get(TreeStore.rootNode)
+        const appsNode = rootNode.children.find((node) => node.element.kind === 'apps')
+        if (appsNode == null) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'PROJECT_STRUCTURE_INVALID', message: 'The project does not contain an Apps collection.' } })
+          return
+        }
+        if (appsNode.children.some((node) => node.element.kind === 'app' && node.element.id === appName)) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'NAME_CONFLICT', message: `An app named ${appName} already exists.` } })
+          return
+        }
+        if (dryRun) {
+          await TauriMcp.respond({ id: request.id, result: { appName, dryRun: true, changed: false, application: null, previousRevision: expectedRevision, revision: expectedRevision } })
+          return
+        }
+        const appNodeId = TreeStore.addChildAndGetId(appsNode.id, App.create(appName))
+        const appNode = TreeNode.findNode(get(TreeStore.rootNode), appNodeId)
+        const declaresNode = appNode?.children.find((node) => node.element.kind === 'declares')
+        const componentsNode = declaresNode?.children.find((node) => node.element.kind === 'components')
+        const entryNode = appNode?.children.find((node) => node.element.kind === 'entry')
+        if (appNode == null || componentsNode == null || entryNode?.element.kind !== 'entry') {
+          await TauriMcp.respond({ id: request.id, error: { code: 'PROJECT_STRUCTURE_INVALID', message: 'The created App does not have the expected initial structure.' } })
+          return
+        }
+        const mainElement = Component.create('Main')
+        const mainNodeId = TreeStore.addChildAndGetId(componentsNode.id, mainElement)
+        TreeStore.updateElement(entryNode.id, { ...entryNode.element, componentId: mainElement.componentId, propBindings: [] })
+        notifyAgentChangeApplied(true)
+        await TauriMcp.respond({ id: request.id, result: { appName, dryRun: false, changed: true, application: { appNodeId, mainNodeId, componentId: mainElement.componentId, entryNodeId: entryNode.id }, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
+        return
+      }
+
+      if (request.method === 'applyChanges') {
+        const params = typeof request.params === 'object' && request.params != null
+          ? request.params as Record<string, unknown>
+          : {}
+        const expectedRevision = typeof params.expectedRevision === 'number'
+          && Number.isSafeInteger(params.expectedRevision)
+          && params.expectedRevision >= 0
+          ? params.expectedRevision
+          : null
+        const dryRun = params.dryRun ?? false
+        const operations = Array.isArray(params.operations) ? params.operations : null
+        if (expectedRevision == null || typeof dryRun !== 'boolean' || operations == null || operations.length > 100) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'expectedRevision, dryRun, and up to 100 operations are required.' } })
+          return
+        }
+        const actualRevision = get(TreeStore.revision)
+        if (actualRevision !== expectedRevision) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'REVISION_CONFLICT', message: `Tree revision conflict: expected ${expectedRevision}, actual ${actualRevision}.`, expectedRevision, actualRevision } })
+          return
+        }
+        const root = get(TreeStore.rootNode)
+        const invalidOperation = operations.find((operation) => {
+          if (typeof operation !== 'object' || operation == null) return true
+          const type = (operation as Record<string, unknown>).type
+          return !['insertNode', 'createState', 'createLoop', 'createStyle', 'applyStyle', 'setContentHostRetention', 'setTextFormula', 'setTagAttributeFormula', 'setTagEvent', 'updateNodeProperty', 'updateNodeAttribute', 'moveNode', 'deleteNode'].includes(type as string)
+        })
+        if (invalidOperation != null) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'Supported operation types are insertNode, createState, createLoop, createStyle, applyStyle, setContentHostRetention, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode.' } })
+          return
+        }
+        const operationLabels = [...new Set(
+          (operations as Array<Record<string, unknown>>).map((operation) => (
+            typeof operation.type === 'string' ? operation.type : 'unknown'
+          )),
+        )]
+        let transaction: { result: Array<Record<string, unknown>>; changed: boolean }
+        try {
+          transaction = TreeStore.transaction({
+            source: 'mcp',
+            label: `Apply MCP changes (${operations.length}: ${operationLabels.join(', ')})`,
+            expectedRevision,
+          }, () => {
+          if (dryRun) return []
+          const results: Array<Record<string, unknown>> = []
+          for (const operation of operations as Array<Record<string, unknown>>) {
+            const type = operation.type
+            if (type === 'insertNode') {
+              const parentNodeId = operation.parentNodeId
+              const kind = operation.kind
+              if (typeof parentNodeId !== 'number' || !Number.isInteger(parentNodeId) || !['tag', 'text'].includes(kind as string)) throw new Error('Invalid insertNode operation.')
+              const tagName = operation.tagName ?? 'div'
+              const value = operation.value ?? ''
+              if (typeof tagName !== 'string' || !HtmlTag.isTagName(tagName) || typeof value !== 'string' || value.length > 8000) throw new Error('Invalid insertNode values.')
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId, kind === 'tag' ? Tag.create(tagName as Tag.TagName, '') : Text.createLiteral(value), typeof operation.index === 'number' ? operation.index : undefined)
+              results.push({ type, nodeId })
+            } else if (type === 'createState') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const valueType = operation.valueType
+              const initial = operation.initial
+              const parent = typeof parentNodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), parentNodeId) : null
+              if (typeof parentNodeId !== 'number' || parent == null || parent.element.kind !== 'states' || !/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(id) || typeof valueType !== 'object' || valueType == null || typeof initial !== 'string') throw new Error('Invalid createState operation.')
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId, State.create({ id, valueType: valueType as State.Element['valueType'], nullable: false, initial: { type: 'literal', value: initial } }))
+              results.push({ type, nodeId, id })
+            } else if (type === 'createLoop') {
+              const parentNodeId = operation.parentNodeId
+              const collectionSource = operation.collectionSource
+              const itemId = operation.itemId
+              const indexId = operation.indexId
+              if (typeof parentNodeId !== 'number' || typeof collectionSource !== 'string' || typeof itemId !== 'string' || typeof indexId !== 'string' || !/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(itemId) || !/^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/.test(indexId)) throw new Error('Invalid createLoop operation.')
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId, Loop.createCollection(collectionSource, itemId, indexId))
+              results.push({ type, nodeId, itemId, indexId })
+            } else if (type === 'createStyle') {
+              const parentNodeId = operation.parentNodeId
+              const id = typeof operation.id === 'string' ? operation.id.trim() : ''
+              const styleId = typeof operation.styleId === 'string' && operation.styleId.length > 0 ? operation.styleId : crypto.randomUUID()
+              const rules = operation.rules
+              const parent = typeof parentNodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), parentNodeId) : null
+              if (typeof parentNodeId !== 'number' || parent == null || parent.element.kind !== 'styles' || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(id) || !Array.isArray(rules) || rules.length > 100) throw new Error('Invalid createStyle operation.')
+              const parsedRules = rules.map((rule) => {
+                if (typeof rule !== 'object' || rule == null) throw new Error('Style rules must be objects.')
+                const property = (rule as Record<string, unknown>).property
+                const value = (rule as Record<string, unknown>).value
+                if (typeof property !== 'string' || property.trim() === '' || typeof value !== 'string' || value.length > 8000) throw new Error('Style rules require a property and string value.')
+                return { type: 'declaration' as const, property: property.trim(), value: ResolvableValue.createLiteral(value) }
+              })
+              const nodeId = TreeStore.addChildAndGetId(parentNodeId, Style.create(id, parsedRules, [], styleId))
+              results.push({ type, nodeId, styleId, id })
+            } else if (type === 'applyStyle') {
+              const nodeId = operation.nodeId
+              const styleId = operation.styleId
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'tag' || typeof styleId !== 'string' || styleId.length === 0) throw new Error('Invalid applyStyle operation.')
+              let styleExists = false
+              const visit = (candidate: TreeNode.Node) => {
+                if (candidate.element.kind === 'style' && candidate.element.styleId === styleId) styleExists = true
+                candidate.children.forEach(visit)
+              }
+              visit(get(TreeStore.rootNode))
+              if (!styleExists) throw new Error(`Style ${styleId} was not found.`)
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'tag') return false
+                if (target.element.styles.some((style) => style.styleId === styleId)) return false
+                target.element = { ...target.element, styles: [...target.element.styles, { referenceId: crypto.randomUUID(), styleId, arguments: [] }] }
+                return true
+              })
+              results.push({ type, nodeId, styleId })
+            } else if (type === 'setContentHostRetention') {
+              const nodeId = operation.nodeId
+              const enabled = operation.enabled
+              if (typeof nodeId !== 'number' || !Number.isInteger(nodeId) || typeof enabled !== 'boolean') throw new Error('Invalid setContentHostRetention operation.')
+              const changed = setContentHostRetention(nodeId, enabled)
+              results.push({ type, nodeId, enabled, changed })
+            } else if (type === 'setTextFormula') {
+              const nodeId = operation.nodeId
+              const source = operation.source
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'text' || typeof source !== 'string' || source.trim() === '' || source.length > 8000) throw new Error('Invalid setTextFormula operation.')
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'text') return false
+                target.element = { ...target.element, source: ResolvableValue.createFormula(source) }
+                return true
+              })
+              results.push({ type, nodeId, source })
+            } else if (type === 'setTagAttributeFormula') {
+              const nodeId = operation.nodeId
+              const name = typeof operation.name === 'string' ? operation.name.trim() : ''
+              const source = operation.source
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'tag' || name === '' || typeof source !== 'string' || source.trim() === '' || source.length > 8000) throw new Error('Invalid setTagAttributeFormula operation.')
+              if (TagAttributeCatalog.resolvePolicy(node.element.tagName, name).status !== 'supported') throw new Error(`Attribute ${name} is not supported.`)
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'tag') return false
+                const attributes = [...target.element.attributes]
+                const index = attributes.findIndex((attribute) => attribute.type === 'attribute' && attribute.name === name)
+                const next = { type: 'attribute' as const, name, value: ResolvableValue.createFormula(source) }
+                if (index < 0) attributes.push(next)
+                else attributes[index] = next
+                target.element = { ...target.element, attributes }
+                return true
+              })
+              results.push({ type, nodeId, name, source })
+            } else if (type === 'setTagEvent') {
+              const nodeId = operation.nodeId
+              const name = typeof operation.name === 'string' ? operation.name.trim() : ''
+              const source = operation.source
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'tag' || name === '' || typeof source !== 'string' || source.trim() === '' || source.length > 8000) throw new Error('Invalid setTagEvent operation.')
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'tag') return false
+                const attributes = [...target.element.attributes]
+                const index = attributes.findIndex((attribute) => attribute.type === 'event' && attribute.name === name)
+                const next = { type: 'event' as const, name, preventDefault: false, stopPropagation: false, action: { type: 'script' as const, source } }
+                if (index < 0) attributes.push(next)
+                else attributes[index] = next
+                target.element = { ...target.element, attributes }
+                return true
+              })
+              results.push({ type, nodeId, name })
+            } else if (type === 'updateNodeProperty') {
+              const nodeId = operation.nodeId
+              const property = operation.property
+              const value = operation.value
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || !['comment', 'tagName', 'source'].includes(property as string) || typeof value !== 'string' || value.length > 8000) throw new Error('Invalid updateNodeProperty operation.')
+              if (property === 'tagName' && node.element.kind !== 'tag') throw new Error('tagName can only be updated on Tag nodes.')
+              if (property === 'comment' && (node.element.kind !== 'tag' || typeof node.element.comment !== 'string')) throw new Error('comment can only be updated on Tag nodes.')
+              if (property === 'source' && node.element.kind !== 'text') throw new Error('source can only be updated on Text nodes in applyChanges.')
+              if (property === 'tagName' && !HtmlTag.isTagName(value)) throw new Error('tagName must be a supported HTML tag name.')
+              TreeStore.transformNode(nodeId, (target) => {
+                if (property === 'source' && target.element.kind === 'text') target.element = { ...target.element, source: ResolvableValue.createLiteral(value) }
+                else if (property === 'tagName' && target.element.kind === 'tag') target.element = { ...target.element, tagName: value as Tag.TagName }
+                else if (property === 'comment' && target.element.kind === 'tag') target.element = { ...target.element, comment: value }
+                else return false
+                return true
+              })
+              results.push({ type, nodeId, property })
+            } else if (type === 'updateNodeAttribute') {
+              const nodeId = operation.nodeId
+              const name = typeof operation.name === 'string' ? operation.name.trim() : ''
+              const value = operation.value
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.element.kind !== 'tag' || name === '' || typeof value !== 'string' || value.length > 8000) throw new Error('Invalid updateNodeAttribute operation.')
+              if (TagAttributeCatalog.resolvePolicy(node.element.tagName, name).status !== 'supported') throw new Error(`Attribute ${name} is not supported.`)
+              TreeStore.transformNode(nodeId, (target) => {
+                if (target.element.kind !== 'tag') return false
+                const attributes = [...target.element.attributes]
+                const index = attributes.findIndex((attribute) => attribute.type === 'attribute' && attribute.name === name)
+                const next = { type: 'attribute' as const, name, value: ResolvableValue.createLiteral(value) }
+                if (index < 0) attributes.push(next)
+                else attributes[index] = next
+                target.element = { ...target.element, attributes }
+                return true
+              })
+              results.push({ type, nodeId, name })
+            } else if (type === 'moveNode') {
+              const nodeId = operation.nodeId
+              const direction = operation.direction
+              if (typeof nodeId !== 'number' || !['up', 'down'].includes(direction as string) || !TreeStore.canMoveNode(nodeId, direction === 'up' ? -1 : 1)) throw new Error('Invalid moveNode operation.')
+              TreeStore.moveNode(nodeId, direction === 'up' ? -1 : 1)
+              results.push({ type, nodeId, direction })
+            } else {
+              const nodeId = operation.nodeId
+              const node = typeof nodeId === 'number' ? TreeNode.findNode(get(TreeStore.rootNode), nodeId) : null
+              if (typeof nodeId !== 'number' || node == null || node.children.length > 0 || node.id === get(TreeStore.rootNode).id) throw new Error('Only existing non-root leaf nodes can be deleted.')
+              TreeStore.removeNode(nodeId)
+              results.push({ type, nodeId })
+            }
+          }
+            return results
+          })
+        } catch (error) {
+          if (error instanceof TreeStore.RevisionConflictError) {
+            await TauriMcp.respond({
+              id: request.id,
+              error: {
+                code: error.code,
+                message: error.message,
+                expectedRevision: error.expectedRevision,
+                actualRevision: error.actualRevision,
+              },
+            })
+            return
+          }
+          await TauriMcp.respond({
+            id: request.id,
+            error: {
+              code: 'EDIT_NOT_SUPPORTED',
+              message: error instanceof Error ? error.message : 'MCP changes could not be applied.',
+            },
+          })
+          return
+        }
+        notifyAgentChangeApplied(!dryRun && transaction.changed)
+        await TauriMcp.respond({ id: request.id, result: { dryRun, changed: dryRun ? false : transaction.changed, operations: transaction.result, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }
 
@@ -327,6 +680,7 @@ namespace McpToolHandler {
               })
             },
           )
+          notifyAgentChangeApplied(!dryRun && transaction.changed)
           await TauriMcp.respond({
             id: request.id,
             result: {
@@ -410,6 +764,7 @@ namespace McpToolHandler {
               return true
             })
           })
+          notifyAgentChangeApplied(!dryRun && transaction.changed)
           await TauriMcp.respond({ id: request.id, result: { nodeId, property, previousValue, value, dryRun, changed: dryRun ? false : transaction.changed, wouldChange: changed, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         } catch (error) {
           if (error instanceof TreeStore.RevisionConflictError) {
@@ -452,6 +807,7 @@ namespace McpToolHandler {
           TreeStore.removeNode(nodeId)
           return true
         })
+        notifyAgentChangeApplied(!dryRun && transaction.changed)
         await TauriMcp.respond({ id: request.id, result: { nodeId, parentNodeId: parent.id, selectedNodeId: selectedNodeId === nodeId ? parent.id : selectedNodeId, dryRun, changed: dryRun ? false : transaction.changed, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }
@@ -491,6 +847,7 @@ namespace McpToolHandler {
           if (dryRun) return null
           return TreeStore.addChildAndGetId(parentNodeId, element, index ?? undefined)
         })
+        notifyAgentChangeApplied(!dryRun && transaction.changed)
         await TauriMcp.respond({ id: request.id, result: { parentNodeId, kind, nodeId: transaction.result, dryRun, changed: dryRun ? false : transaction.changed, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }
@@ -518,6 +875,7 @@ namespace McpToolHandler {
           if (dryRun) return false
           return TreeStore.moveNode(nodeId, direction === 'up' ? -1 : 1)
         })
+        notifyAgentChangeApplied(!dryRun && transaction.changed)
         await TauriMcp.respond({ id: request.id, result: { nodeId, direction, dryRun, changed: dryRun ? false : transaction.changed, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }
@@ -559,6 +917,7 @@ namespace McpToolHandler {
             return true
           })
         })
+        notifyAgentChangeApplied(!dryRun && transaction.changed)
         await TauriMcp.respond({ id: request.id, result: { nodeId, name, previousValue, value, dryRun, changed: dryRun ? false : transaction.changed, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }

@@ -18,7 +18,7 @@ namespace TreeStore {
 
   export type LifecycleListener = (event: LifecycleEvent) => void
 
-  export type TransactionSource = 'user' | 'mcp' | 'undo' | 'redo' | 'system'
+  export type TransactionSource = 'user' | 'mcp' | 'undo' | 'redo' | 'restore' | 'system'
 
   export type TransactionOptions = {
     source: TransactionSource
@@ -554,9 +554,13 @@ namespace TreeStore {
   export const restoreHistorySnapshot = (
     snapshotRootNode: TreeNode.Node,
     snapshotSelectedNodeId: number,
-    source: 'undo' | 'redo',
+    source: 'undo' | 'redo' | 'restore',
+    label?: string,
   ): void => {
-    transaction({ source, label: source === 'undo' ? 'Undo' : 'Redo' }, () => {
+    transaction({
+      source,
+      label: label ?? (source === 'undo' ? 'Undo' : source === 'redo' ? 'Redo' : 'Restore history'),
+    }, () => {
       const nextRoot = TreeNode.clone(snapshotRootNode)
       updateRoot(() => nextRoot)
       nextNodeId = Math.max(nextNodeId, findMaxNodeId(nextRoot) + 1)

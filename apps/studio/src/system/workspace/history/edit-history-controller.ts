@@ -3,6 +3,7 @@ import type TreeNode from '@system/model/tree/tree-node'
 import TauriEditHistory from '@system/infra/tauri/edit-history'
 import TreeStore from '@system/workspace/tree/state'
 import TreeViewportController from '@system/workspace/tree/tree-viewport-controller'
+import EditHistoryLog from './edit-history-log'
 
 namespace EditHistoryController {
   type Snapshot = {
@@ -41,7 +42,7 @@ namespace EditHistoryController {
     return value as Snapshot
   }
 
-  const restore = (snapshot: Snapshot, source: 'undo' | 'redo') => {
+  const restoreSnapshot = (snapshot: Snapshot, source: 'undo' | 'redo') => {
     TreeStore.restoreHistorySnapshot(
       snapshot.rootNode,
       snapshot.selectedNodeId,
@@ -50,6 +51,7 @@ namespace EditHistoryController {
     const rootNode = get(TreeStore.rootNode)
     TreeViewportController.setViewRootNodeId(rootNode, snapshot.viewRootNodeId)
     TreeViewportController.requestReveal(get(TreeStore.selectedNodeId))
+    EditHistoryLog.updateLatestViewRootNodeId(snapshot.viewRootNodeId)
   }
 
   const reportFailure = (operation: string, error: unknown) => {
@@ -58,6 +60,11 @@ namespace EditHistoryController {
 
   export const connect = (): (() => void) => {
     let beforeSnapshot: Snapshot | null = null
+    EditHistoryLog.initialize(
+      get(TreeStore.rootNode),
+      get(TreeStore.selectedNodeId),
+      get(TreeViewportController.state).viewRootNodeId,
+    )
     void runSerialized(() => TauriEditHistory.clear())
       .catch((error) => reportFailure('initialize', error))
 
@@ -69,7 +76,11 @@ namespace EditHistoryController {
       )
     })
     const unsubscribeTransaction = TreeStore.onTransaction((commit) => {
-      if (commit.options.source === 'undo' || commit.options.source === 'redo') return
+      EditHistoryLog.record(commit, get(TreeViewportController.state).viewRootNodeId)
+      if (commit.options.source === 'undo' || commit.options.source === 'redo') {
+        beforeSnapshot = null
+        return
+      }
       const snapshot = beforeSnapshot ?? createSnapshot(
         commit.previousRootNode,
         commit.previousSelectedNodeId,
@@ -81,6 +92,11 @@ namespace EditHistoryController {
     const unsubscribeLifecycle = TreeStore.onLifecycle((event) => {
       if (event.type !== 'replace') return
       beforeSnapshot = null
+      EditHistoryLog.initialize(
+        get(TreeStore.rootNode),
+        get(TreeStore.selectedNodeId),
+        get(TreeViewportController.state).viewRootNodeId,
+      )
       void runSerialized(() => TauriEditHistory.clear())
         .catch((error) => reportFailure('clear', error))
     })
@@ -95,7 +111,7 @@ namespace EditHistoryController {
   export const undo = (): Promise<boolean> => runSerialized(async () => {
     const snapshot = await TauriEditHistory.undo(serialize(createSnapshot()))
     if (snapshot == null) return false
-    restore(parse(snapshot), 'undo')
+    restoreSnapshot(parse(snapshot), 'undo')
     return true
   }).catch((error) => {
     reportFailure('undo', error)
@@ -105,12 +121,43 @@ namespace EditHistoryController {
   export const redo = (): Promise<boolean> => runSerialized(async () => {
     const snapshot = await TauriEditHistory.redo(serialize(createSnapshot()))
     if (snapshot == null) return false
-    restore(parse(snapshot), 'redo')
+    restoreSnapshot(parse(snapshot), 'redo')
     return true
   }).catch((error) => {
     reportFailure('redo', error)
     return false
   })
+
+  export const restore = (revision: number): Promise<boolean> => runSerialized(async () => {
+    const entry = EditHistoryLog.getEntry(revision)
+    if (entry == null) return false
+
+    const currentRootNode = get(TreeStore.rootNode)
+    const currentSelectedNodeId = get(TreeStore.selectedNodeId)
+    const currentViewRootNodeId = get(TreeViewportController.state).viewRootNodeId
+    if (
+      currentRootNode === entry.snapshot.rootNode
+      && currentSelectedNodeId === entry.snapshot.selectedNodeId
+      && currentViewRootNodeId === entry.snapshot.viewRootNodeId
+    ) return false
+
+    TreeStore.restoreHistorySnapshot(
+      entry.snapshot.rootNode,
+      entry.snapshot.selectedNodeId,
+      'restore',
+      `Restore history #${entry.revision}`,
+    )
+    const rootNode = get(TreeStore.rootNode)
+    TreeViewportController.setViewRootNodeId(rootNode, entry.snapshot.viewRootNodeId)
+    TreeViewportController.requestReveal(get(TreeStore.selectedNodeId))
+    EditHistoryLog.updateLatestViewRootNodeId(entry.snapshot.viewRootNodeId)
+    return true
+  }).catch((error) => {
+    reportFailure('restore', error)
+    return false
+  })
+
+  export const getEntries = (): readonly EditHistoryLog.Entry[] => EditHistoryLog.getEntries()
 }
 
 export default EditHistoryController

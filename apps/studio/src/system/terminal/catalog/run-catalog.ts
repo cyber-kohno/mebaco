@@ -22,7 +22,6 @@ const createRunCatalog = (options: {
   id: 'run',
   label: 'run',
   description: 'Start preview for the selected App.',
-  aliases: ['preview'],
   complete: (_context, args) => options.launchers.map((launcher) => ({
     label: launcher.id,
     detail: launcher.name,
