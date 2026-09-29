@@ -33,6 +33,8 @@ import SwitchValueType from '@system/model/directive/switch-value-type'
 import CaseElement from '@system/model/directive/case'
 import DefaultElement from '@system/model/directive/default'
 import TextElement from '@system/model/view/text'
+import State from '@system/model/variable/state'
+import States from '@system/model/variable/states'
 import type MebacoElement from '@system/model/element/element'
 import TreeNode from '@system/model/tree/tree-node'
 import TreeTransferCatalog from './tree-transfer-catalog'
@@ -141,6 +143,12 @@ describe('TreeTransfer', () => {
       ...SignatureDefinition.create(),
     })
     const movableFunction = node(15, inlineFunction('calculate'))
+    const state = node(19, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.wrapArray(TypeExpression.createPrimitive(), 1),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
     const tag = node(12, TagElement.create('div', ''))
     const loop = node(16, LoopElement.createCount('4', 'index'))
     const conditional = node(17, ConditionalElement.create())
@@ -157,6 +165,7 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.isMovableKind(union.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(signature.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(movableFunction.element.kind)).toBe(true)
+    expect(TreeTransferCatalog.isMovableKind(state.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(tag.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(loop.element.kind)).toBe(true)
     expect(TreeTransferCatalog.isMovableKind(conditional.element.kind)).toBe(true)
@@ -165,6 +174,249 @@ describe('TreeTransfer', () => {
     expect(TreeTransferCatalog.canPasteTo(root, style, styles, 'move')).toBe(false)
     expect(TreeTransferCatalog.canPasteTo(root, object, retention, 'move')).toBe(true)
     expect(TreeTransferCatalog.canPasteTo(root, union, retention, 'move')).toBe(true)
+  })
+
+  it('copies and moves State only between States containers', () => {
+    const property = TypeExpression.createProperty(
+      'text',
+      TypeExpression.createPrimitive('string'),
+      'state-property',
+    )
+    const source = node(7, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.wrapArray(TypeExpression.createObject([property]), 1),
+      nullable: false,
+      initial: { type: 'literal', value: '[]' },
+    }))
+    const sourceStates = node(6, States.create(), [source])
+    const destinationStates = node(3, States.create())
+    const component = node(4, {
+      kind: 'component', componentId: 'component-id', id: 'Local', local: true,
+    }, [node(5, { kind: 'store' }, [sourceStates])])
+    const app = node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+      node(8, { kind: 'store' }, [destinationStates]),
+      component,
+    ])
+    const unrelated = node(9, RetentionElement.create())
+    const root = node(1, ProjectElement.create(), [app, unrelated])
+
+    expect(TreeTransferCatalog.isTransferable(source.element)).toBe(true)
+    expect(TreeTransferCatalog.isMovable(source.element)).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, destinationStates, 'copy')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, destinationStates, 'move')).toBe(true)
+    expect(TreeTransferCatalog.canPasteTo(root, source, unrelated, 'copy')).toBe(false)
+    expect(TreeTransferCatalog.canPasteTo(root, source, unrelated, 'move')).toBe(false)
+
+    const copyPlan = TreeTransferPlanner.copy(
+      root,
+      source.id,
+      destinationStates.id,
+      'tasksCopy',
+    )
+    const copied = TreeNode.findNode(copyPlan.rootNode, copyPlan.copiedNodeId)?.element
+    if (copied?.kind !== 'state') throw new Error('Expected a copied State.')
+    const copiedBase = TypeExpression.unwrapArray(copied.valueType).base
+    if (copiedBase.type !== 'object') throw new Error('Expected an inline Object State.')
+    expect(copied.id).toBe('tasksCopy')
+    expect(copiedBase.properties[0]?.propertyId).not.toBe(property.propertyId)
+    expect(copied.initial).toEqual(source.element.kind === 'state'
+      ? source.element.initial
+      : null)
+    expect(TreeTransferValidator.validateStructure(
+      copyPlan.rootNode,
+      copyPlan.copiedNodeId,
+    )).toBeNull()
+
+    const movePlan = TreeTransferPlanner.move(root, source.id, destinationStates.id)
+    const moved = TreeNode.findNode(movePlan.rootNode, source.id)?.element
+    expect(moved).toEqual(source.element)
+    expect(TreeNode.findParent(movePlan.rootNode, source.id)?.id).toBe(destinationStates.id)
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      movePlan.rootNode,
+      source.id,
+    )).toBeNull()
+  })
+
+  it('rejects duplicate State names using the same visible-scope rules as Add state', () => {
+    const source = node(7, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.createPrimitive(),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const existing = node(4, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.createPrimitive(),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const existingCopy = node(5, State.create({
+      id: 'tasksCopy',
+      valueType: TypeExpression.createPrimitive(),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const destinationStates = node(3, States.create(), [existing, existingCopy])
+    const sourceStates = node(6, States.create(), [source])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+        node(8, { kind: 'store' }, [destinationStates]),
+        node(9, {
+          kind: 'component', componentId: 'component-id', id: 'Local', local: true,
+        }, [node(10, { kind: 'store' }, [sourceStates])]),
+      ]),
+    ])
+
+    expect(() => TreeTransferPlanner.copy(
+      root,
+      source.id,
+      destinationStates.id,
+      'tasksCopy',
+    )).toThrow('Already exists.')
+    expect(() => TreeTransferPlanner.move(
+      root,
+      source.id,
+      destinationStates.id,
+    )).toThrow('Already exists.')
+  })
+
+  it('moves a local State to its App without changing existing expression targets', () => {
+    const source = node(7, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.wrapArray(TypeExpression.createPrimitive(), 1),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const use = node(9, TextElement.createFormula('$state.tasks.length.toString()'))
+    const destinationStates = node(3, States.create())
+    const component = node(5, {
+      kind: 'component', componentId: 'component-id', id: 'Local', local: true,
+    }, [
+      node(6, { kind: 'store' }, [node(8, States.create(), [source])]),
+      node(10, { kind: 'elements' }, [use]),
+    ])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+        node(4, { kind: 'store' }, [destinationStates]),
+        component,
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationStates.id)
+
+    expect(TreeTransferValidator.findMoveReferenceTargetChange(
+      root,
+      plan.rootNode,
+      'expression',
+    )).toBeNull()
+  })
+
+  it('warns when moving a State makes its initializer lose a local State dependency', () => {
+    const filter = node(7, State.create({
+      id: 'filter',
+      valueType: TypeExpression.createPrimitive(),
+      nullable: false,
+      initial: { type: 'literal', value: '' },
+    }))
+    const source = node(8, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.createPrimitive(),
+      nullable: false,
+      initial: { type: 'formula', source: '$state.filter' },
+    }))
+    const destinationStates = node(3, States.create())
+    const component = node(5, {
+      kind: 'component', componentId: 'component-id', id: 'Local', local: true,
+    }, [node(6, { kind: 'store' }, [node(9, States.create(), [filter, source])])])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'app-id', id: 'app' }, [
+        node(4, { kind: 'store' }, [destinationStates]),
+        component,
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationStates.id)
+
+    expect(TreeTransferValidator.findMoveReferenceTargetChange(
+      root,
+      plan.rootNode,
+      'expression',
+    )).toMatchObject({
+      type: 'reference-target-changed',
+      nodeId: source.id,
+      sourceLabel: 'state#initial',
+    })
+  })
+
+  it('rejects a State Move when its Value Type is unavailable at the destination', () => {
+    const objectType = node(5, ObjectType.create('Task', 'task-type'))
+    const source = node(8, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.wrapArray(TypeExpression.createReference(['task-type']), 1),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const sourceStates = node(7, States.create(), [source])
+    const destinationStates = node(12, States.create())
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'declares' }, [node(4, TypesElement.create(), [objectType])]),
+        node(6, { kind: 'store' }, [sourceStates]),
+      ]),
+      node(9, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(10, { kind: 'store' }, [destinationStates]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.move(root, source.id, destinationStates.id)
+
+    expect(TreeTransferValidator.validateMoveStructure(
+      root,
+      plan.rootNode,
+      source.id,
+    )).toContain('Select a valid Object reference.')
+  })
+
+  it('detects State initializer rebinding when copying across Apps', () => {
+    const state = (id: number, stateId: string, initial: State.Element['initial']) => node(
+      id,
+      State.create({
+        id: stateId,
+        valueType: TypeExpression.createPrimitive(),
+        nullable: false,
+        initial,
+      }),
+    )
+    const source = state(6, 'selected', { type: 'formula', source: '$state.filter' })
+    const sourceStates = node(4, States.create(), [
+      state(5, 'filter', { type: 'literal', value: 'source' }),
+      source,
+    ])
+    const destinationStates = node(9, States.create(), [
+      state(10, 'filter', { type: 'literal', value: 'destination' }),
+    ])
+    const root = node(1, ProjectElement.create(), [
+      node(2, { kind: 'app', appId: 'source-app', id: 'source' }, [
+        node(3, { kind: 'store' }, [sourceStates]),
+      ]),
+      node(7, { kind: 'app', appId: 'destination-app', id: 'destination' }, [
+        node(8, { kind: 'store' }, [destinationStates]),
+      ]),
+    ])
+
+    const plan = TreeTransferPlanner.copy(
+      root,
+      source.id,
+      destinationStates.id,
+      'selectedCopy',
+    )
+
+    expect(TreeTransferValidator.validateReferenceTargets(
+      root,
+      plan.rootNode,
+      plan.nodeIds,
+    )).toContain('would change a reference target')
   })
 
   it('transfers regular Components only between Components folders', () => {

@@ -2,6 +2,7 @@ import ElementEditSchema from '@system/workspace/element-editor/element-edit-sch
 import type MebacoElement from '@system/model/element/element'
 import TypeCatalog from '@system/model/type-system/type-catalog'
 import FunctionScope from '@system/model/function/function-scope'
+import StateScope from '@system/model/variable/state-scope'
 import ContentPlacement from '@system/model/element/content-placement'
 import TreeNode from '@system/model/tree/tree-node'
 
@@ -14,6 +15,7 @@ namespace TreeTransferCatalog {
     | 'union-type'
     | 'signature-type'
     | 'function'
+    | 'state'
     | 'component'
     | 'tag'
     | 'text'
@@ -27,6 +29,7 @@ namespace TreeTransferCatalog {
     | 'union-type'
     | 'signature-type'
     | 'function'
+    | 'state'
     | 'component'
     | 'tag'
     | 'text'
@@ -52,6 +55,7 @@ namespace TreeTransferCatalog {
     'union-type',
     'signature-type',
     'function',
+    'state',
     'component',
     'tag',
     'text',
@@ -66,6 +70,7 @@ namespace TreeTransferCatalog {
     'union-type',
     'signature-type',
     'function',
+    'state',
     'component',
     'tag',
     'text',
@@ -103,6 +108,7 @@ namespace TreeTransferCatalog {
       case 'union-type':
       case 'signature-type':
       case 'function':
+      case 'state':
       case 'component':
         return element.id
       case 'tag':
@@ -114,7 +120,7 @@ namespace TreeTransferCatalog {
 
   const isTypeKind = (
     kind: MebacoElement.Kind,
-  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'component' | 'tag' | 'text' | 'loop' | 'conditional' | 'switch'> => (
+  ): kind is Exclude<TransferableKind, 'app' | 'style' | 'function' | 'state' | 'component' | 'tag' | 'text' | 'loop' | 'conditional' | 'switch'> => (
     kind === 'object-type'
     || kind === 'union-type'
     || kind === 'signature-type'
@@ -165,6 +171,10 @@ namespace TreeTransferCatalog {
 
     if (sourceKind === 'component') {
       return destinationNode.element.kind === 'components'
+    }
+
+    if (sourceKind === 'state') {
+      return destinationNode.element.kind === 'states'
     }
 
     if (sourceKind === 'style') {
@@ -226,6 +236,7 @@ namespace TreeTransferCatalog {
       && sourceNode.element.kind !== 'bundle'
       && sourceNode.element.kind !== 'style'
       && sourceNode.element.kind !== 'function'
+      && sourceNode.element.kind !== 'state'
       && sourceNode.element.kind !== 'component'
       && sourceNode.element.kind !== 'tag'
       && sourceNode.element.kind !== 'text'
@@ -266,6 +277,14 @@ namespace TreeTransferCatalog {
         ...destinationNode.children.flatMap((child) => (
           child.element.kind === 'function' ? [child.element.id] : []
         )),
+      ])]
+    }
+    if (sourceKind === 'state') {
+      return [...new Set([
+        ...destinationNode.children.flatMap((child) => (
+          child.element.kind === 'state' ? [child.element.id] : []
+        )),
+        ...StateScope.getAncestorStateIds(rootNode, destinationNode.id),
       ])]
     }
     if (sourceKind === 'style') {
@@ -310,7 +329,7 @@ namespace TreeTransferCatalog {
         ? 'strictKebabIdentifier'
         : sourceKind === 'style' || sourceKind === 'bundle'
           ? 'identifier'
-        : sourceKind === 'function'
+        : sourceKind === 'function' || sourceKind === 'state'
           ? 'jsIdentifier'
           : 'pascalIdentifier',
       minLength: 1,

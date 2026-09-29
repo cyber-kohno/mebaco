@@ -329,6 +329,7 @@ namespace TreeTransferIdentity {
         remapTypeExpression(clone.valueType, maps)
         break
       case 'state':
+        if (isRoot && copiedName != null) clone.id = copiedName
         remapTypeExpression(clone.valueType, maps)
         break
       case 'switch':

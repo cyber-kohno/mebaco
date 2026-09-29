@@ -1,6 +1,7 @@
 import ObjectShape from '@system/model/type-system/object/object-shape'
 import SignatureDefinition from '@system/model/type-system/signature/signature-definition'
 import TypeCatalog from '@system/model/type-system/type-catalog'
+import TypeExpression from '@system/model/type-system/type-expression'
 import UnionDefinition from '@system/model/type-system/union/union-definition'
 import StyleParameterCatalog from '@system/model/view/style/style-parameter-catalog'
 import { ExpressionVerificationRunner } from '@system/application/validation/expression'
@@ -249,6 +250,14 @@ namespace TreeTransferValidator {
           TypeCatalog.getNamedTypeOptions(rootNode, node.id),
         )
       }
+      case 'state':
+        return TypeExpression.validateProperties(
+          [TypeExpression.createProperty('value', node.element.valueType)],
+          new Set(TypeCatalog.getReferenceOptions(rootNode, node.id)
+            .map((option) => option.value)),
+          new Set(TypeCatalog.getNamedTypeOptions(rootNode, node.id)
+            .map((option) => option.value)),
+        )
       case 'tag':
         return validateTag(rootNode, node as Parameters<typeof validateTag>[1])
       case 'loop':
@@ -292,6 +301,7 @@ namespace TreeTransferValidator {
       && copiedNode.element.kind !== 'union-type'
       && copiedNode.element.kind !== 'signature-type'
       && copiedNode.element.kind !== 'function'
+      && copiedNode.element.kind !== 'state'
       && copiedNode.element.kind !== 'component'
       && copiedNode.element.kind !== 'tag'
       && copiedNode.element.kind !== 'text'

@@ -71,6 +71,8 @@ import SignatureDefinition from '@system/model/type-system/signature/signature-d
 import ObjectType from '@system/model/type-system/object/object-type'
 import StyleElement from '@system/model/view/style/style'
 import TextElement from '@system/model/view/text'
+import State from '@system/model/variable/state'
+import TypeExpression from '@system/model/type-system/type-expression'
 import { ExpressionVerificationStore } from '@system/workspace/validation/state'
 import type TreeNode from '@system/model/tree/tree-node'
 import TreeDestinationActionId from './tree-destination-action-id'
@@ -225,6 +227,42 @@ describe('TreeDestinationController', () => {
 
     expect(TreeDestinationController.addCopyAction(items, localComponent)).toBe(items)
     expect(TreeDestinationController.addMoveAction(items, localComponent)).toBe(items)
+  })
+
+  it('adds named Copy and Move transactions to State', () => {
+    const state = node(6, State.create({
+      id: 'tasks',
+      valueType: TypeExpression.wrapArray(TypeExpression.createPrimitive(), 1),
+      nullable: false,
+      initial: { type: 'default' },
+    }))
+    const items = [
+      { type: 'action' as const, label: 'Modify', callback: vi.fn() },
+      { type: 'action' as const, label: 'Delete', callback: vi.fn() },
+    ]
+
+    const copyItems = TreeDestinationController.addCopyAction(items, state)
+    const moveItems = TreeDestinationController.addMoveAction(items, state)
+    expect(copyItems.map(({ label }) => label)).toEqual(['Modify', 'Copy', 'Delete'])
+    expect(moveItems.map(({ label }) => label)).toEqual(['Modify', 'Move', 'Delete'])
+
+    const copy = copyItems[1]
+    const move = moveItems[1]
+    if (copy.type !== 'action' || move.type !== 'action') {
+      throw new Error('Expected State transfer actions.')
+    }
+    copy.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'copy', sourceKind: 'state' },
+      sourceNodeId: state.id,
+      sourceLabel: 'tasks',
+    })
+    move.callback()
+    expect(mocks.beginDestinationTransaction).toHaveBeenLastCalledWith({
+      operation: { type: 'move', sourceKind: 'state' },
+      sourceNodeId: state.id,
+      sourceLabel: 'tasks',
+    })
   })
 
   it('adds Copy but not Move to an App', () => {
