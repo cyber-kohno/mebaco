@@ -3,6 +3,7 @@
   import TreeStore from '@system/workspace/tree/state'
   import TypeCatalog from '@system/model/type-system/type-catalog'
   import TypeExpression from '@system/model/type-system/type-expression'
+  import ValuePreviewTreeLabel from '@system/workspace/tree/label/ValuePreviewTreeLabel.svelte'
 
   type Props = {
     element: Variable.Element
@@ -10,8 +11,6 @@
   }
   let { element, parentNode = null }: Props = $props()
   const rootNodeStore = TreeStore.rootNode
-  const source = $derived(element.source.replace(/\s*\r?\n\s*/g, ' '))
-  const preview = $derived(source.length > 28 ? `${source.slice(0, 28)}...` : source)
   const typeText = $derived(element.typeSetting.type === 'explicit'
     ? `${TypeExpression.getTypeText(
         element.typeSetting.valueType,
@@ -26,7 +25,7 @@
     {#if element.binding === 'let'}<span class="mutable">mutable&nbsp;</span>{/if}
     <span class="prefix">{parentNode?.element.kind === 'style-locals' ? '$local.' : '$var.'}</span><span class="name">{element.id}</span>
     {#if typeText != null}<span class="type">: {typeText}</span>{/if}
-    <span class="equals"> = </span><span class="source">{preview}</span>
+    <span class="equals"> = </span><ValuePreviewTreeLabel kind="formula" value={element.source} />
   </span>
 </span>
 
@@ -39,5 +38,4 @@
   .prefix,.equals { color:rgba(255,255,255,.8); }
   .name { color:#cce879; }
   .type { color:#ffe184; }
-  .source { color:#fff; font-style:italic; opacity:.9; }
 </style>

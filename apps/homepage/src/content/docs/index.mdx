@@ -1,0 +1,79 @@
+---
+title: Mebacoとは
+description: UIを組み、振る舞いを記述し、その場で動かすローカルアプリ開発環境。
+template: splash
+hero:
+  title: 部品を育てる、ローカルアプリ開発の箱。
+  tagline: UIをツリーで組み、振る舞いを型付きコードで記述して、その場で実行できるデスクトップ開発環境です。ProjectやComponentを手元に保存し、再利用できます。
+  image:
+    html: |
+      <div class="hero-product-card" role="img" aria-label="ツリーでアプリを組み、プレビューで動かすMebacoのイメージ">
+        <div class="hero-window"><div class="hero-window-bar"><span></span><span></span><span></span><b>Mebaco Studio</b></div>
+          <div class="hero-window-body"><div class="hero-tree"><strong>Project</strong><span>⌄ App</span><span class="indent">⌄ Component</span><span class="indent2">Text</span><span class="indent2">Button</span><span>⌄ State</span></div>
+          <div class="hero-preview"><div class="preview-app"><small>MY FIRST APP</small><h3>Counter</h3><strong>3</strong><button>+  Add one</button></div></div></div>
+        </div>
+      </div>
+  actions:
+    - text: 5分でMebacoを知る
+      link: /start/
+      icon: right-arrow
+    - text: 機能・要素リファレンス
+      link: /reference/
+      variant: minimal
+---
+
+<section class="home-section">
+
+## アプリの構造を見ながら、動くものを作る
+
+Mebacoは、ローカルで動作するデスクトップのアプリ開発環境です。画面や部品をツリーで組み立て、Stateやイベント処理を式・TypeScriptで定義し、同じStudioの中ですぐに動作を確かめられます。
+
+<div class="home-grid">
+  <article class="home-card"><h3>ツリーで構造を組む</h3><p>App、Component、画面要素、制御構造を一つのProjectとして俯瞰しながら編集します。</p></article>
+  <article class="home-card"><h3>コードで振る舞いを書く</h3><p>State、Props、Functionなどを型情報付きで参照し、必要なロジックを記述します。</p></article>
+  <article class="home-card"><h3>作ってすぐ動かす</h3><p>Runtimeでプレビューし、編集内容をすぐ確認します。Debug設定やログもProject内で扱えます。</p></article>
+  <article class="home-card"><h3>部品を育てて配る</h3><p>ComponentやStyleを再利用し、BundleとしてアプリをまとめてClientから起動できます。</p></article>
+</div>
+
+</section>
+
+<section class="home-section">
+
+## Mebacoでの開発の流れ
+
+1. Projectを作成し、Appと起点となるComponentを用意する。
+2. UIをツリーに配置し、PropsやStyleを設定する。
+3. StoreとStateを用意し、Actionや式で振る舞いを加える。
+4. Runtimeで操作しながら確認し、Debug機能で問題を調べる。
+5. Bundleを作成し、Clientでインストール・起動する。
+
+<div class="site-callout">Mebacoは、見た目の配置だけでアプリを完成させるツールではありません。ツリー編集と型付きコードを組み合わせ、Projectの構造と動作を一緒に管理します。</div>
+
+</section>
+
+<section class="home-section">
+
+## はじめての方へ
+
+まずは[はじめ方](/start/)でStudioの全体像を確認し、[最初のProject](/start/first-project/)を作る流れをたどってください。各要素の設定を調べたい場合は[リファレンス](/reference/)から探せます。
+
+### 対象にしている作業
+
+- ローカルで使う小さな業務アプリや個人用ツールを作る
+- UIの構造を見える形で管理し、部品を使い回す
+- GUI編集とTypeScriptによる処理記述を併用する
+- ProjectファイルやBundleを手元で保存・受け渡す
+
+一般向けWebサービスのアカウント管理、クラウド保存、複数人の同時編集などは、現在の製品方針の対象外です。対応範囲は初版の仕様確定時に更新します。
+
+</section>
+
+<section class="home-section">
+
+## 仕様を調べる
+
+Mebacoは要素の種類と、それぞれの配置場所・親子関係・参照スコープを正確に調べられるよう、リファレンスを整備します。Studioに登録されている全82種類の要素を[仕様台帳](/reference/elements/)で追跡し、実装変更時に未登録の要素を検出します。
+
+初版公開前に、各ページの記述を実装と照合し、対応バージョン、使用例、制約、関連項目を記載します。
+
+</section>

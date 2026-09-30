@@ -1,0 +1,14 @@
+---
+import { elementCatalog } from '../data/element-catalog.mjs';
+---
+
+<p>Studioの要素Registryに登録されている要素を一覧化しています。個別仕様の本文は初版公開までに実装と照合して整備します。</p>
+
+{elementCatalog.map((group) => (
+  <section>
+    <h2>{group.title}</h2>
+    <ul class="element-kind-list">
+      {group.kinds.map((kind) => <li><code>{kind}</code> · <a href={group.page}>仕様ページ</a></li>)}
+    </ul>
+  </section>
+))}

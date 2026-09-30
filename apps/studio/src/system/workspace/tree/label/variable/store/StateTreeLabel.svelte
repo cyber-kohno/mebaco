@@ -3,6 +3,8 @@
   import VariableDefinition from '@system/model/variable/variable-definition'
   import TreeStore from '@system/workspace/tree/state'
   import TypeCatalog from '@system/model/type-system/type-catalog'
+  import TypeExpression from '@system/model/type-system/type-expression'
+  import ValuePreviewTreeLabel from '@system/workspace/tree/label/ValuePreviewTreeLabel.svelte'
 
   type Props = {
     element: State.Element
@@ -15,28 +17,30 @@
     element,
     (typeId) => TypeCatalog.resolveTypeName($rootNodeStore, typeId),
   ))
-  const initialText = $derived.by(() => {
-    const source = element.initial.type === 'default'
-      ? 'default'
-      : element.initial.type === 'literal'
-        ? element.initial.value
-        : element.initial.source
-    const singleLine = source.replace(/\s*\r?\n\s*/g, ' ')
-    return singleLine.length > 36
-      ? `${singleLine.slice(0, 36)}...`
-      : singleLine
+  const literalType = $derived.by(() => {
+    const { base, depth } = TypeExpression.unwrapArray(element.valueType)
+    if (depth > 0) return 'raw' as const
+    if (base.type === 'string') return 'string' as const
+    if (base.type !== 'named') return 'raw' as const
+    const union = TypeCatalog.findUnion($rootNodeStore, base.namedTypeId)
+    return union?.element.definition.type === 'literal'
+      && union.element.definition.valueType === 'string'
+      ? 'string' as const
+      : 'raw' as const
   })
 </script>
 
 <span class="state-label">
   <span class="state-kind">State</span>
   <span class="state-value">
-    <span class="state-prefix">$state.</span><span class="state-name">{element.id}</span><span class="state-separator">:&nbsp;</span><span class="state-type">{typeText}</span><span class="state-separator">&nbsp;=&nbsp;</span><span
-      class="state-initial"
-      class:default-initial={element.initial.type === 'default'}
-      class:literal-initial={element.initial.type === 'literal'}
-      class:formula-initial={element.initial.type === 'formula'}
-    >{initialText}</span>
+    <span class="state-prefix">$state.</span><span class="state-name">{element.id}</span><span class="state-separator">:&nbsp;</span><span class="state-type">{typeText}</span><span class="state-separator">&nbsp;=&nbsp;</span>
+    {#if element.initial.type === 'default'}
+      <ValuePreviewTreeLabel kind="default" />
+    {:else if element.initial.type === 'literal'}
+      <ValuePreviewTreeLabel kind="literal" value={element.initial.value} {literalType} />
+    {:else}
+      <ValuePreviewTreeLabel kind="formula" value={element.initial.source} />
+    {/if}
   </span>
 </span>
 
@@ -89,22 +93,4 @@
     color: #ffe184;
   }
 
-  .state-initial {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .state-initial.literal-initial {
-    color: #ffffff;
-  }
-
-  .state-initial.formula-initial {
-    color: #a8e8eb;
-  }
-
-  .state-initial.default-initial {
-    color: rgba(255, 255, 255, 0.55);
-  }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type TextElement from '@system/model/view/text'
+  import ValuePreviewTreeLabel from '@system/workspace/tree/label/ValuePreviewTreeLabel.svelte'
 
   type Props = {
     element: TextElement.Element
@@ -7,40 +8,19 @@
 
   let { element }: Props = $props()
 
-  const literalPreview = $derived(
-    element.source.type === 'literal' ? element.source.value : '',
-  )
-  const formulaPreview = $derived.by(() => {
-    const source = element.source.type === 'formula'
-      ? element.source.source.replace(/\s*\r?\n\s*/g, ' ')
-      : ''
-    return source.length > 32 ? `${source.slice(0, 32)}...` : source
-  })
-  const hasValue = $derived(
-    element.source.type === 'formula'
-      ? formulaPreview.length > 0
-      : literalPreview.length > 0,
-  )
 </script>
 
 <span class="text-label">
-  <span class:has-detail={hasValue} class="text-kind">
+  <span class="text-kind has-detail">
     Text
   </span>
-  {#if hasValue}
-    <span
-      class:formula-value={element.source.type === 'formula'}
-      class:literal-value={element.source.type === 'literal'}
-      class="text-value"
-    >
-      {#if element.source.type === 'formula'}
-        <span class="formula-return">return</span>
-        <span>{formulaPreview}</span>
-      {:else}
-        <span>{literalPreview}</span>
-      {/if}
-    </span>
-  {/if}
+  <span class="text-value">
+    {#if element.source.type === 'formula'}
+      <ValuePreviewTreeLabel kind="formula" value={element.source.source} />
+    {:else}
+      <ValuePreviewTreeLabel kind="literal" value={element.source.value} literalType="string" />
+    {/if}
+  </span>
 </span>
 
 <style>
@@ -84,16 +64,4 @@
     background: #496970;
   }
 
-  .text-value.literal-value {
-    color: #ffffff;
-  }
-
-  .text-value.formula-value {
-    color: #a8e8eb;
-    font-style: italic;
-  }
-
-  .formula-return {
-    color: #e04d5f;
-  }
 </style>

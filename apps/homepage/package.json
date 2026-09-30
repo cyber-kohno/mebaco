@@ -1,0 +1,18 @@
+{
+  "name": "@mebaco/homepage",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check:coverage": "node scripts/check-doc-coverage.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.0",
+    "astro": "^6.0.8"
+  }
+}

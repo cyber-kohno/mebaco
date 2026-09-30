@@ -4,5 +4,10 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "scripts": {
+    "dev:homepage": "npm run dev --workspace @mebaco/homepage",
+    "build:homepage": "npm run build --workspace @mebaco/homepage",
+    "check:docs": "npm run check:coverage --workspace @mebaco/homepage"
+  }
 }
