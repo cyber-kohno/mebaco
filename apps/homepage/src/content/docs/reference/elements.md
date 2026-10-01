@@ -9,6 +9,8 @@ import ElementCatalog from '../../../components/ElementCatalog.astro';
 
 ## 台帳について
 
-要素一覧はStudioの `ElementRegistry` と `element-catalog.mjs` を照合します。新要素の登録、名称変更、廃止があれば、カタログの差分が明らかになります。現在は分野別の索引を用意した段階です。初版公開時には各要素の設定・制約・動作を実装と照合した個別仕様へ展開します。
+要素一覧はStudioの `ElementRegistry` と `element-catalog.mjs` を照合します。新要素の登録、名称変更、廃止があれば、カタログの差分が明らかになります。個別リファレンスの本文・根拠ソースは `element-reference-catalog.mjs` で追跡します。索引への登録と、個別仕様の整備は別の段階です。
+
+StudioのElement Registryに登録された82 kindすべてに個別仕様ページを用意しました。全ページの共通項目と根拠ソースは仕様台帳で照合します。本文内容の正確性や、配布ビルドでの通し操作は担当者によるソース・デスクトップ確認を継続します。
 
 <ElementCatalog />

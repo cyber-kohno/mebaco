@@ -16,7 +16,7 @@
 1. 製品紹介: 価値、できること、対象用途、開発の流れ
 2. はじめる: インストール、最初のProject
 3. 基本概念: Project、App、Entry、Component、Retention、式とスコープ
-4. ガイド: UI、State/Action、Component再利用、Style、Resource/Storage、Debug、配布
+4. ガイド: UI、State/Action、Component再利用、Style、Resource/Storage、Command Console、Debug、配布
 5. リファレンス: Element、式、型、Project保存、Bundle/Client
 6. 継続利用情報: レシピ、MCP、トラブルシューティング、互換性、リリース、法務
 
@@ -30,9 +30,14 @@
 
 - Studioの `ElementRegistry` を現行要素の照合元とする。
 - `apps/homepage/src/data/element-catalog.mjs` が文書化対象のkindと分類を保持する。
-- `npm run check:coverage --workspace @mebaco/homepage` で漏れ、廃止済み項目、重複を検出する。
+- `docs/homepage-feature-catalog.mjs` がユーザー向け機能と実装根拠、公開判断、参照ページを保持する。
+- `apps/homepage/src/data/element-reference-catalog.mjs` が個別要素ページ、照合日、根拠ファイル、導入バージョンを保持する。現在は基本6要素、Props・Slot・Retention関連9要素、Object / Union / Signature Typeの3要素、Variable / Constant / Function / Action / Effectの5要素、制御・非同期処理16要素、Resource／Storage関連8要素、計47要素を個別仕様化している。
+- `npm run check:coverage --workspace @mebaco/homepage` で要素の漏れ、廃止済み項目、重複、機能の根拠ファイルとリンク切れ、個別ページの共通見出しと根拠参照を検出する。
+- 個別リファレンスの拡張と公開前確認は `docs/HOMEPAGE_ELEMENT_REFERENCE_REVIEW.md` に記録する。Registryの網羅性と、個別仕様本文の整備率は別に表示する。
 - 追加・変更PRでは、該当ページ、画面キャプチャ、用語・互換性記述の更新を同時に確認する。
 - Registry照合を通過しても本文の意味的な正しさは保証しないため、リリース前に実装との人手照合を行う。
+
+公開判断の基準と未決事項は [`HOMEPAGE_FEATURE_INVENTORY.md`](./HOMEPAGE_FEATURE_INVENTORY.md) に記録する。実装確認と初版のサポート対象決定を混同しない。
 
 ## 公開ゲート
 

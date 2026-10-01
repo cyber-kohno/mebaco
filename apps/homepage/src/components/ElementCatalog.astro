@@ -1,14 +1,18 @@
 ---
 import { elementCatalog } from '../data/element-catalog.mjs';
+import { elementReferences, getElementReference } from '../data/element-reference-catalog.mjs';
 ---
 
-<p>Studioの要素Registryに登録されている要素を一覧化しています。個別仕様の本文は初版公開までに実装と照合して整備します。</p>
+<p>Studioの要素Registryに登録されている要素の一覧です。{elementReferences.length}要素に個別リファレンスを用意しています。その他のリンクは分野別のガイド・索引です。</p>
 
 {elementCatalog.map((group) => (
   <section>
     <h2>{group.title}</h2>
     <ul class="element-kind-list">
-      {group.kinds.map((kind) => <li><code>{kind}</code> · <a href={group.page}>仕様ページ</a></li>)}
+      {group.kinds.map((kind) => {
+        const reference = getElementReference(kind);
+        return <li><code>{kind}</code> · <a href={reference?.page ?? group.page}>{reference ? `${reference.title}の仕様` : '分野ガイド・索引'}</a></li>;
+      })}
     </ul>
   </section>
 ))}

@@ -1,0 +1,19 @@
+---
+import { getElementReference } from '../data/element-reference-catalog.mjs';
+
+const { kind } = Astro.props;
+const reference = getElementReference(kind);
+if (!reference) throw new Error(`Missing reference evidence for ${kind}`);
+---
+
+<p>実装照合日: {reference.reviewedAt}。現行ソースをもとに記載しています。初版配布ビルドでの操作確認は公開前に行います。導入バージョン: {reference.introducedVersion ?? '未確定'}。</p>
+<details>
+  <summary>実装照合の根拠ソース</summary>
+  <ul>
+    {reference.sources.map((source) => <li><code>{source}</code></li>)}
+  </ul>
+</details>
+
+<style>
+  code { overflow-wrap: anywhere; }
+</style>
