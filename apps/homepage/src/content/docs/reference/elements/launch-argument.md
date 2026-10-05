@@ -35,7 +35,12 @@ Runtime launchは各引数をValue Prop契約に変換します。引数に明�
 
 ## 最小例
 
-`userId`をString・非Nullableで定義し、LauncherのArgumentsから`"guest"`を割り当てます。App EntryのPropsへ値を渡す場合はEntryのBindingも設定します。
+1. AppのLaunch Argumentsに`userId: String`を定義します。
+2. Launcherで`userId`に`"guest"`などの値をBindingします。
+3. EntryのComponentにString型の`userId` Propがある場合、EntryのProp Bindingを`$launch.userId`にします。
+4. Component内では`$props.userId`として読みます。
+
+Launch ArgumentとEntry Component Propは別契約なので、同じIdにしても自動転送されません。`$launch` Namespaceの参照可否は[式リファレンス](/reference/expressions/)を参照してください。
 
 ## 制約と注意点
 

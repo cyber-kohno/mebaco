@@ -7,11 +7,11 @@ import ElementReferenceEvidence from '../../../../components/ElementReferenceEvi
 
 ## 概要
 
-`components`は再利用可能なComponent定義を管理するコンテナです。個々のComponentがProps、表示構造、StateやRetentionなどを持ちます。
+`components`はCommonまたはAppのDeclares内で、再利用可能な通常Component定義を管理するコンテナです。個々のComponentがProps、表示構造、StateやRetentionなどを持ちます。
 
 ## 配置場所と操作
 
-Declares配下に配置されます。Add componentからComponentを作成します。App内・Common・ローカル領域では利用可能範囲が異なります。
+Declares配下に配置されます。Add componentからComponentを作成します。Retentions内のLocal Componentはこのコンテナではなく、そのRetention frame内に直接作成する別の定義です。
 
 ## 子要素
 
@@ -23,7 +23,7 @@ Components自身には設定値がありません。Component IdやRoot Partial�
 
 ## 参照とスコープ
 
-Component Useが参照できる候補は、所属App、Common、ローカル宣言などの定義スコープに従います。Component定義内のComponent Useも同じ境界と循環参照制約を受けます。
+Component Useが参照できる候補は、所属App、Common、Retentions内のLocal Componentなどの定義スコープに従います。Component定義内のComponent Useも同じ境界と循環参照制約を受けます。
 
 ## 実行時の動作
 

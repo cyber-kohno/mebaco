@@ -57,6 +57,8 @@ $state.items.filter((item) => item.active).length
 
 Loop内ではItemとIndexのVariable、PromiseのThenでは解決値が `$var` に追加されます。RetentionのVariableは宣言後の要素へ順に見えるようになります。見える名前はStudioの式エディターで確認してください。
 
+AppのTransitionsでImportした別Appへは、対応するActionコードから`$transition.<appAccessor>(launchArguments)`を呼び出します。App Idが`settings`ならAccessorは`settings`、`user-profile`なら`userProfile`です。たとえば`$transition.settings({ userId: $state.userId })`です。別経路としてFunction ProcedureやRetentionにはTransition Elementを配置できます。NamespaceとElementは混同しないでください。
+
 ## よく使う場所と副作用
 
 | 置き場所 | 目的 | State更新 / 非同期 |

@@ -11,7 +11,7 @@ import ElementReferenceEvidence from '../../../../components/ElementReferenceEvi
 
 ## 配置場所と操作
 
-対応するAction／Procedureなど遷移要素を配置可能な場所で追加します。ModifyからAppとArgumentsを設定します。
+RetentionやFunction Procedureの`Add statement`から追加し、ModifyでAppとArgumentsを設定します。TagイベントのActionコードにTransition Elementを子として置く仕組みではありません。イベントActionからは別の`$transition` Namespaceを呼び出せます。
 
 ## 子要素
 
@@ -34,7 +34,13 @@ import ElementReferenceEvidence from '../../../../components/ElementReferenceEvi
 
 ## 最小例
 
-Settings AppをTransitionsへImportし、ボタンに結び付けたActionからSettingsを対象とするTransitionを実行します。
+Settings AppをTransitionsへImportします。手続きで遷移する場合はRetentionまたはFunction Procedureの`Add statement → Transition`から追加し、SettingsとArgumentsを設定します。ボタンイベントから遷移する場合は、Transition ElementではなくActionコードから次のように呼び出します。
+
+```ts
+$transition.settings({ userId: $state.userId })
+```
+
+ここで`settings`は遷移先AppのIdをcamelCaseにしたAccessor、`userId`はそのAppのLaunch Argument Idです。
 
 ## 制約と注意点
 

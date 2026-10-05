@@ -15,7 +15,7 @@ ProjectのCommon / Declares / Stylesにあります。Add styleでStyleを作成
 
 ## 子要素
 
-Style定義を保持します。各Style内には必要に応じてParametersとLocalsを追加できます。
+このコンテナに属する共有Style定義を保持します。各Style内には必要に応じてParametersとLocalsを追加できます。Retentions内に定義するローカルStyleは、このコンテナの子ではなく、定義位置に応じたスコープで使います。
 
 ## 設定項目
 

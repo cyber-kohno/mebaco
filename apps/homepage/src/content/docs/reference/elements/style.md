@@ -11,7 +11,7 @@ import ElementReferenceEvidence from '../../../../components/ElementReferenceEvi
 
 ## 配置場所と操作
 
-Common / Declares / Stylesに作成します。Modify画面にはInfo、Properties、Animations、Inheritance、Monitorのタブがあります。メニューからParametersとLocalsを任意に追加・削除します。
+共有範囲のStyleは `Common / Declares / Styles` または `App / Declares / Styles` に作成します。特定の表示範囲だけで使うStyleは、ComponentやTag、LoopなどのRetention内に `Add declare → Style` から作成できます。Modify画面にはInfo、Properties、Animations、Inheritance、Monitorのタブがあります。メニューからParametersとLocalsを任意に追加・削除します。
 
 ## 子要素
 
@@ -32,7 +32,7 @@ Properties、Animations、BasesはStyle内データです。ツリーの子と�
 
 ## 参照とスコープ
 
-適用Conditionや引数はTag側のFormulaContextを使います。Style値ではそのStyleのParameterとLocalsが解決されます。継承したStyleへ引数を渡すか、公開Parameterとして呼出側に委譲できます。
+適用Conditionや引数はTag側のFormulaContextを使います。Style値ではそのStyleのParameterとLocalsに加えて、定義位置で可視な `$var` を参照できます。たとえばLoopのRetention内に定義したStyleは、そのLoopのItemやIndexを参照できます。共有Styleは使用先のLoop変数を自動では参照できないため、必要な値はStyle Parameterを通して渡します。継承したStyleへ引数を渡すか、公開Parameterとして呼出側に委譲できます。
 
 ## 実行時の動作
 

@@ -23,6 +23,7 @@
   import { getRenderInstanceKey } from './render-instance-scope'
   import ExecutionPolicy from '../execution-policy'
   import FunctionRunner from '../function/function-runner'
+  import RuntimePreviewProbe from '../preview/runtime-preview-probe'
 
   type Props = {
     node: TreeNode.Node
@@ -58,6 +59,12 @@
   let partialRegistrationError = $state<ScriptErrorValue.Value | null>(null)
   let partialRevision = $state(0)
   const renderInstanceKey = getRenderInstanceKey(untrack(() => node.id))
+  const inspection = RuntimePreviewProbe.current()
+  $effect(() => {
+    if (tagDomElement != null) {
+      return inspection?.register(node.id, renderInstanceKey, tagDomElement, () => refKeyResult.key)
+    }
+  })
   const scopedRenderRevision = $derived(renderRevision + partialRevision)
 
   const retentionResult = $derived.by(() => {
@@ -148,6 +155,8 @@
         const result = FormulaEvaluator.evaluateExpression(value.source, retentionResult.context)
         if (result.ok) return result.value
 
+        inspection?.report(node.id, ScriptError.format(result.error))
+
         if (import.meta.env.DEV) {
           console.warn(
             '[Mebaco runtime] Failed to evaluate tag attribute.',
@@ -159,7 +168,7 @@
     }
   }
 
-  const executeEventAction = async (
+  const runEventAction = async (
     attribute: TagElement.EventHandler,
     event: Event,
   ): Promise<void> => {
@@ -196,7 +205,23 @@
     }
 
     setActionError(node.id, null)
-    eventContext.requestRender?.()
+    // Contenteditable input updates its live DOM before the state is committed
+    // on blur. Forcing a full runtime render on every keystroke replaces its
+    // text child and can reset the caret or discard the just-edited value.
+    // Reactive state writes still invalidate their dependent expressions, and
+    // afterRender callbacks request their own render through RuntimeRefRegistry.
+    if (!(tagDomElement?.isContentEditable && attribute.name === 'input')) {
+      eventContext.requestRender?.()
+    }
+  }
+
+  const executeEventAction = async (attribute: TagElement.EventHandler, event: Event): Promise<void> => {
+    const completeInspectionAction = inspection?.beginAction()
+    try {
+      await runEventAction(attribute, event)
+    } finally {
+      completeInspectionAction?.()
+    }
   }
 
   const elementAttributes = $derived.by(() => {

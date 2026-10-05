@@ -210,6 +210,7 @@ namespace TagAttributeCatalog {
       local('readonly', 'boolean'),
       local('required', 'boolean'),
       local('rows', 'number'),
+      local('value'),
       local('wrap', 'enum', ['hard', 'soft', 'off']),
     ],
     select: [

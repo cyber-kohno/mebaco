@@ -7,6 +7,7 @@ import ResourceRuntime from '../resource/resource-runtime'
 import { get } from 'svelte/store'
 import RuntimeLog from '../log/runtime-log'
 import StorageRuntime from '../storage/storage-runtime'
+import type RuntimePreviewProbe from './runtime-preview-probe'
 
 namespace PreviewController {
   export type OpenOptions = {
@@ -15,7 +16,11 @@ namespace PreviewController {
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
     resourcePaths?: Readonly<Record<string, string>>
+    resourceSession?: ResourceRuntime.Session
     storageScope?: StorageRuntime.Scope
+    storageSession?: StorageRuntime.Session
+    logSession?: RuntimeLog.Session
+    inspection?: RuntimePreviewProbe.Session
   }
 
   const findOwnerApp = (
@@ -57,6 +62,7 @@ namespace PreviewController {
     resourceSession?: ResourceRuntime.Session,
     logSession?: RuntimeLog.Session,
     storageSession?: StorageRuntime.Session,
+    inspection?: RuntimePreviewProbe.Session,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
@@ -78,6 +84,7 @@ namespace PreviewController {
       storageSession: effectiveStorageSession,
       launcherId,
       launchValues,
+      inspection,
     })
     return true
   }
@@ -87,20 +94,21 @@ namespace PreviewController {
   ): boolean => {
     const appNode = findApp(options.projectNode, options.appDefinitionId)
     if (appNode?.element.kind !== 'app') return false
-    const resourceSession = options.resourcePaths == null
+    const resourceSession = options.resourceSession ?? (options.resourcePaths == null
       ? ResourceRuntime.create(options.projectNode)
-      : ResourceRuntime.createWithPaths(options.projectNode, options.resourcePaths)
+      : ResourceRuntime.createWithPaths(options.projectNode, options.resourcePaths))
     const opened = openApp(
       options.projectNode,
       appNode,
       options.launcherId,
       options.launchValues,
       resourceSession,
-      undefined,
-      new StorageRuntime.Session(
+      options.logSession,
+      options.storageSession ?? new StorageRuntime.Session(
         options.projectNode,
         options.storageScope ?? StorageRuntime.developmentScope(options.projectNode),
       ),
+      options.inspection,
     )
     if (!opened) resourceSession.dispose()
     return opened
@@ -142,6 +150,7 @@ namespace PreviewController {
       resourceSession,
       logSession,
       storageSession,
+      currentSession?.inspection,
     )
   }
 

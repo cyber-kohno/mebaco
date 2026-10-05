@@ -27,6 +27,7 @@
   import type StorageRuntime from '../storage/storage-runtime'
   import RenderEffects from '../effect/RenderEffects.svelte'
   import ExecutionPolicy from '../execution-policy'
+  import RuntimePreviewProbe from '../preview/runtime-preview-probe'
 
   type Props = {
     appNode: TreeNode.Node
@@ -36,9 +37,17 @@
     storageSession: StorageRuntime.Session
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
+    inspection?: RuntimePreviewProbe.Session
   }
 
-  let { appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues }: Props = $props()
+  let { appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues, inspection }: Props = $props()
+  RuntimePreviewProbe.provide(untrack(() => inspection))
+  let runtimeHost = $state<HTMLElement | null>(null)
+  $effect(() => {
+    if (runtimeHost != null && inspection != null) {
+      return inspection.attach(runtimeHost, () => displayedRuntimeFailure)
+    }
+  })
 
   let renderRevision = $state(0)
   const stateRevisions = new SvelteMap<RuntimeStateDependency.Dependency, number>()
@@ -396,7 +405,7 @@
   }
 </script>
 
-<div class="runtime-view">
+<div class="runtime-view" bind:this={runtimeHost}>
   <style bind:this={runtimeStyleElement}></style>
   {#if displayedRuntimeFailure != null}
     <RuntimeErrorScreen failure={displayedRuntimeFailure} />

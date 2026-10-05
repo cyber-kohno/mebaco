@@ -22,6 +22,10 @@ describe('TagAttributeCatalog', () => {
       primitiveType: 'boolean',
       scope: 'tag',
     })
+    expect(TagAttributeCatalog.getDefinition('textarea', 'value')).toMatchObject({
+      primitiveType: 'string',
+      scope: 'tag',
+    })
     expect(TagAttributeCatalog.getDefinition('input', 'type')?.editor.type)
       .toBe('enum')
     expect((TagAttributeCatalog.getDefinition('input', 'type')?.editor as { values: readonly string[] }).values)

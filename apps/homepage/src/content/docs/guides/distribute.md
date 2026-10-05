@@ -7,7 +7,7 @@ Bundleは配布対象のLauncherと、その起動に必要なApp・Common・Res
 
 ## 1. Launcherを準備する
 
-Projectに配布したいAppとLauncherを用意します。Launcherの対象App、Launch ArgumentsとBindingを確認します。AppからTransitionで遷移する他のAppやImport ResourceもBundleの依存関係として解決されます。
+Projectに配布したいAppとLauncherを用意します。Launcherの対象App、Launch ArgumentsとBindingを確認します。Bundleは対象AppのTransitions Importに列挙されたAppを再帰的に含めます。Transition Elementや`$transition`を実際に使うかどうかだけでは選別しないため、Import一覧も見直してください。Resourceは各AppのResource Importsを基に含まれます。
 
 ## 2. Bundleを作成する
 

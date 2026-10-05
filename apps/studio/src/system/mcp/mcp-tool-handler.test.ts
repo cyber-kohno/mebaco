@@ -45,13 +45,26 @@ const treeStore = vi.hoisted(() => {
     else parent.children.splice(index, 0, child)
     return child.id
   })
-  const transaction = vi.fn((options: { expectedRevision?: number }, callback: () => unknown) => {
+  const transaction = vi.fn((options: { expectedRevision?: number; preview?: boolean }, callback: () => unknown) => {
     if (options.expectedRevision != null && options.expectedRevision !== revision.value) {
       throw new RevisionConflictError(options.expectedRevision, revision.value)
     }
     const previousSnapshot = JSON.stringify(rootNode.value)
-    const result = callback()
+    const previousNodeId = nextNodeId
+    let result: unknown
+    try {
+      result = callback()
+    } catch (error) {
+      rootNode.value = JSON.parse(previousSnapshot)
+      nextNodeId = previousNodeId
+      throw error
+    }
     const changed = JSON.stringify(rootNode.value) !== previousSnapshot
+    if (options.preview) {
+      rootNode.value = JSON.parse(previousSnapshot)
+      nextNodeId = previousNodeId
+      return { result, changed }
+    }
     if (changed) revision.value += 1
     return { result, changed }
   })
@@ -85,8 +98,13 @@ vi.mock('@system/workspace/element-definition/element-registry', () => ({
 vi.mock('@system/project/project-session-store', () => ({
   default: { store: { value: { isDirty: true, savedFingerprint: 'saved' }, subscribe: (run: (value: unknown) => void) => { run({ isDirty: true, savedFingerprint: 'saved' }); return () => {} } } },
 }))
+vi.mock('@system/application/validation/expression', () => ({
+  ExpressionVerificationRunner: { verify: vi.fn() },
+}))
 
 import McpToolHandler from './mcp-tool-handler'
+import McpPreviewController from './mcp-preview-controller'
+import RuntimePreviewProbe from '@system/runtime/preview/runtime-preview-probe'
 
 describe('McpToolHandler', () => {
   beforeEach(() => {
@@ -137,6 +155,27 @@ describe('McpToolHandler', () => {
         message: 'Unsupported Studio bridge method: unknown',
       },
     })
+  })
+
+  it('forwards preview requests and returns their snapshots', async () => {
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => { handler = candidate; return Promise.resolve(vi.fn()) })
+    vi.spyOn(McpPreviewController, 'handle').mockResolvedValue({ previewId: 'preview-id', settled: true })
+    await McpToolHandler.connect()
+    await handler?.({ id: 'preview-read', method: 'inspectPreview', params: { previewId: 'preview-id' } })
+    expect(McpPreviewController.handle).toHaveBeenCalledWith('inspectPreview', { previewId: 'preview-id' })
+    expect(tauriMcp.respond).toHaveBeenCalledWith({ id: 'preview-read', result: { previewId: 'preview-id', settled: true } })
+    expect(get(McpSessionState.store)).toBe('available')
+  })
+
+  it('returns structured preview errors and restores session availability', async () => {
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => { handler = candidate; return Promise.resolve(vi.fn()) })
+    vi.spyOn(McpPreviewController, 'handle').mockRejectedValue(new RuntimePreviewProbe.Error('ELEMENT_NOT_FOUND', 'Inspect again.'))
+    await McpToolHandler.connect()
+    await handler?.({ id: 'preview-action', method: 'interactPreview', params: {} })
+    expect(tauriMcp.respond).toHaveBeenCalledWith({ id: 'preview-action', error: { code: 'ELEMENT_NOT_FOUND', message: 'Inspect again.' } })
+    expect(get(McpSessionState.store)).toBe('available')
   })
 
   it('shows an agent message in the Studio GUI', async () => {
@@ -229,6 +268,87 @@ describe('McpToolHandler', () => {
         expectedRevision: 1,
         actualRevision: 2,
       }),
+    })
+  })
+
+  it('validates and reports createStyle operations during dry-run without applying them', async () => {
+    treeStore.rootNode.value = {
+      id: 1,
+      element: { kind: 'styles' },
+      children: [{ id: 2, element: { kind: 'styles' }, children: [], isOpen: true }],
+      isOpen: true,
+    }
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-create-style-dry-run',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        dryRun: true,
+        operations: [{
+          type: 'createStyle',
+          parentNodeId: 2,
+          id: 'viewport',
+          rules: [{ property: 'height', value: { type: 'literal', value: '100vh' } }],
+        }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children[0].children).toHaveLength(0)
+    expect(treeStore.revision.value).toBe(0)
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-create-style-dry-run',
+      result: expect.objectContaining({
+        dryRun: true,
+        changed: false,
+        wouldChange: true,
+        operations: [expect.objectContaining({ type: 'createStyle', id: 'viewport' })],
+        previousRevision: 0,
+        revision: 0,
+      }),
+    })
+  })
+
+  it('rejects invalid operations during dry-run without applying them', async () => {
+    treeStore.rootNode.value = {
+      id: 1,
+      element: { kind: 'styles' },
+      children: [{ id: 2, element: { kind: 'styles' }, children: [], isOpen: true }],
+      isOpen: true,
+    }
+    let handler: ((request: unknown) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => {
+      handler = candidate
+      return Promise.resolve(vi.fn())
+    })
+
+    await McpToolHandler.connect()
+    await handler?.({
+      id: 'request-invalid-style-dry-run',
+      method: 'applyChanges',
+      params: {
+        expectedRevision: 0,
+        dryRun: true,
+        operations: [{
+          type: 'createStyle',
+          parentNodeId: 2,
+          id: 'viewport',
+          rules: [{ property: 'height', value: { type: 'unsupported', value: '100vh' } }],
+        }],
+      },
+    })
+
+    expect(treeStore.rootNode.value.children[0].children).toHaveLength(0)
+    expect(treeStore.revision.value).toBe(0)
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({
+      id: 'request-invalid-style-dry-run',
+      error: expect.objectContaining({ code: 'EDIT_NOT_SUPPORTED' }),
     })
   })
 

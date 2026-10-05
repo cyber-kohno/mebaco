@@ -24,6 +24,7 @@ namespace TreeStore {
     source: TransactionSource
     label: string
     expectedRevision?: number
+    preview?: boolean
   }
 
   export class RevisionConflictError extends Error {
@@ -179,12 +180,14 @@ namespace TreeStore {
       lifecycleEvents: [],
       verificationImpacts: [],
     }
-    transactionStartListeners.forEach((listener) => listener({
-      options: transactionState.options,
-      rootNode: transactionState.previousRootNode,
-      selectedNodeId: transactionState.previousSelectedNodeId,
-      revision: transactionState.previousRevision,
-    }))
+    if (!options.preview) {
+      transactionStartListeners.forEach((listener) => listener({
+        options: transactionState.options,
+        rootNode: transactionState.previousRootNode,
+        selectedNodeId: transactionState.previousSelectedNodeId,
+        revision: transactionState.previousRevision,
+      }))
+    }
     activeTransaction = transactionState
 
     let result: Result
@@ -207,6 +210,10 @@ namespace TreeStore {
     }
 
     activeTransaction = null
+    if (options.preview) {
+      nextNodeId = transactionState.previousNextNodeId
+      return { result, changed: transactionState.changed }
+    }
     if (!transactionState.changed) return { result, changed: false }
 
     const nextRevision = transactionState.previousRevision + 1

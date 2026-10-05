@@ -33,13 +33,16 @@ Runtime Transition Executorは対象AppがImport済みか検証し、引数Bindi
 
 ## 最小例
 
-`Home` AppのTransitionsで`Settings`を選びます。Homeの画面内にTransition Elementを追加し、Settingsを選択して必要なLaunch ArgumentsをBindingします。
+`Home` AppのTransitionsで`settings`を選びます。そのうえで次のいずれかを使います。
+
+- Buttonのclick Actionコードから`$transition.settings({ userId: $state.userId })`を呼び出す。
+- Function ProcedureまたはRetentionの`Add statement → Transition`からTransition Elementを追加し、対象AppとLaunch Argument Bindingを設定する。
 
 ## 制約と注意点
 
-- Transitionsへの登録だけでは画面遷移は起きません。表示要素やActionなどからTransition Elementを実行します。
+- Transitionsへの登録だけでは画面遷移は起きません。Actionコードの`$transition` Namespace、またはProcedure内のTransition Elementを使います。両者は別の機構です。
 - Transition Elementが参照するAppはImport済みである必要があります。
-- Bundleには遷移先Appも依存として含まれるため、到達可能なApp群が想定どおりかBuild時に確認してください。
+- BundleはTransitions Importに列挙されたAppを含めます。実際にTransition Elementや`$transition`が使われていなくてもImportを残しているAppはBuild対象になるため、Import一覧を確認してください。
 
 ## 関連項目
 

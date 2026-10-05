@@ -292,6 +292,18 @@ describe('ElementEditSchema Tag attributes', () => {
     ]), 'div')).toBeNull()
   })
 
+  it('allows a literal value on textarea', () => {
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
+      literal('value', 'Draft text'),
+    ]), 'textarea')).toBeNull()
+
+    expect(ElementEditSchema.validateTagAttributes(JSON.stringify([{
+      type: 'attribute',
+      name: 'value',
+      value: { type: 'formula', source: '$state.message' },
+    }]), 'textarea')).toBeNull()
+  })
+
   it('requires formulas for unknown attributes but recognizes data attributes', () => {
     expect(ElementEditSchema.validateTagAttributes(JSON.stringify([
       literal('custom-value'),

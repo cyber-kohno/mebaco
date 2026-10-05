@@ -36,6 +36,39 @@ describe('TreeStore transactions', () => {
     unsubscribe()
   })
 
+  it('runs preview transactions without committing tree, selection, history, or notifications', () => {
+    const rootNodeId = get(TreeStore.rootNode).id
+    const previousRoot = get(TreeStore.rootNode)
+    const previousSelectedNodeId = get(TreeStore.selectedNodeId)
+    const lifecycleListener = vi.fn()
+    const startListener = vi.fn()
+    const transactionListener = vi.fn()
+    const unsubscribeLifecycle = TreeStore.onLifecycle(lifecycleListener)
+    const unsubscribeStart = TreeStore.onTransactionStart(startListener)
+    const unsubscribeTransaction = TreeStore.onTransaction(transactionListener)
+
+    const result = TreeStore.transaction(
+      { source: 'mcp', label: 'Preview update', preview: true },
+      () => TreeStore.transformNode(rootNodeId, (node) => {
+        node.disabled = true
+        return true
+      }),
+    )
+
+    expect(result).toEqual({ result: true, changed: true })
+    expect(get(TreeStore.rootNode)).toBe(previousRoot)
+    expect(get(TreeStore.rootNode).disabled).toBeUndefined()
+    expect(get(TreeStore.selectedNodeId)).toBe(previousSelectedNodeId)
+    expect(get(TreeStore.revision)).toBe(0)
+    expect(startListener).not.toHaveBeenCalled()
+    expect(lifecycleListener).not.toHaveBeenCalled()
+    expect(transactionListener).not.toHaveBeenCalled()
+
+    unsubscribeLifecycle()
+    unsubscribeStart()
+    unsubscribeTransaction()
+  })
+
   it('rolls back tree, selection, notifications, and allocated IDs on failure', () => {
     const previousRoot = get(TreeStore.rootNode)
     const previousSelectedNodeId = get(TreeStore.selectedNodeId)

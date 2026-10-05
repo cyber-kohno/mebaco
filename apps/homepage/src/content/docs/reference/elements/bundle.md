@@ -29,7 +29,7 @@ Bundleは子要素を持ちません。対象Launcher、App、Resourceなどは�
 
 ## 参照とスコープ
 
-Launcherが指定するAppを起点に、Transition先のAppも含まれます。AppのResource Importsから参照Resourceを集めます。Storage Importsは参照先が存在することを検証します。Componentや式の検証対象は含まれるAppとCommonです。
+Launcherが指定するAppを起点に、そのAppのTransitions Importに列挙されたAppも再帰的に含まれます。実際にTransition Element／`$transition`の呼び出しが存在するAppだけに絞る処理ではありません。各AppのResource Importsから参照Resourceを集め、Storage Importsは参照先の存在を検証します。Componentや式の検証対象は含まれるAppとCommonです。
 
 ## 実行時の動作
 
@@ -48,7 +48,7 @@ Launcherが指定するAppを起点に、Transition先のAppも含まれます�
 
 - Launcherが0件、参照先App／Resourceの欠落、不正なTransitionやComponent参照、式検証エラーはBuildを止めます。
 - `release`前にProjectが保存済みで、Build後に変更されていない必要があります。変更した場合は再Buildし、保存します。
-- PackageはProject全体のコピーではなく、選択Launcherの依存範囲です。関係しないAppや未参照Resourceを含むとは限りません。
+- PackageはProject全体のコピーではなく、選択LauncherとImportで宣言した依存範囲です。Transitions Importに余分なAppを入れると、そのAppもPackageに入ります。ResourceもResource Importに基づいて含まれます。
 - Bundle RevisionはReleaseの手動入力値ではなくBuildから設定されます。
 - Studio Debug Resource BindingはPackageに引き継がれず、Client側で個別に設定します。
 

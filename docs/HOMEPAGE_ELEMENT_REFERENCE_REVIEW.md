@@ -227,3 +227,21 @@ Declares、Constants、Types、Functions、Components、Elements、Store、State
 - Astro静的ビルド成功: 112 HTMLページとPagefind検索インデックスを生成。
 - 111 Markdownページ内の内部ルートリンクを生成HTMLに照合し、欠落なし。
 - 全82ページの内容照合・デスクトップでの編集からRuntimeまでの通し確認は、公開前レビューとして継続する。
+
+## 全Element個別仕様化後の公開前ソース監査
+
+全ページ網羅後の読み直しで、利用者が操作を誤りやすい仕様境界を3点、ソースと再照合して修正した。
+
+- DeclaresはCommon／Appの宣言コンテナ。Component RetentionやFunction Procedure内のローカル宣言はDeclaresコンテナではないため、Declares／Componentsページの階層表現を修正した。
+- Launch ArgumentはAppの`$launch`で参照し、Entry Component Propsへ渡す場合はEntry側で別途Bindingする。Launch Argument Idが一致しても自動転送されないため、Launch Argument／Launch Optionsの例を段階別にした。
+- UIイベントからの遷移はActionコードの`$transition.<appAccessor>(...)`、Procedure内の遷移はTransition Elementを用いる別経路。両者を混同させる例を修正し、式リファレンスに呼び出し例を追加した。
+- Bundle解析は実際に使用されるTransitionだけでなく、Transitions Importに列挙されたAppを再帰収録する。Package範囲と配布ガイドにこの挙動を明記した。
+- トップページの紹介文に「無料で使える」を加えた。ライセンスの種類・再配布条件を推測して表現しない。
+
+### 自動確認と残作業
+
+- Coverage checker成功: Registry 82 kindすべて、共通見出し、467根拠ファイル参照。
+- Astroビルド成功: 112 HTMLページとPagefind検索インデックス。
+- 111 Markdownページの内部ルートリンクに欠落なし。
+- Studioはデスクトップセッションで起動していなかったため、新たな実行ファイル起動は行わず、UIを使ったチュートリアル／Runtime確認は未実施。初版の配布ビルドを使う公開前ゲートとして残す。
+- Markdownプラグイン設定の非推奨警告、および公開URL未設定によるSitemap省略は継続。

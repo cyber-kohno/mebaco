@@ -7,11 +7,11 @@ import ElementReferenceEvidence from '../../../../components/ElementReferenceEvi
 
 ## 概要
 
-`declares`は定数、型、Function、Component、Styleなどの宣言をまとめるコンテナです。ProjectのCommonと各App、Componentのローカル宣言領域に配置されます。
+`declares`は定数、型、Function、Component、Styleなどの宣言をまとめるコンテナです。ProjectのCommonと各Appに配置されます。RetentionやFunction Procedureなどに置くローカル宣言は、このDeclaresコンテナとは別の仕組みです。
 
 ## 配置場所と操作
 
-CommonとAppでは標準ツリーとして初期配置されます。Componentには別のローカル宣言領域がある場合があります。Declares自体には追加・削除メニューはありません。
+CommonとAppでは標準ツリーとして初期配置されます。Declares自体には追加・削除メニューはありません。ComponentのRetentionなどには別途、ローカル宣言を直接置けます。
 
 ## 子要素
 
@@ -23,7 +23,7 @@ Declares自体に設定値はありません。各宣言コンテナから定義
 
 ## 参照とスコープ
 
-Commonの宣言は共有候補、Appの宣言はそのAppに関連した候補です。Componentなどのローカル宣言はさらに狭いスコープを持つ場合があります。名前解決は配置先に依存します。
+Commonの宣言は共有候補、Appの宣言はそのAppに関連した候補です。RetentionやFunction Procedureなどの局所宣言は、個々のRuntime frameと宣言順に従います。名前解決は配置先に依存します。
 
 ## 実行時の動作
 

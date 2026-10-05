@@ -138,6 +138,77 @@ struct NodeDetailsRequest {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PreviewViewport {
+    width: u32,
+    height: u32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StartPreviewRequest {
+    session_id: String,
+    #[schemars(description = "Application definition UUID (not its numeric tree node ID).")]
+    app_id: String,
+    expected_revision: u64,
+    launcher_id: Option<String>,
+    launch_values: Option<serde_json::Map<String, serde_json::Value>>,
+    #[schemars(description = "Runtime content area in CSS pixels, excluding the Preview header. Default 1024x768. Container sizing only; does not resize the native WebView or CSS viewport units/media queries.")]
+    viewport: Option<PreviewViewport>,
+    #[schemars(description = "Wait for rendering/tracked event handlers, 0-2000 ms. Default 500. settled=false means inspect again; it is not a passing test.")]
+    timeout_ms: Option<u32>,
+    max_elements: Option<u32>,
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InspectPreviewRequest {
+    session_id: String,
+    preview_id: String,
+    timeout_ms: Option<u32>,
+    #[schemars(description = "Maximum returned elements, 1-500. Default 200.")]
+    max_elements: Option<u32>,
+    #[schemars(description = "Maximum characters per text field, 1-16000. Default 4096; total text budget 64000. Check truncation flags.")]
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum PreviewAction { Input, Click, Focus, Blur, Scroll }
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InteractPreviewRequest {
+    session_id: String,
+    preview_id: String,
+    element_id: String,
+    action: PreviewAction,
+    #[schemars(description = "Replacement text for input, including empty string. Required for input; at most 64000 characters.")]
+    value: Option<String>,
+    scroll_top: Option<f64>,
+    scroll_left: Option<f64>,
+    timeout_ms: Option<u32>,
+    max_elements: Option<u32>,
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ClosePreviewRequest { session_id: String, preview_id: String }
+
+fn preview_call(session_id: &str, method: &str, params: serde_json::Value) -> Result<CallToolResult, McpError> {
+    match call_development_session(session_id, method, params) {
+        Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::to_string(&result).map_err(|error| McpError::internal_error(error.to_string(), None))?,
+        )])),
+        Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+            serde_json::to_string(&error).map_err(|error| McpError::internal_error(error.to_string(), None))?,
+        )])),
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct VerifyExpressionRequest {
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
@@ -327,7 +398,9 @@ impl MebacoMcpServer {
         }
     }
 
-    #[tool(description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, createStyleParameter, createObjectType, createUnionType, createSignatureType, applyStyle, setStyleRuleValue, setContentHostRetention, createVariable, createAction, createFunction, createLocalComponent, createTransition, createConditional, createSwitch, createBlock, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setStyleRuleValue takes {nodeId,ruleIndex,declarationIndex?,value}; ruleIndex addresses style.rules, and declarationIndex is required when that rule is a state rule. value is {type:'literal',value:string} or {type:'formula',source:string}. createStyleParameter {parentNodeId,id,valueType?,defaultValue?,parameterId?} adds a parameter under a Style or its Parameters folder; valueType is string, number, boolean, or color. applyStyle {nodeId,styleId,arguments?} applies a Style or updates its arguments; arguments use {parameterId,binding:{type:'value',value:{type:'literal',value} | {type:'formula',source}}} or {parameterId,binding:{type:'default'}}. Omit arguments to use Studio's default/type-default bindings. Read the style node first with get_node_details(includeSource:true), and pass its revision as expectedRevision. Retention menu operations matching Studio are createVariable {parentNodeId,id,source,binding?}, createFunction {parentNodeId,id,implementationMode?,source?}, createLocalComponent {parentNodeId,id}, createStyle {parentNodeId,id,rules}, createObjectType {parentNodeId,id,shape?}, createUnionType {parentNodeId,id,definition?}, createSignatureType {parentNodeId,id,definition?}, createAction {parentNodeId,comment?,source?}, createTransition {parentNodeId}, createConditional {parentNodeId}, createSwitch {parentNodeId,valueType?,source}, and createBlock {parentNodeId,label?}. Each accepts a Retention node or a Block inside Retention as parentNodeId. createStyle also accepts the global styles container as before. Pass expectedRevision and use dryRun to validate without changing Studio.")]
+    #[tool(
+        description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, createStyleParameter, createObjectType, createUnionType, createSignatureType, applyStyle, setStyleRuleValue, setContentHostRetention, createVariable, createAction, createFunction, createLocalComponent, createTransition, createConditional, createSwitch, createBlock, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setStyleRuleValue takes {nodeId,ruleIndex,declarationIndex?,value}; ruleIndex addresses style.rules, and declarationIndex is required when that rule is a state rule. value is {type:'literal',value:string} or {type:'formula',source:string}. createStyleParameter {parentNodeId,id,valueType?,defaultValue?,parameterId?} adds a parameter under a Style or its Parameters folder; valueType is string, number, boolean, or color. applyStyle {nodeId,styleId,arguments?} applies a Style or updates its arguments; arguments use {parameterId,binding:{type:'value',value:{type:'literal',value} | {type:'formula',source}}} or {parameterId,binding:{type:'default'}}. Omit arguments to use Studio's default/type-default bindings. Read the style node first with get_node_details(includeSource:true), and pass its revision as expectedRevision. Retention menu operations matching Studio are createVariable {parentNodeId,id,source,binding?}, createFunction {parentNodeId,id,implementationMode?,source?}, createLocalComponent {parentNodeId,id}, createStyle {parentNodeId,id,rules}, createObjectType {parentNodeId,id,shape?}, createUnionType {parentNodeId,id,definition?}, createSignatureType {parentNodeId,id,definition?}, createAction {parentNodeId,comment?,source?}, createTransition {parentNodeId}, createConditional {parentNodeId}, createSwitch {parentNodeId,valueType?,source}, and createBlock {parentNodeId,label?}. Each accepts a Retention node or a Block inside Retention as parentNodeId. createStyle also accepts the global styles container as before. Pass expectedRevision. With dryRun=true, all operations are validated and their planned results returned without committing changes; wouldChange reports whether the batch would modify the project."
+    )]
     async fn apply_changes(
         &self,
         Parameters(request): Parameters<ApplyChangesRequest>,
@@ -591,6 +664,38 @@ impl MebacoMcpServer {
                     .map_err(|error| McpError::internal_error(error.to_string(), None))?,
             )])),
         }
+    }
+
+    #[tool(description = "Start an instrumented real Studio preview of the current unsaved app, without Computer Use. Runs launch/effect code and shows a Preview dialog. Requires current expectedRevision; refuses to replace an existing preview. Project model is snapshotted, key-value storage is isolated in memory, and Resource I/O is blocked. Returns previewId and bounded rendered-element/error/layout snapshot. viewport sizes the runtime content container, not the native WebView. Close with close_preview when done.")]
+    async fn start_preview(&self, Parameters(request): Parameters<StartPreviewRequest>) -> Result<CallToolResult, McpError> {
+        preview_call(&request.session_id, "startPreview", serde_json::json!({
+            "appId": request.app_id, "expectedRevision": request.expected_revision,
+            "launcherId": request.launcher_id, "launchValues": request.launch_values,
+            "viewport": request.viewport.map(|v| serde_json::json!({"width": v.width, "height": v.height})),
+            "timeoutMs": request.timeout_ms, "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+        }))
+    }
+
+    #[tool(description = "Inspect the current MCP-owned preview: rendered elements with elementId/nodeId/refKey, text/value, focus, rect/client/scroll dimensions, overflow and resize style, frame/dialog dimensions, runtime failure/diagnostics and app logs. Does not read arbitrary Studio DOM or execute scripts. settled only waits for Svelte and tracked tag event handlers, not all background work; check runtimeFailure, pendingActions, stale and truncation flags before judging results.")]
+    async fn inspect_preview(&self, Parameters(request): Parameters<InspectPreviewRequest>) -> Result<CallToolResult, McpError> {
+        preview_call(&request.session_id, "inspectPreview", serde_json::json!({
+            "previewId": request.preview_id, "timeoutMs": request.timeout_ms,
+            "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+        }))
+    }
+
+    #[tool(description = "Perform one finite action in an MCP-owned preview and return its updated snapshot. Use elementId from the latest snapshot (IDs change when elements remount). input replaces text and dispatches input; blur commits blur-based editors; click focuses then clicks so prior blur runs. Supports focus and scroll as well. No arbitrary JS/selectors; rejects stale previews. Synthetic events do not reproduce trusted events, IME, native dialogs, or all keyboard behavior. These actions run the app's handlers.")]
+    async fn interact_preview(&self, Parameters(request): Parameters<InteractPreviewRequest>) -> Result<CallToolResult, McpError> {
+        preview_call(&request.session_id, "interactPreview", serde_json::json!({
+            "previewId": request.preview_id, "elementId": request.element_id, "action": request.action,
+            "value": request.value, "scrollTop": request.scroll_top, "scrollLeft": request.scroll_left,
+            "timeoutMs": request.timeout_ms, "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+        }))
+    }
+
+    #[tool(description = "Close only the preview identified by the previewId returned by start_preview. Disposes preview runtime/resources and in-memory storage; does not save or modify the project. Never closes a manually opened preview or a different preview.")]
+    async fn close_preview(&self, Parameters(request): Parameters<ClosePreviewRequest>) -> Result<CallToolResult, McpError> {
+        preview_call(&request.session_id, "closePreview", serde_json::json!({ "previewId": request.preview_id }))
     }
 
     #[tool(
@@ -866,7 +971,7 @@ impl ServerHandler for MebacoMcpServer {
             )
             .with_protocol_version(ProtocolVersion::V_2024_11_05)
             .with_instructions(
-                "Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Use verify_expression to run Studio's expression checks on a node. Before an update, read the current revision and pass it as expectedRevision; use dryRun when available."
+                "Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Use verify_expression to run Studio's expression checks on a node. For real runtime checks without Computer Use, use start_preview, inspect_preview and interact_preview, then close_preview. Inspect fresh element IDs and verify ready/settled/error/stale/truncation fields; preview container size is not native WebView size. Before an update, read the current revision and pass it as expectedRevision; use dryRun when available."
                     .to_string(),
             )
     }
@@ -899,10 +1004,15 @@ mod tests {
         assert!(router.has_route("get_app_analysis_context"));
         assert!(router.has_route("get_component_structure"));
         assert!(router.has_route("get_node_details"));
+        assert!(router.has_route("verify_expression"));
         assert!(router.has_route("get_node_references"));
         assert!(router.has_route("set_node_disabled"));
         assert!(router.has_route("select_node"));
-        assert_eq!(router.list_all().len(), 20);
+        assert!(router.has_route("start_preview"));
+        assert!(router.has_route("inspect_preview"));
+        assert!(router.has_route("interact_preview"));
+        assert!(router.has_route("close_preview"));
+        assert_eq!(router.list_all().len(), 25);
     }
 
     #[test]

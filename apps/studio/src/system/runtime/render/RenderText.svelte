@@ -5,6 +5,7 @@
   import RuntimeTree from '../runtime-tree'
   import RuntimeStateDependency from '../runtime-state-dependency'
   import type TreeNode from '@system/model/tree/tree-node'
+  import RuntimePreviewProbe from '../preview/runtime-preview-probe'
 
   type Props = {
     node: TreeNode.Node
@@ -14,6 +15,7 @@
   }
 
   let { node, formulaContext, renderRevision, trackStateDependencies }: Props = $props()
+  const inspection = RuntimePreviewProbe.current()
 
   const text = $derived(RuntimeTree.isTextNode(node) ? node.element : null)
   const value = $derived.by(() => {
@@ -27,7 +29,10 @@
       formulaContext,
     )
 
-    if (!result.ok) return `[${ScriptError.format(result.error)}]`
+    if (!result.ok) {
+      inspection?.report(node.id, ScriptError.format(result.error))
+      return `[${ScriptError.format(result.error)}]`
+    }
     if (result.value === undefined) return '[Formula Undefined]'
     if (result.value === null) return ''
     return String(result.value)

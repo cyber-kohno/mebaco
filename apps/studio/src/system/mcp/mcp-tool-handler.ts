@@ -45,6 +45,8 @@ import Transition from '@system/model/variable/transition'
 import Block from '@system/model/block/block'
 import { ExpressionSourceCatalog } from '@system/model/validation/expression/source-catalog'
 import { ExpressionVerificationRunner } from '@system/application/validation/expression'
+import McpPreviewController from './mcp-preview-controller'
+import RuntimePreviewProbe from '@system/runtime/preview/runtime-preview-probe'
 
 namespace McpToolHandler {
   const identifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/
@@ -117,9 +119,9 @@ namespace McpToolHandler {
     return null
   }
 
-  const parseStyleArguments = (value: unknown): Style.Argument[] | null => {
+  const parseStyleArguments = (value: unknown): Tag.StyleArgument[] | null => {
     if (!Array.isArray(value)) return null
-    const parsed: Style.Argument[] = []
+    const parsed: Tag.StyleArgument[] = []
     for (const item of value) {
       if (item == null || typeof item !== 'object') return null
       const candidate = item as Record<string, unknown>
@@ -215,6 +217,19 @@ namespace McpToolHandler {
             message: 'The selected Mebaco Studio development session is no longer available.',
           },
         })
+        return
+      }
+
+      if (McpPreviewController.supports(request.method)) {
+        try {
+          const result = await McpPreviewController.handle(request.method, request.params)
+          await TauriMcp.respond({ id: request.id, result })
+        } catch (error) {
+          await TauriMcp.respond({ id: request.id, error: {
+            code: error instanceof RuntimePreviewProbe.Error ? error.code : 'PREVIEW_ERROR',
+            message: error instanceof Error ? error.message : String(error),
+          } })
+        }
         return
       }
 
@@ -369,8 +384,8 @@ namespace McpToolHandler {
             source: 'mcp',
             label: `Apply MCP changes (${operations.length}: ${operationLabels.join(', ')})`,
             expectedRevision,
+            preview: dryRun,
           }, () => {
-          if (dryRun) return []
           const results: Array<Record<string, unknown>> = []
           for (const operation of operations as Array<Record<string, unknown>>) {
             const type = operation.type
@@ -531,9 +546,9 @@ namespace McpToolHandler {
               if (styleNode == null || styleNode.element.kind !== 'style') throw new Error(`Style ${styleId} was not found.`)
               const parameterResult = StyleParameterCatalog.createCatalog(get(TreeStore.rootNode)).resolve(styleId)
               if (parameterResult.issues.length > 0) throw new Error(parameterResult.issues[0]?.message ?? `Style ${styleId} has an invalid parameter contract.`)
-              let styleArguments: Style.Argument[]
+              let styleArguments: Tag.StyleArgument[]
               if (operation.arguments == null) {
-                styleArguments = StyleArgumentContract.createArguments(parameterResult.parameters, 'application')
+                styleArguments = StyleArgumentContract.createArguments(parameterResult.parameters, 'application') as Tag.StyleArgument[]
               } else {
                 const parsedArguments = parseStyleArguments(operation.arguments)
                 if (parsedArguments == null) throw new Error('applyStyle arguments must contain valid parameter bindings.')
@@ -820,7 +835,17 @@ namespace McpToolHandler {
           return
         }
         notifyAgentChangeApplied(!dryRun && transaction.changed)
-        await TauriMcp.respond({ id: request.id, result: { dryRun, changed: dryRun ? false : transaction.changed, operations: transaction.result, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
+        await TauriMcp.respond({
+          id: request.id,
+          result: {
+            dryRun,
+            changed: dryRun ? false : transaction.changed,
+            ...(dryRun ? { wouldChange: transaction.changed } : {}),
+            operations: transaction.result,
+            previousRevision: expectedRevision,
+            revision: get(TreeStore.revision),
+          },
+        })
         return
       }
 

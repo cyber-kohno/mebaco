@@ -21,7 +21,8 @@
 
 {#if $sessionStore != null}
   <div class="runtime-scrim" role="presentation"></div>
-  <section class="runtime-dialog" class:maximized aria-label="Preview">
+  <section class="runtime-dialog" class:maximized
+    class:inspected={$sessionStore.inspection != null} aria-label="Preview">
     <header class="runtime-header">
       <div class="runtime-title">Preview</div>
       <div class="runtime-actions">
@@ -29,6 +30,7 @@
           class="icon-button"
           type="button"
           aria-label={maximized ? 'Restore preview size' : 'Maximize preview'}
+          disabled={$sessionStore.inspection != null}
           aria-pressed={maximized}
           title={maximized ? 'Restore' : 'Maximize'}
           onclick={() => maximized = !maximized}
@@ -50,16 +52,21 @@
         </button>
       </div>
     </header>
-    <div class="runtime-body">
-      <RuntimeView
-        appNode={$sessionStore.appNode}
-        projectNode={$sessionStore.projectNode}
-        resourceSession={$sessionStore.resourceSession}
-        storageSession={$sessionStore.storageSession}
-        logSession={$sessionStore.logSession}
-        launcherId={$sessionStore.launcherId}
-        launchValues={$sessionStore.launchValues}
-      />
+    <div class="runtime-body"
+      style:width={$sessionStore.inspection == null ? undefined : `${$sessionStore.inspection.viewport.width}px`}
+      style:height={$sessionStore.inspection == null ? undefined : `${$sessionStore.inspection.viewport.height}px`}>
+      {#key $sessionStore}
+        <RuntimeView
+          appNode={$sessionStore.appNode}
+          projectNode={$sessionStore.projectNode}
+          resourceSession={$sessionStore.resourceSession}
+          storageSession={$sessionStore.storageSession}
+          logSession={$sessionStore.logSession}
+          launcherId={$sessionStore.launcherId}
+          launchValues={$sessionStore.launchValues}
+          inspection={$sessionStore.inspection}
+        />
+      {/key}
     </div>
   </section>
 {/if}
@@ -99,6 +106,19 @@
     border: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .runtime-dialog.inspected {
+    top: 16px;
+    left: 16px;
+    width: max-content;
+    height: auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .runtime-dialog.inspected .runtime-body {
+    flex: none;
   }
 
   .runtime-header {

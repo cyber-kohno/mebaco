@@ -27,11 +27,11 @@ Launch Options自体には編集項目はありません。引数ごとにId、�
 
 ## 実行時の動作
 
-Launch Optionsは単体実行されません。Runtime launch処理が子の引数をEntry ComponentのValue Props契約へ変換し、起動元Bindingを評価します。
+Launch Optionsは単体実行されません。Runtimeは起動元Bindingを解決し、Appの式コンテキストに`$launch`として引数値を公開します。Entry ComponentのPropsへ渡す場合はEntry側でも明示的にBindingします。
 
 ## 最小例
 
-Appに`initialCount: Number`が必要なら、Argumentsに同名のLaunch Argumentを追加します。LauncherとTransitionの各呼出元で`initialCount`をBindingします。
+Appに`initialCount: Number`が必要なら、Argumentsに同名のLaunch Argumentを追加します。LauncherとTransitionの各呼出元で値をBindingし、EntryのPropsへ渡す場合は`$launch.initialCount`をBinding式に指定します。
 
 ## 制約と注意点
 
