@@ -1,8 +1,12 @@
 import type MebacoElement from '@system/model/element/element'
 import type ElementEditSchema from './element-edit-schema'
+import { get } from 'svelte/store'
+import type ElementDialogStore from './element-dialog-store'
 import { elementDialogStore } from './element-dialog-store'
 
 namespace ElementDialog {
+  export const isCurrent = (session: ElementDialogStore.Session): boolean => get(elementDialogStore) === session
+
   export const openCreate = (
     parentNodeId: number,
     schema: ElementEditSchema.Schema<MebacoElement.Element>,

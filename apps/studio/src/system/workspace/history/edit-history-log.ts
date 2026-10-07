@@ -41,7 +41,6 @@ namespace EditHistoryLog {
 
   const signature = (node: TreeNode.Node): string => JSON.stringify({
     element: node.element,
-    isOpen: node.isOpen,
     disabled: node.disabled ?? false,
     childIds: node.children.map((child) => child.id),
   })
@@ -113,6 +112,23 @@ namespace EditHistoryLog {
   }
 
   export const getEntries = (): readonly Entry[] => [...entries]
+
+  // Restore the pre-checkout log after discarding aborted agent entries.
+  export const restoreEntries = (baseline: readonly Entry[], rollbackEntry: Entry | undefined): void => {
+    entries = [...baseline, ...(rollbackEntry == null ? [] : [rollbackEntry])].slice(-maxEntries)
+  }
+
+  export const recordAgentGroup = (baseline: readonly Entry[], startedRevision: number, commit: TreeStore.TransactionCommit, viewRootNodeId: number | null): void => {
+    const previousRoot = baseline.at(-1)?.snapshot.rootNode ?? commit.previousRootNode
+    const entry: Entry = {
+      revision: commit.revision, previousRevision: startedRevision, source: 'mcp',
+      label: 'Agent work', timestamp: new Date().toISOString(),
+      changedNodes: collectChangedNodes(previousRoot, commit.rootNode),
+      snapshot: { rootNode: commit.rootNode, selectedNodeId: commit.selectedNodeId, viewRootNodeId },
+    }
+    // Replace the current group instead of keeping every intermediate tree snapshot.
+    restoreEntries(baseline, entry)
+  }
 
   export const getEntry = (revision: number): Entry | null => (
     entries.find((entry) => entry.revision === revision) ?? null

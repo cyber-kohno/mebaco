@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store'
 import type { McpSessionStatus } from './mcp-types'
 import type TauriMcp from '@system/infra/tauri/mcp'
+import McpEditSessionState from './mcp-edit-session-state'
 
 namespace McpSessionState {
   export const store = writable<McpSessionStatus>('stopped')
@@ -11,6 +12,7 @@ namespace McpSessionState {
   }
 
   export const reset = (): void => {
+    McpEditSessionState.requireRecovery()
     store.set('stopped')
     detailsStore.set(null)
   }

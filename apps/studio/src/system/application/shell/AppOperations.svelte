@@ -25,7 +25,7 @@
     margin-left: auto;
   }
 
-  .operations :global(button) {
+  .operations :global(button:not(.mcp-status)) {
     min-width: 78px;
     height: 28px;
     padding: 0 14px;
@@ -43,23 +43,23 @@
       color 120ms ease;
   }
 
-  .operations :global(button:disabled) {
+  .operations :global(button:not(.mcp-status):disabled) {
     opacity: 0.45;
   }
 
-  .operations :global(button[aria-pressed='true']) {
+  .operations :global(button:not(.mcp-status)[aria-pressed='true']) {
     border-color: var(--mbc-color-primary);
     background: var(--mbc-color-primary-soft);
     color: #1f6270;
   }
 
-  .operations :global(button:not(:disabled):hover) {
+  .operations :global(button:not(.mcp-status):not(:disabled):hover) {
     border-color: var(--mbc-color-primary);
     background: var(--mbc-color-primary-soft);
     color: #1f6270;
   }
 
-  .operations :global(button:focus-visible) {
+  .operations :global(button:not(.mcp-status):focus-visible) {
     outline: 3px solid var(--mbc-color-focus-ring);
     outline-offset: 2px;
   }

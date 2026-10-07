@@ -51,11 +51,14 @@
   import HtmlTag from '@system/model/element/html-tag'
   import { translate, translatorStore } from '@system/application/localization'
   import ElementUpdateResultPresentation from '../presentation/element-update-result-presentation'
+  import McpEditSessionState from '@system/mcp/mcp-edit-session-state'
+  import McpUserEditGuard from '@system/mcp/mcp-user-edit-guard'
 
   let values = $state<Record<string, string>>({})
   let touched = $state<Record<string, boolean>>({})
   let activeTab = $state<string | null>(null)
   const rootNodeStore = TreeStore.rootNode
+  const editSessionStore = McpEditSessionState.store
 
   const isRequiredField = (field: ElementEditSchema.Field): boolean => (
     'required' in field && field.required === true
@@ -107,7 +110,12 @@
 
   $effect(() => {
     const session = $elementDialogStore
-    if (session == null) return
+    if (session == null) {
+      values = {}
+      touched = {}
+      activeTab = null
+      return
+    }
 
     values = ElementDialogDirty.getInitialValues(session)
     touched = session.mode === 'create'
@@ -210,7 +218,7 @@
 
   const canSubmit = () => {
     const session = $elementDialogStore
-    if (session == null) return false
+    if (session == null || $editSessionStore != null) return false
 
     return session.schema.fields
       .filter(isVisibleField)
@@ -310,6 +318,7 @@
   }
 
   const submit = async () => {
+    if (!McpUserEditGuard.allows()) return
     const session = $elementDialogStore
     if (session == null || !canSubmit()) return
 
@@ -330,7 +339,7 @@
           session.element,
           element,
         )
-        if (!confirmed) return
+        if (!confirmed || !ElementDialog.isCurrent(session) || !McpUserEditGuard.allows()) return
         const result = ElementUpdateTransaction.commit(
           $rootNodeStore,
           session.nodeId,
@@ -383,7 +392,7 @@
         { label: translate('common.action.discard'), role: 'proceed' },
       ],
     })
-    if (discard && $elementDialogStore === session) ElementDialog.close()
+    if (discard && ElementDialog.isCurrent(session)) ElementDialog.close()
   }
 
   const handleDialogKeydown = (event: KeyboardEvent) => {
@@ -423,6 +432,10 @@
         {$translatorStore($elementDialogStore.mode === 'create' ? 'common.action.create' : 'common.action.update')}
       </button>
     </header>
+
+    {#if $editSessionStore != null}
+      <p role="status">{$translatorStore('mcp.edit.userEditBlocked')}</p>
+    {/if}
 
     <div
       class="dialog-body"

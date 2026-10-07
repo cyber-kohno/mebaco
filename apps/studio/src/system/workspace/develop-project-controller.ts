@@ -19,19 +19,20 @@ namespace DevelopProjectController {
   export const close = async () => {
     if (!await ProjectGuard.confirmDiscard()) return
 
-    const shouldStopMcp = McpSessionController.getStatus() !== 'stopped'
-    const mcpResult = shouldStopMcp ? await McpSessionController.stop() : null
-    ProjectFile.close()
-    developScreenStore.set('home')
-    if (mcpResult?.outcome === 'changed') {
-      ToastController.show('MCP development session stopped because the project was closed.', {
-        tone: 'success',
-        durationMs: 4000,
-      })
-    } else if (mcpResult?.outcome === 'rejected') {
+    const mcpResult = await McpSessionController.stop()
+    if (mcpResult.outcome === 'rejected') {
       ToastController.show(mcpResult.message, {
         tone: 'danger',
         durationMs: 5000,
+      })
+      return
+    }
+    ProjectFile.close()
+    developScreenStore.set('home')
+    if (mcpResult.outcome === 'changed') {
+      ToastController.show('MCP development session stopped because the project was closed.', {
+        tone: 'success',
+        durationMs: 4000,
       })
     }
   }

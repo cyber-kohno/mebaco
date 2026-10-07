@@ -1,6 +1,7 @@
 import { get } from 'svelte/store'
 import ActionMenuState from './action-menu-state'
 import { actionMenuStore } from './action-menu-store'
+import McpEditSessionState from '@system/mcp/mcp-edit-session-state'
 
 namespace ActionMenu {
   export const getLevelItems = (
@@ -59,11 +60,16 @@ namespace ActionMenu {
     if (item.type === 'parent') return
 
     if (item.keepOpen !== true) close()
-    const result = item.callback()
-    if (result instanceof Promise) {
-      result.catch((error) => {
-        console.error('Action menu callback failed:', error)
-      })
+    try {
+      const result = item.callback()
+      if (result instanceof Promise) {
+        result.catch((error) => {
+          // A rejected user edit has already been explained by the common guard.
+          if (!(error instanceof McpEditSessionState.Error)) console.error('Action menu callback failed:', error)
+        })
+      }
+    } catch (error) {
+      if (!(error instanceof McpEditSessionState.Error)) throw error
     }
   }
 }

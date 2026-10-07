@@ -29,6 +29,7 @@ import DebugLaunchShortcutController from '@system/application/debug/debug-launc
 import ProjectFile from '../../project/project-file'
 import ProjectSession from '../../project/project-session-store'
 import { EditHistoryController } from '@system/workspace/history/controller'
+import McpUserEditGuard from '@system/mcp/mcp-user-edit-guard'
 
 namespace AppKeyboardController {
   const isEditableTarget = (target: EventTarget | null): boolean => {
@@ -73,9 +74,9 @@ namespace AppKeyboardController {
         TreeStore.rootNode.set(TreeNode.clone(rootNode))
       },
       canDisable: (node) => ElementRegistry.get(node.element.kind).canDisable,
-      toggleDisabled: TreeStore.toggleDisabled,
+      toggleDisabled: (nodeId) => { if (McpUserEditGuard.allows()) TreeStore.toggleDisabled(nodeId) },
       canReorder: (nodeId, direction) => TreeStore.canMoveNode(nodeId, direction),
-      reorder: (nodeId, direction) => TreeStore.moveNode(nodeId, direction),
+      reorder: (nodeId, direction) => McpUserEditGuard.allows() && TreeStore.moveNode(nodeId, direction),
       setSelectedAsCriteria: () => {
         TreeViewportController.setSelectedAsCriteria(
           get(TreeStore.rootNode),

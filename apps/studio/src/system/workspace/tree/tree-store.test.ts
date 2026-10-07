@@ -14,7 +14,7 @@ describe('TreeStore transactions', () => {
     const unsubscribe = TreeStore.rootNode.subscribe((root) => roots.push(root))
 
     const result = TreeStore.transaction(
-      { source: 'mcp', label: 'Batch tree update' },
+      { source: 'user', label: 'Batch tree update' },
       () => {
         TreeStore.transformNode(rootNodeId, (node) => {
           node.isOpen = false
@@ -48,7 +48,7 @@ describe('TreeStore transactions', () => {
     const unsubscribeTransaction = TreeStore.onTransaction(transactionListener)
 
     const result = TreeStore.transaction(
-      { source: 'mcp', label: 'Preview update', preview: true },
+      { source: 'user', label: 'Preview update', preview: true },
       () => TreeStore.transformNode(rootNodeId, (node) => {
         node.disabled = true
         return true
@@ -78,7 +78,7 @@ describe('TreeStore transactions', () => {
     const unsubscribeTransaction = TreeStore.onTransaction(transactionListener)
 
     expect(() => TreeStore.transaction(
-      { source: 'mcp', label: 'Failing update' },
+      { source: 'user', label: 'Failing update' },
       () => {
         TreeStore.transformNode(previousRoot.id, (node) => {
           node.isOpen = false
@@ -103,7 +103,7 @@ describe('TreeStore transactions', () => {
     const unsubscribe = TreeStore.onTransaction(listener)
 
     TreeStore.transaction(
-      { source: 'mcp', label: 'Grouped update' },
+      { source: 'user', label: 'Grouped update' },
       () => {
         TreeStore.transformNode(rootNodeId, (node) => {
           node.isOpen = false
@@ -118,7 +118,7 @@ describe('TreeStore transactions', () => {
 
     expect(listener).toHaveBeenCalledOnce()
     expect(listener.mock.calls[0][0]).toMatchObject({
-      options: { source: 'mcp', label: 'Grouped update' },
+      options: { source: 'user', label: 'Grouped update' },
       previousSelectedNodeId: rootNodeId,
       selectedNodeId: rootNodeId,
       previousRevision: 0,
@@ -161,7 +161,7 @@ describe('TreeStore transactions', () => {
     const previousRoot = get(TreeStore.rootNode)
 
     expect(() => TreeStore.transaction(
-      { source: 'mcp', label: 'Async update' },
+      { source: 'user', label: 'Async update' },
       () => Promise.resolve(undefined),
     )).toThrow('Async tree transactions are not supported.')
     expect(get(TreeStore.rootNode)).toBe(previousRoot)
@@ -205,7 +205,7 @@ describe('TreeStore transactions', () => {
     const rootNodeId = get(TreeStore.rootNode).id
 
     const result = TreeStore.transaction(
-      { source: 'mcp', label: 'Expected update', expectedRevision: 0 },
+      { source: 'user', label: 'Expected update', expectedRevision: 0 },
       () => TreeStore.transformNode(rootNodeId, (node) => {
         node.disabled = true
         return true
@@ -233,7 +233,7 @@ describe('TreeStore transactions', () => {
     const rootBeforeConflict = get(TreeStore.rootNode)
 
     expect(() => TreeStore.transaction(
-      { source: 'mcp', label: 'Stale update', expectedRevision: 0 },
+      { source: 'user', label: 'Stale update', expectedRevision: 0 },
       () => TreeStore.transformNode(rootNodeId, (node) => {
         node.disabled = false
         return true
@@ -242,7 +242,7 @@ describe('TreeStore transactions', () => {
 
     try {
       TreeStore.transaction(
-        { source: 'mcp', label: 'Stale update', expectedRevision: 0 },
+        { source: 'user', label: 'Stale update', expectedRevision: 0 },
         () => undefined,
       )
     } catch (error) {

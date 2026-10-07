@@ -29,9 +29,11 @@ const mocks = vi.hoisted(() => ({
   redo: vi.fn(),
 }))
 
-vi.mock('svelte/store', () => ({
-  get: (store: { value: unknown }) => store.value,
-}))
+vi.mock('svelte/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('svelte/store')>()
+  return { ...actual, get: (store: any) => 'value' in store ? store.value : actual.get(store) }
+})
+vi.mock('@system/ui/feedback/toast/toast-controller', () => ({ default: { show: vi.fn() } }))
 vi.mock('@system/ui/action-menu/action-menu-store', () => ({
   actionMenuStore: mocks.actionMenuStore,
 }))
@@ -122,9 +124,12 @@ vi.mock('@system/workspace/shortcut/controller', () => ({
 }))
 
 import AppKeyboardController from './app-keyboard-controller'
+import McpEditSessionState from '@system/mcp/mcp-edit-session-state'
+import TreeStore from '@system/workspace/tree/state'
 
 describe('AppKeyboardController blocking layers', () => {
   beforeEach(() => {
+    McpEditSessionState.reset()
     mocks.handleKeydown.mockClear()
     mocks.saveWithAlert.mockClear()
     mocks.openElementSearch.mockClear()
@@ -152,6 +157,27 @@ describe('AppKeyboardController blocking layers', () => {
     } as KeyboardEvent)
 
     expect(mocks.handleKeydown).not.toHaveBeenCalled()
+  })
+
+  it('keeps shortcut navigation available but prevents Disable and reordering during checkout', () => {
+    vi.stubGlobal('HTMLElement', class HTMLElement {})
+    mocks.elementDialogStore.value = null
+    AppKeyboardController.handleKeydown({ defaultPrevented: false, key: 'ArrowDown', target: null } as unknown as KeyboardEvent)
+    const context = mocks.handleKeydown.mock.calls[0]![1]
+    const toggle = vi.mocked(TreeStore.toggleDisabled)
+    const move = vi.mocked(TreeStore.moveNode)
+    toggle.mockClear()
+    move.mockClear()
+    McpEditSessionState.checkout('session', 0)
+    expect(() => context.toggleDisabled(1)).not.toThrow()
+    expect(context.reorder(1, -1)).toBe(false)
+    expect(toggle).not.toHaveBeenCalled()
+    expect(move).not.toHaveBeenCalled()
+    McpEditSessionState.reset()
+    context.toggleDisabled(1)
+    context.reorder(1, -1)
+    expect(toggle).toHaveBeenCalledWith(1)
+    expect(move).toHaveBeenCalledWith(1, -1)
   })
 
   it('opens element search with Ctrl+P even from an editable target', () => {

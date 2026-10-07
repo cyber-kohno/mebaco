@@ -3,6 +3,9 @@ import ProjectSession from '@system/project/project-session-store'
 import type TreeNode from '@system/model/tree/tree-node'
 import McpSessionController from './mcp-session-controller'
 import McpSessionState from './mcp-session-state'
+import McpEditSessionState from './mcp-edit-session-state'
+import { get } from 'svelte/store'
+import { clearLanguagePreview, setLanguagePreview, translateFor } from '@system/application/localization'
 
 const tauriMcp = vi.hoisted(() => ({
   startSession: vi.fn(),
@@ -22,6 +25,9 @@ const rootNode = {
 
 describe('McpSessionController', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
+    clearLanguagePreview()
+    McpEditSessionState.reset()
     ProjectSession.clear()
     McpSessionState.reset()
     tauriMcp.startSession.mockResolvedValue({
@@ -87,6 +93,51 @@ describe('McpSessionController', () => {
     await McpSessionController.syncDirty(true)
 
     expect(tauriMcp.updateSessionDirty).toHaveBeenCalledWith(true)
+  })
+
+  it.each(['en', 'ja'] as const)('rejects stopping during checkout without changing publication or checkout (%s)', async (language) => {
+    ProjectSession.startNew(rootNode)
+    await McpSessionController.start()
+    const checkout = McpEditSessionState.checkout('session-1', 0)
+    const details = McpSessionController.getDetails()
+    setLanguagePreview(language)
+    expect(await McpSessionController.stop()).toEqual({
+      outcome: 'rejected', status: 'available', message: translateFor(language, 'mcp.edit.stopBlocked'),
+    })
+    expect(tauriMcp.stopSession).not.toHaveBeenCalled()
+    expect(McpSessionController.getStatus()).toBe('available')
+    expect(McpSessionController.getDetails()).toEqual(details)
+    expect(get(McpEditSessionState.store)).toEqual(checkout)
+    McpEditSessionState.checkin('session-1', checkout.checkoutId, 0)
+    expect((await McpSessionController.stop()).outcome).toBe('changed')
+    expect(tauriMcp.stopSession).toHaveBeenCalledOnce()
+    expect(get(McpEditSessionState.store)).toBeNull()
+    clearLanguagePreview()
+  })
+
+  it('allows stop after manual release', async () => {
+    ProjectSession.startNew(rootNode)
+    await McpSessionController.start()
+    McpEditSessionState.checkout('session-1', 0)
+    McpEditSessionState.reset()
+    expect((await McpSessionController.stop()).outcome).toBe('changed')
+    expect(tauriMcp.stopSession).toHaveBeenCalledOnce()
+  })
+
+  it('does not silently clear a checkout even if publication status is stopped', async () => {
+    const checkout = McpEditSessionState.checkout('session-1', 0)
+    expect((await McpSessionController.stop()).outcome).toBe('rejected')
+    expect(get(McpEditSessionState.store)).toEqual(checkout)
+    expect(tauriMcp.stopSession).not.toHaveBeenCalled()
+  })
+
+  it('refuses native restart while recovery is required', async () => {
+    ProjectSession.startNew(rootNode)
+    McpEditSessionState.checkout('old-session', 0)
+    McpSessionState.reset()
+    expect(get(McpEditSessionState.store)).toMatchObject({ recoveryRequired: true })
+    expect((await McpSessionController.start()).outcome).toBe('rejected')
+    expect(tauriMcp.startSession).not.toHaveBeenCalled()
   })
 
   it('moves to error when the native bridge cannot start', async () => {

@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   close: vi.fn(),
   confirmDiscard: vi.fn(),
   setScreen: vi.fn(),
+  stopMcp: vi.fn(),
+  showToast: vi.fn(),
 }))
 
 vi.mock('../project/project-file', () => ({
@@ -21,12 +23,15 @@ vi.mock('../project/project-guard', () => ({
 vi.mock('./develop-screen-store', () => ({
   developScreenStore: { set: mocks.setScreen },
 }))
+vi.mock('../mcp/mcp-session-controller', () => ({ default: { stop: mocks.stopMcp } }))
+vi.mock('@system/ui/feedback/toast/toast-controller', () => ({ default: { show: mocks.showToast } }))
 
 import DevelopProjectController from './develop-project-controller'
 
 describe('DevelopProjectController', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.stopMcp.mockResolvedValue({ outcome: 'unchanged', status: 'stopped' })
   })
 
   it('starts an empty project and opens the workspace', () => {
@@ -62,5 +67,15 @@ describe('DevelopProjectController', () => {
 
     expect(mocks.close).not.toHaveBeenCalled()
     expect(mocks.setScreen).not.toHaveBeenCalled()
+    expect(mocks.stopMcp).not.toHaveBeenCalled()
+  })
+
+  it('keeps the project and screen open when MCP stop is rejected', async () => {
+    mocks.confirmDiscard.mockResolvedValueOnce(true)
+    mocks.stopMcp.mockResolvedValueOnce({ outcome: 'rejected', message: 'Agent editing.' })
+    await DevelopProjectController.close()
+    expect(mocks.close).not.toHaveBeenCalled()
+    expect(mocks.setScreen).not.toHaveBeenCalled()
+    expect(mocks.showToast).toHaveBeenCalledWith('Agent editing.', { tone: 'danger', durationMs: 5000 })
   })
 })

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { get } from 'svelte/store'
 import McpSessionState from './mcp-session-state'
+import McpEditSessionState from './mcp-edit-session-state'
+import { setLanguagePreview, clearLanguagePreview } from '@system/application/localization'
+import ElementDialog from '@system/workspace/element-editor/element-dialog-controller'
+import { elementDialogStore } from '@system/workspace/element-editor/element-dialog-store'
 
 const tauriMcp = vi.hoisted(() => ({
   onRequest: vi.fn(),
@@ -72,7 +76,8 @@ const treeStore = vi.hoisted(() => {
     rootNode,
     selectedNodeId: { value: 1, subscribe: (run: (value: unknown) => void) => { run(1); return () => {} } },
     revision,
-    onLifecycle: vi.fn(() => vi.fn()),
+    getCurrentRoot: () => rootNode.value,
+    onLifecycle: vi.fn((_listener: (event: { type: string }) => void) => vi.fn()),
     transaction,
     transformNode,
     addChildAndGetId,
@@ -82,6 +87,7 @@ const treeStore = vi.hoisted(() => {
 })
 
 vi.mock('@system/infra/tauri/mcp', () => ({ default: tauriMcp }))
+vi.mock('@system/workspace/history/edit-history-controller', () => ({ default: { createCheckpoint: vi.fn(), discardCheckpoint: vi.fn(), rollbackCheckpoint: vi.fn() } }))
 vi.mock('@system/ui/feedback/confirm/confirm-dialog-controller', () => ({ default: confirmDialogController }))
 vi.mock('@system/ui/feedback/toast/toast-controller', () => ({ default: toastController }))
 vi.mock('@system/workspace/tree/state', () => ({ default: treeStore }))
@@ -103,12 +109,19 @@ vi.mock('@system/application/validation/expression', () => ({
 }))
 
 import McpToolHandler from './mcp-tool-handler'
+import EditHistoryController from '@system/workspace/history/edit-history-controller'
 import McpPreviewController from './mcp-preview-controller'
 import RuntimePreviewProbe from '@system/runtime/preview/runtime-preview-probe'
+
+const checkoutForUpdate = () => get(McpEditSessionState.store)
+  ?? McpEditSessionState.checkout('test-session', treeStore.revision.value)
 
 describe('McpToolHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    McpEditSessionState.reset()
+    ElementDialog.close()
+    clearLanguagePreview()
     McpSessionState.set('available')
     McpSessionState.detailsStore.set({
       sessionId: 'test-session',
@@ -119,6 +132,38 @@ describe('McpToolHandler', () => {
     treeStore.resetNodeIds()
     treeStore.rootNode.value = { id: 1, element: { kind: 'tag', tagName: 'div', comment: '', styles: [], attributes: [] }, children: [], isOpen: true }
     treeStore.revision.value = 0
+  })
+
+  it.each(['createApplication', 'applyChanges', 'setNodeDisabled', 'updateNodeProperty', 'deleteNode', 'insertNode', 'moveNode', 'updateNodeAttribute'])(
+    'requires a current checkoutId for %s, including dry-run', async (method) => {
+      let handler: ((request: any) => Promise<void>) | undefined
+      tauriMcp.onRequest.mockImplementation((candidate) => { handler = candidate; return Promise.resolve(vi.fn()) })
+      await McpToolHandler.connect()
+      await handler?.({ id: 'missing', method, params: { dryRun: true } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'missing', error: expect.objectContaining({ code: 'INVALID_PARAMS' }) })
+      await handler?.({ id: 'idle', method, params: { checkoutId: 'old' } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'idle', error: expect.objectContaining({ code: 'EDIT_SESSION_NOT_ACTIVE' }) })
+      const old = checkoutForUpdate()
+      McpEditSessionState.reset()
+      checkoutForUpdate()
+      await handler?.({ id: 'old-owner', method, params: { checkoutId: old.checkoutId } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'old-owner', error: expect.objectContaining({ code: 'EDIT_SESSION_MISMATCH' }) })
+      expect(treeStore.transaction).not.toHaveBeenCalled()
+      expect(treeStore.revision.value).toBe(0)
+    },
+  )
+
+  it('permits reads and Preview while checked out, without a checkoutId', async () => {
+    let handler: ((request: any) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => { handler = candidate; return Promise.resolve(vi.fn()) })
+    const preview = vi.spyOn(McpPreviewController, 'handle').mockResolvedValue({ previewId: 'read' })
+    await McpToolHandler.connect()
+    checkoutForUpdate()
+    await handler?.({ id: 'read', method: 'getProjectSummary', params: {} })
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'read', result: expect.objectContaining({ revision: 0 }) })
+    await handler?.({ id: 'preview', method: 'inspectPreview', params: { previewId: 'read' } })
+    expect(preview).toHaveBeenCalled()
+    expect(treeStore.transaction).not.toHaveBeenCalled()
   })
 
   it('answers bridge ping through the WebView handler', async () => {
@@ -166,6 +211,89 @@ describe('McpToolHandler', () => {
     expect(McpPreviewController.handle).toHaveBeenCalledWith('inspectPreview', { previewId: 'preview-id' })
     expect(tauriMcp.respond).toHaveBeenCalledWith({ id: 'preview-read', result: { previewId: 'preview-id', settled: true } })
     expect(get(McpSessionState.store)).toBe('available')
+  })
+
+  it('validates revision and ownership, then shows a localized checkin notice without waiting for dismissal', async () => {
+    let handler: ((request: any) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((candidate) => { handler = candidate; return Promise.resolve(vi.fn()) })
+    setLanguagePreview('ja')
+    confirmDialogController.openNotice.mockImplementation(() => {
+      expect(get(elementDialogStore)).toBeNull()
+      return new Promise(() => {})
+    })
+    const disconnect = await McpToolHandler.connect()
+    const element = { kind: 'text' as const, source: { type: 'literal' as const, value: 'saved' } }
+    const schema = {
+      createTitle: 'Create', updateTitle: 'Update', fields: [],
+      getInitialValues: () => ({ value: 'unconfirmed' }), create: vi.fn(() => element), update: vi.fn(() => element),
+    }
+    ElementDialog.openUpdate(1, element, schema)
+    const draft = get(elementDialogStore)
+    await handler?.({ id: 'status-before', method: 'getEditSessionStatus', params: {} })
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'status-before', result: expect.objectContaining({ status: 'idle', revision: 0, editingLocked: false, rollbackAvailable: false }) })
+    await handler?.({ id: 'stale', method: 'checkoutEditSession', params: { expectedRevision: 1 } })
+    expect(get(McpEditSessionState.store)).toBeNull()
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'stale', error: expect.objectContaining({ code: 'REVISION_CONFLICT' }) })
+    await handler?.({ id: 'start', method: 'checkoutEditSession', params: { expectedRevision: 0 } })
+    const checkout = get(McpEditSessionState.store)!
+    expect(get(elementDialogStore)).toBe(draft)
+    expect(treeStore.revision.value).toBe(0)
+    await handler?.({ id: 'double', method: 'checkoutEditSession', params: { expectedRevision: 0 } })
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'double', error: expect.objectContaining({ code: 'EDIT_SESSION_ACTIVE' }) })
+    await handler?.({ id: 'foreign', method: 'checkinEditSession', params: { expectedRevision: 0, checkoutId: 'other' } })
+    expect(get(McpEditSessionState.store)).toEqual(checkout)
+    expect(get(elementDialogStore)).toBe(draft)
+    expect(confirmDialogController.openNotice).not.toHaveBeenCalled()
+    treeStore.revision.value = 2
+    await handler?.({ id: 'stale-end', method: 'checkinEditSession', params: { expectedRevision: 0, checkoutId: checkout.checkoutId } })
+    expect(get(McpEditSessionState.store)).toEqual(checkout)
+    expect(get(elementDialogStore)).toBe(draft)
+    expect(confirmDialogController.openNotice).not.toHaveBeenCalled()
+    await handler?.({ id: 'end', method: 'checkinEditSession', params: { expectedRevision: 2, checkoutId: checkout.checkoutId } })
+    expect(get(McpEditSessionState.store)).toBeNull()
+    expect(get(elementDialogStore)).toBeNull()
+    expect(schema.update).not.toHaveBeenCalled()
+    expect(treeStore.transaction).not.toHaveBeenCalled()
+    expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'end', result: expect.objectContaining({ status: 'idle', revision: 2, revisionChanged: true }) })
+    expect(confirmDialogController.openNotice).toHaveBeenCalledWith({
+      title: 'エージェントの作業が完了しました',
+      message: 'エージェントがチェックインしました。変更は現在のプロジェクトに反映されています。',
+    })
+    disconnect()
+    clearLanguagePreview()
+  })
+
+  it('routes cancel with owner/revision validation and a localized cancellation notice', async () => {
+    let handler: ((request: any) => Promise<void>) | undefined
+    tauriMcp.onRequest.mockImplementation((callback) => { handler = callback; return Promise.resolve(vi.fn()) })
+    const disconnect = await McpToolHandler.connect()
+    try {
+      await handler?.({ id: 'checkout', method: 'checkoutEditSession', params: { expectedRevision: 0 } })
+      const checkoutId = get(McpEditSessionState.store)!.checkoutId
+      await handler?.({ id: 'bad', method: 'cancelEditSession', params: { checkoutId: '', expectedRevision: 0 } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'bad', error: expect.objectContaining({ code: 'INVALID_PARAMS' }) })
+      await handler?.({ id: 'stale', method: 'cancelEditSession', params: { checkoutId, expectedRevision: 1 } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'stale', error: expect.objectContaining({ code: 'REVISION_CONFLICT' }) })
+      await handler?.({ id: 'foreign', method: 'cancelEditSession', params: { checkoutId: 'foreign', expectedRevision: 0 } })
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'foreign', error: expect.objectContaining({ code: 'EDIT_SESSION_MISMATCH' }) })
+      expect(EditHistoryController.rollbackCheckpoint).not.toHaveBeenCalled()
+      await handler?.({ id: 'cancel', method: 'cancelEditSession', params: { checkoutId, expectedRevision: 0 } })
+      expect(EditHistoryController.rollbackCheckpoint).toHaveBeenCalledWith(checkoutId, 0)
+      expect(tauriMcp.respond).toHaveBeenLastCalledWith({ id: 'cancel', result: expect.objectContaining({ status: 'idle', rolledBack: true }) })
+    } finally { disconnect() }
+  })
+
+  it('clears checkout only on project replacement, but retains the lock on session disappearance', async () => {
+    const disconnect = await McpToolHandler.connect()
+    McpEditSessionState.checkout('test-session', 0)
+    const listener = treeStore.onLifecycle.mock.calls.at(-1)![0] as (event: { type: string }) => void
+    listener({ type: 'replace' })
+    expect(get(McpEditSessionState.store)).toBeNull()
+    McpEditSessionState.checkout('test-session', 0)
+    McpSessionState.detailsStore.set(null)
+    expect(get(McpEditSessionState.store)).toMatchObject({ recoveryRequired: true, sessionId: 'test-session' })
+    expect(() => McpEditSessionState.assertCheckout(get(McpEditSessionState.store)!.checkoutId)).toThrow('Resolve the previous checkout')
+    disconnect()
   })
 
   it('returns structured preview errors and restores session availability', async () => {
@@ -229,7 +357,7 @@ describe('McpToolHandler', () => {
     await handler?.({
       id: 'request-5',
       method: 'setNodeDisabled',
-      params: { nodeId: 1, expectedRevision: 0, disabled: true, dryRun: false },
+      params: { checkoutId: checkoutForUpdate().checkoutId, nodeId: 1, expectedRevision: 0, disabled: true, dryRun: false },
     })
 
     expect(treeStore.rootNode.value.disabled).toBe(true)
@@ -257,7 +385,7 @@ describe('McpToolHandler', () => {
     await handler?.({
       id: 'request-6',
       method: 'setNodeDisabled',
-      params: { nodeId: 1, expectedRevision: 1, disabled: true },
+      params: { checkoutId: checkoutForUpdate().checkoutId, nodeId: 1, expectedRevision: 1, disabled: true },
     })
 
     expect(treeStore.rootNode.value.disabled).toBeUndefined()
@@ -289,6 +417,7 @@ describe('McpToolHandler', () => {
       id: 'request-create-style-dry-run',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         dryRun: true,
         operations: [{
@@ -333,6 +462,7 @@ describe('McpToolHandler', () => {
       id: 'request-invalid-style-dry-run',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         dryRun: true,
         operations: [{
@@ -371,6 +501,7 @@ describe('McpToolHandler', () => {
       id: 'request-7-enable',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: true }],
       },
@@ -387,6 +518,7 @@ describe('McpToolHandler', () => {
       id: 'request-7-disable',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 1,
         operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
       },
@@ -428,7 +560,8 @@ describe('McpToolHandler', () => {
         id: `request-enable-${kind}`,
         method: 'applyChanges',
         params: {
-          expectedRevision: 0,
+          checkoutId: checkoutForUpdate().checkoutId,
+        expectedRevision: 0,
           operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: true }],
         },
       })
@@ -438,7 +571,8 @@ describe('McpToolHandler', () => {
         id: `request-disable-${kind}`,
         method: 'applyChanges',
         params: {
-          expectedRevision: 1,
+          checkoutId: checkoutForUpdate().checkoutId,
+        expectedRevision: 1,
           operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
         },
       })
@@ -473,6 +607,7 @@ describe('McpToolHandler', () => {
       id: 'request-8',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         operations: [{ type: 'setContentHostRetention', nodeId: 1, enabled: false }],
       },
@@ -507,6 +642,7 @@ describe('McpToolHandler', () => {
       id: 'request-retention-create',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         operations: [
           { type: 'createVariable', parentNodeId: 2, id: 'count', source: '0' },
@@ -541,6 +677,7 @@ describe('McpToolHandler', () => {
       id: 'request-retention-invalid-parent',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         operations: [{ type: 'createVariable', parentNodeId: 1, id: 'count', source: '0' }],
       },
@@ -572,6 +709,7 @@ describe('McpToolHandler', () => {
       id: 'request-retention-rendered-node',
       method: 'applyChanges',
       params: {
+        checkoutId: checkoutForUpdate().checkoutId,
         expectedRevision: 0,
         operations: [{ type: 'insertNode', parentNodeId: 2, kind: 'text', value: 'invalid' }],
       },

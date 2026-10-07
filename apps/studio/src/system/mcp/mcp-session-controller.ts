@@ -3,6 +3,8 @@ import ProjectSession from '@system/project/project-session-store'
 import McpSessionState from './mcp-session-state'
 import type { McpSessionActionResult, McpSessionStatus } from './mcp-types'
 import TauriMcp from '@system/infra/tauri/mcp'
+import McpEditSessionState from './mcp-edit-session-state'
+import { translate } from '@system/application/localization'
 
 namespace McpSessionController {
   let dirtySyncQueue = Promise.resolve()
@@ -30,6 +32,7 @@ namespace McpSessionController {
       }
     }
 
+    if (get(McpEditSessionState.store) != null) return { outcome: 'rejected', status: current, message: translate('mcp.edit.stopBlocked') }
     McpSessionState.set('starting')
     try {
       const details = await TauriMcp.startSession({
@@ -67,6 +70,13 @@ namespace McpSessionController {
 
   export const stop = async (): Promise<McpSessionActionResult> => {
     const current = getStatus()
+    if (get(McpEditSessionState.store) != null) {
+      return {
+        outcome: 'rejected',
+        status: current,
+        message: translate('mcp.edit.stopBlocked'),
+      }
+    }
     if (current === 'stopped') {
       return {
         outcome: 'unchanged',

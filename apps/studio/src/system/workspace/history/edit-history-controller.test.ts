@@ -16,7 +16,11 @@ const mocks = vi.hoisted(() => ({
   lifecycleListener: null as null | ((value: any) => void),
 }))
 
-vi.mock('svelte/store', () => ({ get: (store: { value: unknown }) => store.value }))
+vi.mock('svelte/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('svelte/store')>()
+  return { ...actual, get: (store: any) => 'value' in store ? store.value : actual.get(store) }
+})
+vi.mock('@system/ui/feedback/toast/toast-controller', () => ({ default: { show: vi.fn() } }))
 vi.mock('@system/infra/tauri/edit-history', () => ({
   default: {
     record: mocks.record,
@@ -45,15 +49,49 @@ vi.mock('@system/workspace/tree/tree-viewport-controller', () => ({
 
 import EditHistoryController from './edit-history-controller'
 import EditHistoryLog from './edit-history-log'
+import McpEditSessionState from '@system/mcp/mcp-edit-session-state'
 
 describe('EditHistoryController', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    McpEditSessionState.reset()
     mocks.clear.mockResolvedValue(undefined)
     mocks.record.mockResolvedValue(undefined)
     mocks.rootNode.value = { id: 1, element: { kind: 'project' }, isOpen: true, children: [] }
     mocks.selectedNodeId.value = 1
     mocks.viewport.value = { viewRootNodeId: null }
+  })
+
+  it('does not pop Rust undo/redo history or restore entries while checked out', async () => {
+    EditHistoryController.connect()
+    McpEditSessionState.checkout('session', 0)
+    await expect(EditHistoryController.undo()).resolves.toBe(false)
+    await expect(EditHistoryController.redo()).resolves.toBe(false)
+    await expect(EditHistoryController.restore(0)).resolves.toBe(false)
+    expect(mocks.undo).not.toHaveBeenCalled()
+    expect(mocks.redo).not.toHaveBeenCalled()
+    expect(mocks.restoreHistorySnapshot).not.toHaveBeenCalled()
+  })
+
+  it('blocks checkout until an in-flight native undo has finished', async () => {
+    EditHistoryController.connect()
+    let resolveUndo!: (value: null) => void
+    mocks.undo.mockImplementation(() => new Promise((resolve) => { resolveUndo = resolve }))
+    const undo = EditHistoryController.undo()
+    await vi.waitFor(() => expect(mocks.undo).toHaveBeenCalledOnce())
+    expect(() => McpEditSessionState.checkout('session', 0)).toThrow('in progress')
+    resolveUndo(null)
+    await expect(undo).resolves.toBe(false)
+    expect(() => McpEditSessionState.checkout('session', 0)).not.toThrow()
+  })
+
+  it('releases the history reservation when the native call fails', async () => {
+    EditHistoryController.connect()
+    mocks.redo.mockRejectedValue(new Error('native error'))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(EditHistoryController.redo()).resolves.toBe(false)
+    expect(() => McpEditSessionState.checkout('session', 0)).not.toThrow()
+    log.mockRestore()
   })
 
   it('records the tree and operation state from before a committed transaction', async () => {

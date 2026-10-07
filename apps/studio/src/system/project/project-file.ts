@@ -15,6 +15,7 @@ import Constants from '@system/model/declaration/constants'
 import NativeDialogController from '../ui/native-dialog-controller'
 import TauriFileSystem from '../infra/tauri/filesystem'
 import { ProjectTreeFactory } from '@system/project/tree-factory'
+import McpUserEditGuard from '@system/mcp/mcp-user-edit-guard'
 
 namespace ProjectFile {
   export type SaveResult =
@@ -240,6 +241,7 @@ namespace ProjectFile {
   }
 
   export const openFile = async (): Promise<boolean> => {
+    if (!McpUserEditGuard.allows()) return false
     const selectedPath = await NativeDialogController.open({
       title: 'Open Mebaco project',
       multiple: false,
@@ -263,6 +265,8 @@ namespace ProjectFile {
     parseManifest(await manifestFile.async('string'))
     const projectJson = parseProjectJson(await projectFile.async('string'))
 
+    // Recheck after the native dialog and file I/O, before any project state changes.
+    if (!McpUserEditGuard.allows()) return false
     ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(projectJson.rootNode)
     ProjectSession.markSaved(get(TreeStore.rootNode), selectedPath)
@@ -271,12 +275,14 @@ namespace ProjectFile {
   }
 
   export const startEmpty = () => {
+    McpUserEditGuard.assertAllowed()
     ExpressionVerificationStore.clear()
     TreeStore.replaceRoot(ProjectTreeFactory.createRootNode())
     ProjectSession.startNew(get(TreeStore.rootNode))
   }
 
   export const close = () => {
+    McpUserEditGuard.assertAllowed()
     ExpressionVerificationStore.clear()
     ProjectSession.clear()
     TreeStore.replaceRoot(ProjectTreeFactory.createRootNode())

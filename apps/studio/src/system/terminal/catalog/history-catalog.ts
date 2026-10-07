@@ -10,6 +10,7 @@ const sourceLabels: Record<EditHistoryLog.Entry['source'], string> = {
   undo: 'Undo',
   redo: 'Redo',
   restore: 'Restore',
+  rollback: 'Rollback',
   system: 'System',
 }
 

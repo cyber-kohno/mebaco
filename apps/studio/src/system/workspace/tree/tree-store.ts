@@ -9,6 +9,8 @@ import ElementMutationReport from '@system/model/element/mutation-report'
 import { ExpressionVerificationScope } from '@system/model/validation/expression/scope'
 import { ExpressionVerificationImpact } from '@system/model/validation/expression/impact'
 import { ProjectTreeFactory } from '@system/project/tree-factory'
+import McpEditSessionState from '@system/mcp/mcp-edit-session-state'
+import McpUserEditGuard from '@system/mcp/mcp-user-edit-guard'
 
 namespace TreeStore {
   export type LifecycleEvent =
@@ -18,13 +20,14 @@ namespace TreeStore {
 
   export type LifecycleListener = (event: LifecycleEvent) => void
 
-  export type TransactionSource = 'user' | 'mcp' | 'undo' | 'redo' | 'restore' | 'system'
+  export type TransactionSource = 'user' | 'mcp' | 'undo' | 'redo' | 'restore' | 'rollback' | 'system'
 
   export type TransactionOptions = {
     source: TransactionSource
     label: string
     expectedRevision?: number
     preview?: boolean
+    checkoutId?: string
   }
 
   export class RevisionConflictError extends Error {
@@ -95,6 +98,7 @@ namespace TreeStore {
   }
 
   let activeTransaction: ActiveTransaction | null = null
+  export const getCurrentRoot = (): TreeNode.Node => activeTransaction?.rootNode ?? get(rootNode)
 
   export const onLifecycle = (
     listener: LifecycleListener,
@@ -159,6 +163,10 @@ namespace TreeStore {
     if (activeTransaction != null) {
       throw new Error('Nested tree transactions are not supported.')
     }
+
+    if (options.source === 'mcp') McpEditSessionState.assertCheckout(options.checkoutId)
+    else if (options.source === 'rollback') McpEditSessionState.assertCheckout(options.checkoutId, undefined, true, true)
+    else McpUserEditGuard.assertAllowed()
 
     const currentRevision = get(revision)
     if (
@@ -561,15 +569,18 @@ namespace TreeStore {
   export const restoreHistorySnapshot = (
     snapshotRootNode: TreeNode.Node,
     snapshotSelectedNodeId: number,
-    source: 'undo' | 'redo' | 'restore',
+    source: 'undo' | 'redo' | 'restore' | 'rollback',
     label?: string,
+    ownership?: { checkoutId: string; expectedRevision: number },
   ): void => {
     transaction({
       source,
+      ...ownership,
       label: label ?? (source === 'undo' ? 'Undo' : source === 'redo' ? 'Redo' : 'Restore history'),
     }, () => {
       const nextRoot = TreeNode.clone(snapshotRootNode)
       updateRoot(() => nextRoot)
+      invalidateVerification(ExpressionVerificationImpact.all())
       nextNodeId = Math.max(nextNodeId, findMaxNodeId(nextRoot) + 1)
       setSelectedNodeId(
         TreeNode.findNode(nextRoot, snapshotSelectedNodeId) == null
@@ -581,6 +592,7 @@ namespace TreeStore {
   }
 
   export const replaceRoot = (nextRootNode: TreeNode.Node) => {
+    McpUserEditGuard.assertAllowed()
     const nextRoot = TreeNode.clone(nextRootNode)
     rootNode.set(nextRoot)
     selectedNodeId.set(nextRoot.id)

@@ -3,7 +3,7 @@ import type { McpSessionStatus } from './mcp-types'
 
 export type McpStatusPresentation = {
   labelKey: MessageKey
-  tone: 'pending' | 'available' | 'connected' | 'error'
+  tone: 'pending' | 'available' | 'connected' | 'error' | 'editing'
 }
 
 const presentations: Readonly<Record<Exclude<McpSessionStatus, 'stopped'>, McpStatusPresentation>> = {
@@ -15,7 +15,13 @@ const presentations: Readonly<Record<Exclude<McpSessionStatus, 'stopped'>, McpSt
 }
 
 export const getMcpStatusPresentation = (
-  status: Exclude<McpSessionStatus, 'stopped'>,
-): McpStatusPresentation => presentations[status]
+  status: McpSessionStatus,
+  editing = false,
+  recoveryRequired = false,
+): McpStatusPresentation => recoveryRequired
+  ? { labelKey: 'mcp.edit.recovery', tone: 'editing' }
+  : editing && (status === 'available' || status === 'connected')
+  ? { labelKey: 'mcp.edit.active', tone: 'editing' }
+  : status === 'stopped' ? { labelKey: 'mcp.edit.recovery', tone: 'editing' } : presentations[status]
 
 export const shortenMcpSessionId = (sessionId: string): string => sessionId.slice(0, 8)

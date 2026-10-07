@@ -47,8 +47,14 @@ import { ExpressionSourceCatalog } from '@system/model/validation/expression/sou
 import { ExpressionVerificationRunner } from '@system/application/validation/expression'
 import McpPreviewController from './mcp-preview-controller'
 import RuntimePreviewProbe from '@system/runtime/preview/runtime-preview-probe'
+import McpEditSessionState from './mcp-edit-session-state'
+import McpEditSessionController from './mcp-edit-session-controller'
 
 namespace McpToolHandler {
+  class ProjectStructureError extends Error {
+    readonly code = 'PROJECT_STRUCTURE_INVALID'
+  }
+
   const identifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]{0,31}$/
 
   const getRetentionFrame = (
@@ -192,6 +198,8 @@ namespace McpToolHandler {
   }
 
   const handle = async (request: TauriMcp.BridgeRequest): Promise<void> => {
+    const requestParams = typeof request.params === 'object' && request.params != null
+      ? request.params as Record<string, unknown> : {}
     if (get(McpSessionState.store) === 'available') {
       McpSessionState.set('connected')
     }
@@ -218,6 +226,46 @@ namespace McpToolHandler {
           },
         })
         return
+      }
+
+      if (['checkoutEditSession', 'checkinEditSession', 'cancelEditSession', 'getEditSessionStatus'].includes(request.method)) {
+        const sessionId = get(McpSessionState.detailsStore)!.sessionId
+        const revision = get(TreeStore.revision)
+        if (request.method === 'getEditSessionStatus') {
+          await TauriMcp.respond({ id: request.id, result: McpEditSessionState.status(sessionId, revision) })
+          return
+        }
+        const params = typeof request.params === 'object' && request.params != null
+          ? request.params as Record<string, unknown> : {}
+        const expectedRevision = params.expectedRevision
+        if (typeof expectedRevision !== 'number' || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0
+          || (request.method !== 'checkoutEditSession' && (typeof params.checkoutId !== 'string' || params.checkoutId.trim() === ''))) {
+          await TauriMcp.respond({ id: request.id, error: { code: 'INVALID_PARAMS', message: 'expectedRevision must be a non-negative safe integer; checkin/cancel also require a non-empty checkoutId.' } })
+          return
+        }
+        if (expectedRevision !== revision) {
+          await TauriMcp.respond({ id: request.id, error: {
+            code: 'REVISION_CONFLICT', message: `Tree revision conflict: expected ${expectedRevision}, actual ${revision}.`,
+            expectedRevision, actualRevision: revision,
+          } })
+          return
+        }
+        try {
+          const result = request.method === 'checkoutEditSession'
+            ? await McpEditSessionController.checkout(sessionId, revision)
+            : request.method === 'cancelEditSession'
+              ? await McpEditSessionController.cancel(sessionId, params.checkoutId as string, revision)
+              : await McpEditSessionController.checkin(sessionId, params.checkoutId as string, revision)
+          await TauriMcp.respond({ id: request.id, result })
+        } catch (error) {
+          if (!(error instanceof McpEditSessionState.Error)) throw error
+          await TauriMcp.respond({ id: request.id, error: { code: error.code, message: error.message } })
+        }
+        return
+      }
+
+      if (['createApplication', 'applyChanges', 'setNodeDisabled', 'updateNodeProperty', 'deleteNode', 'insertNode', 'moveNode', 'updateNodeAttribute'].includes(request.method)) {
+        McpEditSessionState.assertCheckout(requestParams.checkoutId, get(McpSessionState.detailsStore)!.sessionId)
       }
 
       if (McpPreviewController.supports(request.method)) {
@@ -321,20 +369,22 @@ namespace McpToolHandler {
           await TauriMcp.respond({ id: request.id, result: { appName, dryRun: true, changed: false, application: null, previousRevision: expectedRevision, revision: expectedRevision } })
           return
         }
-        const appNodeId = TreeStore.addChildAndGetId(appsNode.id, App.create(appName))
-        const appNode = TreeNode.findNode(get(TreeStore.rootNode), appNodeId)
-        const declaresNode = appNode?.children.find((node) => node.element.kind === 'declares')
-        const componentsNode = declaresNode?.children.find((node) => node.element.kind === 'components')
-        const entryNode = appNode?.children.find((node) => node.element.kind === 'entry')
-        if (appNode == null || componentsNode == null || entryNode?.element.kind !== 'entry') {
-          await TauriMcp.respond({ id: request.id, error: { code: 'PROJECT_STRUCTURE_INVALID', message: 'The created App does not have the expected initial structure.' } })
-          return
-        }
-        const mainElement = Component.create('Main')
-        const mainNodeId = TreeStore.addChildAndGetId(componentsNode.id, mainElement)
-        TreeStore.updateElement(entryNode.id, { ...entryNode.element, componentId: mainElement.componentId, propBindings: [] })
+        const transaction = TreeStore.transaction({ source: 'mcp', label: `Create application ${appName}`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
+          const appNodeId = TreeStore.addChildAndGetId(appsNode.id, App.create(appName))
+          const appNode = TreeNode.findNode(TreeStore.getCurrentRoot(), appNodeId)
+          const declaresNode = appNode?.children.find((node) => node.element.kind === 'declares')
+          const componentsNode = declaresNode?.children.find((node) => node.element.kind === 'components')
+          const entryNode = appNode?.children.find((node) => node.element.kind === 'entry')
+          if (appNode == null || componentsNode == null || entryNode?.element.kind !== 'entry') {
+            throw new ProjectStructureError('The created App does not have the expected initial structure.')
+          }
+          const mainElement = Component.create('Main')
+          const mainNodeId = TreeStore.addChildAndGetId(componentsNode.id, mainElement)
+          TreeStore.updateElement(entryNode.id, { ...entryNode.element, componentId: mainElement.componentId, propBindings: [] })
+          return { appNodeId, mainNodeId, componentId: mainElement.componentId, entryNodeId: entryNode.id }
+        })
         notifyAgentChangeApplied(true)
-        await TauriMcp.respond({ id: request.id, result: { appName, dryRun: false, changed: true, application: { appNodeId, mainNodeId, componentId: mainElement.componentId, entryNodeId: entryNode.id }, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
+        await TauriMcp.respond({ id: request.id, result: { appName, dryRun: false, changed: transaction.changed, application: transaction.result, previousRevision: expectedRevision, revision: get(TreeStore.revision) } })
         return
       }
 
@@ -385,6 +435,7 @@ namespace McpToolHandler {
             label: `Apply MCP changes (${operations.length}: ${operationLabels.join(', ')})`,
             expectedRevision,
             preview: dryRun,
+            checkoutId: requestParams.checkoutId as string,
           }, () => {
           const results: Array<Record<string, unknown>> = []
           for (const operation of operations as Array<Record<string, unknown>>) {
@@ -1116,6 +1167,7 @@ namespace McpToolHandler {
             {
               source: 'mcp',
               label: `${params.disabled ? 'Disable' : 'Enable'} node ${nodeId}`,
+              checkoutId: requestParams.checkoutId as string,
               expectedRevision,
             },
             () => {
@@ -1198,7 +1250,7 @@ namespace McpToolHandler {
             : element[property]
         const changed = previousValue !== value
         try {
-          const transaction = TreeStore.transaction({ source: 'mcp', label: `Update ${property} on node ${nodeId}`, expectedRevision }, () => {
+          const transaction = TreeStore.transaction({ source: 'mcp', label: `Update ${property} on node ${nodeId}`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
             if (dryRun || !changed) return false
             return TreeStore.transformNode(nodeId, (target) => {
               const next = target.element as Record<string, unknown>
@@ -1248,7 +1300,7 @@ namespace McpToolHandler {
           return
         }
         const selectedNodeId = get(TreeStore.selectedNodeId)
-        const transaction = TreeStore.transaction({ source: 'mcp', label: `Delete node ${nodeId}`, expectedRevision }, () => {
+        const transaction = TreeStore.transaction({ source: 'mcp', label: `Delete node ${nodeId}`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
           if (dryRun) return false
           TreeStore.removeNode(nodeId)
           return true
@@ -1293,7 +1345,7 @@ namespace McpToolHandler {
           return
         }
         const element = kind === 'tag' ? Tag.create(tagName as Tag.TagName, '') : Text.createLiteral(value)
-        const transaction = TreeStore.transaction({ source: 'mcp', label: `Insert ${kind} node`, expectedRevision }, () => {
+        const transaction = TreeStore.transaction({ source: 'mcp', label: `Insert ${kind} node`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
           if (dryRun) return null
           return TreeStore.addChildAndGetId(parentNodeId, element, index ?? undefined)
         })
@@ -1321,7 +1373,7 @@ namespace McpToolHandler {
           await TauriMcp.respond({ id: request.id, error: { code: 'NODE_NOT_FOUND', message: 'No node matches nodeId.' } })
           return
         }
-        const transaction = TreeStore.transaction({ source: 'mcp', label: `Move node ${nodeId}`, expectedRevision }, () => {
+        const transaction = TreeStore.transaction({ source: 'mcp', label: `Move node ${nodeId}`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
           if (dryRun) return false
           return TreeStore.moveNode(nodeId, direction === 'up' ? -1 : 1)
         })
@@ -1354,7 +1406,7 @@ namespace McpToolHandler {
         const existing = node.element.attributes.find((attribute) => attribute.type === 'attribute' && attribute.name === name)
         const previousValue = existing?.type === 'attribute' && existing.value.type === 'literal' ? existing.value.value : null
         const changed = previousValue !== value
-        const transaction = TreeStore.transaction({ source: 'mcp', label: `Update attribute ${name} on node ${nodeId}`, expectedRevision }, () => {
+        const transaction = TreeStore.transaction({ source: 'mcp', label: `Update attribute ${name} on node ${nodeId}`, expectedRevision, checkoutId: requestParams.checkoutId as string }, () => {
           if (dryRun || !changed) return false
           return TreeStore.transformNode(nodeId, (target) => {
             if (target.element.kind !== 'tag') return false
@@ -1401,6 +1453,9 @@ namespace McpToolHandler {
           message: `Unsupported Studio bridge method: ${request.method}`,
         },
       })
+    } catch (error) {
+      if (!(error instanceof McpEditSessionState.Error) && !(error instanceof ProjectStructureError)) throw error
+      await TauriMcp.respond({ id: request.id, error: { code: error.code, message: error.message } })
     } finally {
       if (get(McpSessionState.store) === 'connected') {
         McpSessionState.set('available')
@@ -1408,7 +1463,17 @@ namespace McpToolHandler {
     }
   }
 
-  export const connect = (): Promise<() => void> => TauriMcp.onRequest(handle)
+  export const connect = async (): Promise<() => void> => {
+    const disconnect = await TauriMcp.onRequest(handle)
+    const unsubscribeTree = TreeStore.onLifecycle((event) => {
+      if (event.type === 'replace') McpEditSessionState.reset()
+    })
+    const unsubscribeSession = McpSessionState.detailsStore.subscribe((details) => {
+      const checkout = get(McpEditSessionState.store)
+      if (checkout != null && checkout.sessionId !== details?.sessionId) McpEditSessionState.requireRecovery()
+    })
+    return () => { disconnect(); unsubscribeTree(); unsubscribeSession(); McpEditSessionState.requireRecovery() }
+  }
 }
 
 export default McpToolHandler

@@ -57,6 +57,8 @@ struct KindSchemaRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct CreateApplicationRequest {
+    #[schemars(description = "The checkoutId returned by checkout_edit_session; required even for dryRun.")]
+    checkout_id: String,
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
     #[schemars(description = "The new app identifier, using 1-32 lowercase kebab-case characters.")]
@@ -70,6 +72,8 @@ struct CreateApplicationRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct ApplyChangesRequest {
+    #[schemars(description = "The checkoutId returned by checkout_edit_session; required even for dryRun.")]
+    checkout_id: String,
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
     #[schemars(description = "The revision returned by a current project read.")]
@@ -135,6 +139,25 @@ struct NodeDetailsRequest {
         description = "Include allowlisted expression/source fields (maximum 8000 characters per field). Defaults to false."
     )]
     include_source: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CheckoutEditSessionRequest {
+    #[schemars(description = "The current sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The revision from a current project read. Checkout does not change it.")]
+    expected_revision: u64,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CheckinEditSessionRequest {
+    session_id: String,
+    #[schemars(description = "The checkoutId returned by checkout_edit_session.")]
+    checkout_id: String,
+    #[schemars(description = "The current revision after finishing the work. Read again if it conflicts.")]
+    expected_revision: u64,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -208,6 +231,23 @@ fn preview_call(session_id: &str, method: &str, params: serde_json::Value) -> Re
     }
 }
 
+fn edit_session_call(session_id: &str, method: &str, params: serde_json::Value) -> Result<CallToolResult, McpError> {
+    if session_id.trim().is_empty() {
+        return Err(McpError::invalid_params("sessionId must be non-empty.", None));
+    }
+    // Both bridge transport errors and Studio errors are surfaced as MCP tool errors.
+    match call_development_session(session_id, method, params) {
+        Ok(result) => {
+            let error = result.get("error");
+            let content = vec![ContentBlock::text(serde_json::to_string(error.unwrap_or(&result))
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?)];
+            Ok(if error.is_some() { CallToolResult::error(content) } else { CallToolResult::success(content) })
+        }
+        Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(&error)
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?)])),
+    }
+}
+
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct VerifyExpressionRequest {
@@ -235,6 +275,8 @@ struct NodeReferencesRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct SetNodeDisabledRequest {
+    #[schemars(description = "The checkoutId returned by checkout_edit_session; required even for dryRun.")]
+    checkout_id: String,
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
     #[schemars(description = "The live tree node ID returned by a project read tool.")]
@@ -254,6 +296,8 @@ struct SetNodeDisabledRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct UpdateNodePropertyRequest {
+    #[schemars(description = "The checkoutId returned by checkout_edit_session; required even for dryRun.")]
+    checkout_id: String,
     #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
     session_id: String,
     #[schemars(description = "The live tree node ID returned by a project read tool.")]
@@ -271,6 +315,7 @@ struct UpdateNodePropertyRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct DeleteNodeRequest {
+    checkout_id: String,
     session_id: String,
     node_id: u32,
     expected_revision: u64,
@@ -280,6 +325,7 @@ struct DeleteNodeRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct InsertNodeRequest {
+    checkout_id: String,
     session_id: String,
     parent_node_id: u32,
     expected_revision: u64,
@@ -293,6 +339,7 @@ struct InsertNodeRequest {
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct MoveNodeRequest {
+    checkout_id: String,
     session_id: String,
     node_id: u32,
     expected_revision: u64,
@@ -302,7 +349,7 @@ struct MoveNodeRequest {
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
-struct UpdateNodeAttributeRequest { session_id: String, node_id: u32, expected_revision: u64, name: String, value: String, dry_run: Option<bool> }
+struct UpdateNodeAttributeRequest { session_id: String, checkout_id: String, node_id: u32, expected_revision: u64, name: String, value: String, dry_run: Option<bool> }
 
 impl PingResult {
     fn new() -> Self {
@@ -384,6 +431,7 @@ impl MebacoMcpServer {
             "createApplication",
             serde_json::json!({
                 "appName": request.app_name,
+                "checkoutId": request.checkout_id,
                 "expectedRevision": request.expected_revision,
                 "dryRun": request.dry_run.unwrap_or(false),
             }),
@@ -412,6 +460,7 @@ impl MebacoMcpServer {
             "expectedRevision": request.expected_revision,
             "dryRun": request.dry_run.unwrap_or(false),
             "operations": request.operations,
+            "checkoutId": request.checkout_id,
         })) {
             Ok(result) => {
                 if let Some(error) = result.get("error") {
@@ -666,6 +715,32 @@ impl MebacoMcpServer {
         }
     }
 
+    #[tool(description = "Check out a live Studio project before editing. Pass a current expectedRevision. Captures a rollback checkpoint in Studio Rust memory; returns checkoutId, editingLocked=true and rollbackAvailable=true after capture succeeds. User commits are locked, while selection, tree expansion, dialog drafts and reads remain available. Check in to keep changes, or cancel to roll back.")]
+    async fn checkout_edit_session(&self, Parameters(request): Parameters<CheckoutEditSessionRequest>) -> Result<CallToolResult, McpError> {
+        edit_session_call(&request.session_id, "checkoutEditSession", serde_json::json!({ "expectedRevision": request.expected_revision }))
+    }
+
+    #[tool(description = "Finish agent work and clear its checkout state. Requires checkoutId and current expectedRevision. Content edits in this checkout become one Undo/Redo operation; unchanged work adds no history entry. Shows a localized completion notice in Studio without waiting for acknowledgement. Does not save. A lost/changed published session must be resolved through the Studio badge before new editing.")]
+    async fn checkin_edit_session(&self, Parameters(request): Parameters<CheckinEditSessionRequest>) -> Result<CallToolResult, McpError> {
+        if request.checkout_id.trim().is_empty() {
+            return Err(McpError::invalid_params("checkoutId must be non-empty.", None));
+        }
+        edit_session_call(&request.session_id, "checkinEditSession", serde_json::json!({ "checkoutId": request.checkout_id, "expectedRevision": request.expected_revision }))
+    }
+
+    #[tool(description = "Cancel agent work and roll back the live project, selection and tree view to checkout time. Requires the checkoutId and current expectedRevision. Restores the pre-checkout Undo/Redo history, increments revision (never resets it), releases the lock and shows a localized notice. Does not save or stop the agent. A failed rollback retains the lock; read status and the latest revision before retrying. Check in instead to keep changes.")]
+    async fn cancel_edit_session(&self, Parameters(request): Parameters<CheckinEditSessionRequest>) -> Result<CallToolResult, McpError> {
+        if request.checkout_id.trim().is_empty() {
+            return Err(McpError::invalid_params("checkoutId must be non-empty.", None));
+        }
+        edit_session_call(&request.session_id, "cancelEditSession", serde_json::json!({ "checkoutId": request.checkout_id, "expectedRevision": request.expected_revision }))
+    }
+
+    #[tool(description = "Read agent checkout state and current revision. editingLocked is true while checked out. rollbackAvailable indicates a Rust-memory checkpoint; operation is preparing/checking_in/rolling_back during asynchronous transitions. recoveryRequired means the published session changed/disappeared: resolve in Studio before new editing. sessionId identifies the owner checkout; publishedSessionId is the requested live session. No checkout is needed for reads or runtime preview.")]
+    async fn get_edit_session_status(&self, Parameters(request): Parameters<SessionRequest>) -> Result<CallToolResult, McpError> {
+        edit_session_call(&request.session_id, "getEditSessionStatus", serde_json::json!({}))
+    }
+
     #[tool(description = "Start an instrumented real Studio preview of the current unsaved app, without Computer Use. Runs launch/effect code and shows a Preview dialog. Requires current expectedRevision; refuses to replace an existing preview. Project model is snapshotted, key-value storage is isolated in memory, and Resource I/O is blocked. Returns previewId and bounded rendered-element/error/layout snapshot. viewport sizes the runtime content container, not the native WebView. Close with close_preview when done.")]
     async fn start_preview(&self, Parameters(request): Parameters<StartPreviewRequest>) -> Result<CallToolResult, McpError> {
         preview_call(&request.session_id, "startPreview", serde_json::json!({
@@ -787,6 +862,7 @@ impl MebacoMcpServer {
                 "nodeId": request.node_id,
                 "expectedRevision": request.expected_revision,
                 "disabled": request.disabled,
+                "checkoutId": request.checkout_id,
                 "dryRun": request.dry_run.unwrap_or(false),
             }),
         ) {
@@ -821,6 +897,7 @@ impl MebacoMcpServer {
             "nodeId": request.node_id,
             "expectedRevision": request.expected_revision,
             "property": request.property,
+            "checkoutId": request.checkout_id,
             "value": request.value,
             "dryRun": request.dry_run.unwrap_or(false),
         })) {
@@ -837,6 +914,7 @@ impl MebacoMcpServer {
     #[tool(description = "Delete one non-root leaf node from the live Studio tree. Pass expectedRevision and use dryRun to validate without changing Studio.")]
     async fn delete_node(&self, Parameters(request): Parameters<DeleteNodeRequest>) -> Result<CallToolResult, McpError> {
         match call_development_session(&request.session_id, "deleteNode", serde_json::json!({
+            "checkoutId": request.checkout_id,
             "nodeId": request.node_id,
             "expectedRevision": request.expected_revision,
             "dryRun": request.dry_run.unwrap_or(false),
@@ -857,6 +935,7 @@ impl MebacoMcpServer {
             return Err(McpError::invalid_params("kind must be tag or text and value must be at most 8000 characters.", None));
         }
         match call_development_session(&request.session_id, "insertNode", serde_json::json!({
+            "checkoutId": request.checkout_id,
             "parentNodeId": request.parent_node_id,
             "expectedRevision": request.expected_revision,
             "kind": request.kind,
@@ -881,6 +960,7 @@ impl MebacoMcpServer {
             return Err(McpError::invalid_params("direction must be up or down.", None));
         }
         match call_development_session(&request.session_id, "moveNode", serde_json::json!({
+            "checkoutId": request.checkout_id,
             "nodeId": request.node_id,
             "expectedRevision": request.expected_revision,
             "direction": request.direction,
@@ -899,7 +979,7 @@ impl MebacoMcpServer {
     #[tool(description = "Add or update one literal HTML attribute on a live Tag node. Pass expectedRevision and use dryRun to validate without changing Studio.")]
     async fn update_node_attribute(&self, Parameters(request): Parameters<UpdateNodeAttributeRequest>) -> Result<CallToolResult, McpError> {
         if request.name.trim().is_empty() || request.value.len() > 8000 { return Err(McpError::invalid_params("name must be non-empty and value must be at most 8000 characters.", None)); }
-        match call_development_session(&request.session_id, "updateNodeAttribute", serde_json::json!({"nodeId":request.node_id,"expectedRevision":request.expected_revision,"name":request.name,"value":request.value,"dryRun":request.dry_run.unwrap_or(false)})) {
+        match call_development_session(&request.session_id, "updateNodeAttribute", serde_json::json!({"checkoutId":request.checkout_id,"nodeId":request.node_id,"expectedRevision":request.expected_revision,"name":request.name,"value":request.value,"dryRun":request.dry_run.unwrap_or(false)})) {
             Ok(result) => { if let Some(error)=result.get("error") { return Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(error).map_err(|e| McpError::internal_error(e.to_string(),None))?)])); } Ok(CallToolResult::success(vec![ContentBlock::text(serde_json::to_string(&result).map_err(|e| McpError::internal_error(e.to_string(),None))?)])) }
             Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(serde_json::to_string(&error).map_err(|e| McpError::internal_error(e.to_string(),None))?)])),
         }
@@ -971,7 +1051,7 @@ impl ServerHandler for MebacoMcpServer {
             )
             .with_protocol_version(ProtocolVersion::V_2024_11_05)
             .with_instructions(
-                "Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Use verify_expression to run Studio's expression checks on a node. For real runtime checks without Computer Use, use start_preview, inspect_preview and interact_preview, then close_preview. Inspect fresh element IDs and verify ready/settled/error/stale/truncation fields; preview container size is not native WebView size. Before an update, read the current revision and pass it as expectedRevision; use dryRun when available."
+"Mebaco development tools. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Read-only tools, selection and Preview do not require checkout. Before editing, read the current revision and call checkout_edit_session. Pass the returned checkoutId and current expectedRevision to every content update, including dryRun. Re-read state after each update and checkin_edit_session when finished; checkin does not save. After manual release, the old checkoutId cannot update the project. If work must be abandoned, call cancel_edit_session with the current revision to restore checkout-time project and interaction state; cancellation advances revision and does not save. Studio Rust-memory checkpoints do not survive Studio process exit. A completed checkout with content changes becomes one Undo/Redo operation. If the published Studio session is lost or changed, the edit lock and checkpoint remain for manual recovery; use the Studio badge to keep changes or roll back before editing again. Stopping or restarting the agent alone does not automatically end checkout. Use verify_expression to run Studio's expression checks on a node. For real runtime checks without Computer Use, use start_preview, inspect_preview and interact_preview, then close_preview. Inspect fresh element IDs and verify ready/settled/error/stale/truncation fields; preview container size is not native WebView size."
                     .to_string(),
             )
     }
@@ -1012,7 +1092,40 @@ mod tests {
         assert!(router.has_route("inspect_preview"));
         assert!(router.has_route("interact_preview"));
         assert!(router.has_route("close_preview"));
-        assert_eq!(router.list_all().len(), 25);
+        assert!(router.has_route("checkout_edit_session"));
+        assert!(router.has_route("checkin_edit_session"));
+        assert!(router.has_route("get_edit_session_status"));
+        assert!(router.has_route("cancel_edit_session"));
+        assert_eq!(router.list_all().len(), 29);
+    }
+
+    #[test]
+    fn content_update_schemas_require_checkout_id() {
+        let tools = MebacoMcpServer::tool_router().list_all();
+        for name in ["create_application", "apply_changes", "set_node_disabled", "update_node_property", "delete_node", "insert_node", "move_node", "update_node_attribute"] {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            let schema = serde_json::to_value(tool).unwrap();
+            let required = schema["inputSchema"]["required"].as_array().unwrap();
+            assert!(required.contains(&serde_json::json!("checkoutId")), "{name} must require checkoutId");
+            assert!(required.contains(&serde_json::json!("expectedRevision")), "{name} must require expectedRevision");
+        }
+        for name in ["get_project_summary", "get_project_overview", "get_node_details", "select_node", "start_preview", "inspect_preview", "interact_preview", "close_preview"] {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            let schema = serde_json::to_value(tool).unwrap();
+            assert!(schema["inputSchema"]["properties"].get("checkoutId").is_none(), "{name} does not need checkout");
+        }
+    }
+
+    #[test]
+    fn edit_finish_schemas_require_owner_and_revision() {
+        let tools = MebacoMcpServer::tool_router().list_all();
+        for name in ["checkin_edit_session", "cancel_edit_session"] {
+            let schema = serde_json::to_value(tools.iter().find(|tool| tool.name == name).unwrap()).unwrap();
+            let required = schema["inputSchema"]["required"].as_array().unwrap();
+            for field in ["sessionId", "checkoutId", "expectedRevision"] {
+                assert!(required.contains(&serde_json::json!(field)), "{name} must require {field}");
+            }
+        }
     }
 
     #[test]

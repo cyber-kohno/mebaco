@@ -1,5 +1,8 @@
 # Mebaco Studio MCP MVP Implementation Plan
 
+エージェント編集のcheckout・checkin・ロック・rollbackの段階的計画は
+[MCP_EDIT_SESSION_PLAN.md](MCP_EDIT_SESSION_PLAN.md)を参照。
+
 ## 目的
 
 Codex などの外部エージェントが、Mebaco Studio で開いているプロジェクトの未保存状態を MCP 経由で参照し、安全な範囲で GUI 状態を更新できることを実証する。
@@ -454,8 +457,16 @@ Studio実機での利用確認後、参照関係のProperty単位の説明精度
 - [x] `Ctrl+Z` Undo、`Ctrl+Y` Redo
 - [x] `set_node_disabled`による更新・dry run・capability検証
 - [ ] kind別編集schemaと汎用的な既存ノード更新
-- [ ] 複数operationのアトミック適用
-- [ ] ノード追加・削除・移動のMCP公開
+- [x] `apply_changes`による複数operationのアトミック適用
+- [x] ノード追加・削除・移動のMCP公開
+- [x] 編集セッションのcheckout/checkin/状態取得、UI表示・手動解除（実機確認完了）
+- [x] checkout中のMCP停止・プロジェクトClose・Restart拒否（実機確認完了）
+- [x] 保存対象のユーザー編集ロック、8つのMCP更新ツールのcheckoutId必須化（編集ロック・所有権検証の実機確認済み）
+- [x] checkin時の要素ダイアログ自動終了（実機確認完了）
+- [x] Rustメモリcheckpoint/rollback（実機確認完了）
+- [x] 1作業単位の履歴グループ化、中断時の復旧（自動検証、通常checkin後のグループUndo/Redoとバッジからの保持終了の実機確認完了、バッジからのrollbackなどは実機確認待ち）
+
+エージェント編集セッションの段階的な仕様・検証結果・実機確認手順は[MCP_EDIT_SESSION_PLAN.md](MCP_EDIT_SESSION_PLAN.md)を参照。
 
 更新は保存ファイルではなく現在のTreeStoreへ適用する。読み取り結果の`revision`を更新要求の`expectedRevision`として必須にし、不一致の場合は`REVISION_CONFLICT`として変更前に拒否する。Undo/Redoも新しい状態遷移であるためrevisionを増加させる。
 
