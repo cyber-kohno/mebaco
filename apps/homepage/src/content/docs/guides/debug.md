@@ -19,6 +19,16 @@ AppにLaunch Argumentsがある場合、Debug > Launch ShortcutsでAppと対応�
 
 設定候補にLauncherが出ない、または起動時にエラーになる場合は、Launcherの対象Appと引数Bindingを確認します。
 
+## ランチャー一覧から起動する
+
+Projectを開いた状態で、開発タブ上部の「ランチャー（Launchers）」を押すと、開発ツリーと並列のランチャー一覧画面に切り替わります。登録したLauncherの名前・Id・対象Appを確認し、検索して選択したLauncherを「起動（Launch）」から実行できます。AppやEntryの設定が不足しているLauncherも一覧に表示されます。
+
+レコードは行全体をクリックして選択でき、選択済みの行を再クリックすると選択を解除します。キーボードではLauncherのボタンにフォーカスし、EnterまたはSpaceで選択・解除できます。
+
+起動時は未保存の編集内容を含む現在のProjectを使い、Launcherの引数Bindingと既存のDebug Resource Bindingを参照します。Build・Release・ClientへのInstallは不要です。Storageは既存Previewと同じProject単位の開発用保存領域を使います。
+
+アプリは同じMebacoウィンドウ内の専用実行画面に表示されます。固定ヘッダーの「アプリを終了」からランチャー一覧へ戻ると、検索条件と選択状態が復元されます。「開発ツリー（Tree）」で編集画面に戻れます。
+
 ## Runtimeログを確認する
 
 Debug > LogでLevelを設定し、Preview中に式からログを出します。

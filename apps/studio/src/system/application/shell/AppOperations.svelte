@@ -47,6 +47,12 @@
     opacity: 0.45;
   }
 
+  .operations :global(button[aria-pressed='true']) {
+    border-color: var(--mbc-color-primary);
+    background: var(--mbc-color-primary-soft);
+    color: #1f6270;
+  }
+
   .operations :global(button:not(:disabled):hover) {
     border-color: var(--mbc-color-primary);
     background: var(--mbc-color-primary-soft);

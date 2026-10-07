@@ -8,7 +8,20 @@
   const projectSessionStore = ProjectSession.store
 </script>
 
-{#if $developScreenStore === 'workspace'}
+<button
+  type="button"
+  disabled={$projectSessionStore.savedFingerprint == null}
+  aria-pressed={$developScreenStore === 'workspace'}
+  onclick={() => developScreenStore.set('workspace')}
+>{$translatorStore('workspace.action.tree')}</button>
+<button
+  type="button"
+  disabled={$projectSessionStore.savedFingerprint == null}
+  aria-pressed={$developScreenStore === 'launchers'}
+  onclick={() => developScreenStore.set('launchers')}
+>{$translatorStore('workspace.action.launchers')}</button>
+
+{#if $projectSessionStore.savedFingerprint != null}
   <button
     type="button"
     disabled={!$projectSessionStore.isDirty}

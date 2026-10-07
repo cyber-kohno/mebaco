@@ -21,6 +21,7 @@ namespace PreviewController {
     storageSession?: StorageRuntime.Session
     logSession?: RuntimeLog.Session
     inspection?: RuntimePreviewProbe.Session
+    presentation?: RuntimeSessionStore.Presentation
   }
 
   const findOwnerApp = (
@@ -63,6 +64,7 @@ namespace PreviewController {
     logSession?: RuntimeLog.Session,
     storageSession?: StorageRuntime.Session,
     inspection?: RuntimePreviewProbe.Session,
+    presentation?: RuntimeSessionStore.Presentation,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
@@ -85,6 +87,7 @@ namespace PreviewController {
       launcherId,
       launchValues,
       inspection,
+      presentation,
     })
     return true
   }
@@ -109,6 +112,7 @@ namespace PreviewController {
         options.storageScope ?? StorageRuntime.developmentScope(options.projectNode),
       ),
       options.inspection,
+      options.presentation,
     )
     if (!opened) resourceSession.dispose()
     return opened
@@ -130,27 +134,24 @@ namespace PreviewController {
     appDefinitionId: string,
     launchValues: Readonly<Record<string, unknown>>,
   ): boolean => {
+    const currentSession = get(RuntimeSessionStore.store)
+    // Ignore delayed transitions from a runtime that has already been closed.
+    if (currentSession == null || currentSession.projectNode !== rootNode) return false
     const appNode = findApp(rootNode, appDefinitionId)
     if (appNode == null) {
       ToastController.show('Transition target App was not found.', { tone: 'danger' })
       return false
     }
-    const currentSession = get(RuntimeSessionStore.store)
-    const resourceSession = currentSession?.resourceSession ?? ResourceRuntime.create(rootNode)
-    const logSession = currentSession?.logSession ?? RuntimeLog.create(rootNode)
-    const storageSession = currentSession?.storageSession ?? new StorageRuntime.Session(
-      rootNode,
-      StorageRuntime.developmentScope(rootNode),
-    )
     return openApp(
       rootNode,
       appNode,
       undefined,
       launchValues,
-      resourceSession,
-      logSession,
-      storageSession,
-      currentSession?.inspection,
+      currentSession.resourceSession,
+      currentSession.logSession,
+      currentSession.storageSession,
+      currentSession.inspection,
+      currentSession.presentation,
     )
   }
 

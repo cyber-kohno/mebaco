@@ -109,7 +109,7 @@ namespace AppKeyboardController {
     if (event.defaultPrevented) return
     if (
       get(appAreaStore) !== 'develop'
-      || get(developScreenStore) !== 'workspace'
+      || get(developScreenStore) === 'home'
     ) return
     const interaction = get(developInteractionStore)
     if (
@@ -131,6 +131,7 @@ namespace AppKeyboardController {
       }
       return
     }
+    if (get(developScreenStore) !== 'workspace') return
     if (
       ['z', 'y'].includes(event.key.toLowerCase())
       && event.ctrlKey

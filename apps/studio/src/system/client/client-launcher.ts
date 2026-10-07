@@ -55,6 +55,7 @@ namespace ClientLauncher {
       projectNode: ClientPackage.createRuntimeProject(installedPackage),
       appDefinitionId: launcher.appId,
       launcherId: launcher.launcherId,
+      presentation: { type: 'application', title: launcher.name?.trim() || launcher.id },
       resourcePaths: installedPackage.resourcePaths,
       storageScope: {
         kind: 'package',

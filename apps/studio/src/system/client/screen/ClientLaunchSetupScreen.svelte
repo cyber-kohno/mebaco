@@ -201,7 +201,7 @@
           {#each installedPackage.module.launchers as launcher (launcher.launcherId)}
             <button
               type="button"
-              class="launcher-row"
+              class="launcher-row mbc-record-hover"
               class:selected={selectedLauncherId === launcher.launcherId}
               aria-pressed={selectedLauncherId === launcher.launcherId}
               onclick={() => selectedLauncherId = selectedLauncherId === launcher.launcherId ? null : launcher.launcherId}
@@ -337,12 +337,11 @@
   .count { display:grid; place-items:center; min-width:24px; height:21px; padding:0 7px; border-radius:11px; background:#d6edf1; color:#407078; font-size:11px; }
   .launcher-list { min-height:0; padding:9px; overflow:auto; }
   button { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:34px; padding:0 13px; border:1px solid var(--mbc-color-border-strong); border-radius:7px; background:white; color:#365a63; font-weight:700; cursor:default; }
-  button:hover:not(:disabled) { border-color:var(--mbc-color-primary); background:var(--mbc-color-primary-soft); color:#1f6270; }
+  button:hover:not(:disabled):not(.mbc-record-hover) { border-color:var(--mbc-color-primary); background:var(--mbc-color-primary-soft); color:#1f6270; }
   button:focus-visible, input:focus-visible { outline:3px solid var(--mbc-color-focus-ring); outline-offset:2px; }
   button:disabled { opacity:.45; }
-  .launcher-row { display:grid; grid-template-columns:37px minmax(0,1fr); width:100%; height:auto; min-height:61px; margin-bottom:7px; padding:9px 10px; border-color:transparent; background:transparent; text-align:left; }
-  .launcher-row:hover:not(.selected) { border-color:transparent; background:rgba(255,255,255,.38); color:inherit; }
-  .launcher-row.selected, .launcher-row.selected:hover { border-color:#5daebb; background:#dff3f6; box-shadow:inset 4px 0 #278f9e,0 3px 11px rgba(40,120,132,.14); }
+  .launcher-row { display:grid; grid-template-columns:37px minmax(0,1fr); width:100%; height:auto; min-height:61px; margin-bottom:7px; padding:9px 10px; border-color:transparent; background-color:transparent; text-align:left; }
+  .launcher-row.selected { border-color:#5daebb; background-color:#dff3f6; box-shadow:inset 4px 0 #278f9e,0 3px 11px rgba(40,120,132,.14); }
   .launcher-row.selected .launcher-icon { background:#bfe6eb; color:#176f7c; }
   .launcher-icon { display:grid; place-items:center; width:30px; height:30px; border-radius:7px; background:#dff2f5; color:#2b8794; }
   .launcher-copy { display:grid; gap:4px; min-width:0; }

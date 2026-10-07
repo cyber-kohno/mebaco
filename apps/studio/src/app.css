@@ -18,6 +18,7 @@
   --mbc-color-accent-soft: #e6f8ef;
   --mbc-color-selection: #bfeff5;
   --mbc-color-focus-ring: #4ec3d3;
+  --mbc-record-hover-overlay: rgb(0 0 0 / 5%);
   --mbc-width-id-field: 320px;
   --mbc-width-tag-name-field: 180px;
   --mbc-width-mode-field: 100px;
@@ -81,4 +82,9 @@ select[aria-invalid='true'][data-validation-severity='error'] {
 
 button {
   border: 0;
+}
+
+/* Paint the hover layer over the row background, keeping its content opaque. */
+.mbc-record-hover:hover {
+  background-image: linear-gradient(var(--mbc-record-hover-overlay), var(--mbc-record-hover-overlay));
 }

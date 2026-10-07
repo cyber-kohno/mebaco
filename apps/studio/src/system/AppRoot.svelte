@@ -32,6 +32,8 @@
   } from '@system/client'
   import TauriClientLaunch from './infra/tauri/client-launch'
   import DirectRuntimeRoot from './runtime/view/DirectRuntimeRoot.svelte'
+  import ApplicationRuntimeScreen from './runtime/view/ApplicationRuntimeScreen.svelte'
+  import RuntimeSessionStore from './runtime/runtime-session-store'
   import McpToolHandler from './mcp/mcp-tool-handler'
   import McpExitGuard from './mcp/mcp-exit-guard'
   import McpSessionController from './mcp/mcp-session-controller'
@@ -41,6 +43,8 @@
   let rootMode = $state<RootMode>('loading')
   let directError = $state('')
   let directInstallationId = $state<string | undefined>()
+  const runtimeSessionStore = RuntimeSessionStore.store
+  const applicationRunning = $derived($runtimeSessionStore?.presentation?.type === 'application')
 
   $effect(() => {
     if (
@@ -170,7 +174,7 @@
   }
 
   const handleKeydown = (event: KeyboardEvent) => {
-    if (rootMode === 'studio') AppKeyboardController.handleKeydown(event)
+    if (rootMode === 'studio' && !applicationRunning) AppKeyboardController.handleKeydown(event)
   }
 </script>
 
@@ -191,21 +195,24 @@
   </main>
 {:else if rootMode === 'studio'}
   <main class="app-root" aria-label="Mebaco" oncontextmenu={preventNativeContextMenu}>
-    <AppHeader />
-    <div
-      class="screen-host"
-      role="tabpanel"
-      id={`${$appAreaStore}-area-panel`}
-      aria-labelledby={`${$appAreaStore}-area-tab`}
-    >
-      {#if $appAreaStore === 'client'}
-        <ClientArea />
-      {:else if $appAreaStore === 'develop'}
-        <DevelopArea />
-      {:else}
-        <SettingArea />
-      {/if}
+    <div class="studio-shell" hidden={applicationRunning} inert={applicationRunning}>
+      <AppHeader />
+      <div
+        class="screen-host"
+        role="tabpanel"
+        id={`${$appAreaStore}-area-panel`}
+        aria-labelledby={`${$appAreaStore}-area-tab`}
+      >
+        {#if $appAreaStore === 'client'}
+          <ClientArea />
+        {:else if $appAreaStore === 'develop'}
+          <DevelopArea />
+        {:else}
+          <SettingArea />
+        {/if}
+      </div>
     </div>
+    <ApplicationRuntimeScreen />
     <ActionMenuLayer />
     <ElementDialogLayer />
     <PreviewDialog />
@@ -233,6 +240,19 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
+  }
+
+  /* Keep the source screen mounted so its selection and scroll position survive. */
+  .studio-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .studio-shell[hidden] {
+    display: none;
   }
 
   .startup,

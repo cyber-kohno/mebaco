@@ -7,6 +7,8 @@ import type StorageRuntime from './storage/storage-runtime'
 import type RuntimePreviewProbe from './preview/runtime-preview-probe'
 
 namespace RuntimeSessionStore {
+  export type Presentation = { type: 'application'; title: string }
+
   export type Session = {
     app: App.Element
     appNode: TreeNode.Node
@@ -17,6 +19,7 @@ namespace RuntimeSessionStore {
     launcherId?: string
     launchValues?: Readonly<Record<string, unknown>>
     inspection?: RuntimePreviewProbe.Session
+    presentation?: Presentation
   }
 
   export const store = writable<Session | null>(null)

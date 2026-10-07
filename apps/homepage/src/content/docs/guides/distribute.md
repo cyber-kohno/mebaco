@@ -41,6 +41,8 @@ ClientのPackage画面でInstallから`.mbcapp`を選びます。インストー
 
 Client側のResource PathとStudioのDebug Bindingは別設定です。配布先のパス・アクセス権・ファイルの存在を確認してください。StorageもPackage単位の実行データであり、開発環境の保存値が自動で配布されるわけではありません。
 
+Launchすると、同じMebacoウィンドウ内の専用実行画面に切り替わります。固定ヘッダーの「アプリを終了」からLaunch Setupへ戻ると、選択したLauncherが保持されています。
+
 ## 更新時
 
 Projectを変更したら、Buildで新しいRevisionを作り、保存後に同じBundleをReleaseします。Clientでは対象Packageを選んでUpdateから新しい`.mbcapp`を指定します。更新・ダウングレードの確認ダイアログに表示されるRevisionを見て、意図した版か確かめてください。

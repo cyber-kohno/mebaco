@@ -19,7 +19,7 @@
   }
 </script>
 
-{#if $sessionStore != null}
+{#if $sessionStore != null && $sessionStore.presentation == null}
   <div class="runtime-scrim" role="presentation"></div>
   <section class="runtime-dialog" class:maximized
     class:inspected={$sessionStore.inspection != null} aria-label="Preview">

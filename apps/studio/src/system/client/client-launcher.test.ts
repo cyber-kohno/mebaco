@@ -33,7 +33,7 @@ describe('ClientLauncher', () => {
     mocks.previewOpen.mockReturnValue(true)
   })
 
-  it('opens a validated Launcher through the shared preview runtime path', async () => {
+  it('opens a validated Launcher in the application screen through the shared runtime path', async () => {
     const result = await ClientLauncher.open(installedPackage, 'launcher-uuid')
 
     expect(result).toEqual({ status: 'opened' })
@@ -41,6 +41,7 @@ describe('ClientLauncher', () => {
       appDefinitionId: 'app-uuid',
       launcherId: 'launcher-uuid',
       resourcePaths: installedPackage.resourcePaths,
+      presentation: { type: 'application', title: 'main' },
     }))
   })
 
