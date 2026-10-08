@@ -41,7 +41,7 @@ namespace ProjectTreeFactory {
       {
         id: 16,
         element: Release.create(),
-        isOpen: true,
+        isOpen: false,
         children: [
           {
             id: 17,
@@ -110,7 +110,7 @@ namespace ProjectTreeFactory {
       {
         id: 11,
         element: DebugElement.create(),
-        isOpen: true,
+        isOpen: false,
         children: [
           {
             id: 12,
