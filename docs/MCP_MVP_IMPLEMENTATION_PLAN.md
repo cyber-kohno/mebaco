@@ -3,6 +3,10 @@
 エージェント編集のcheckout・checkin・ロック・rollbackの段階的計画は
 [MCP_EDIT_SESSION_PLAN.md](MCP_EDIT_SESSION_PLAN.md)を参照。
 
+StudioとMCPの通信世代管理の現状・導入計画は
+[MCP_BRIDGE_GENERATION_PLAN.md](MCP_BRIDGE_GENERATION_PLAN.md)を参照。
+実装結果と残る実機確認は[MCP_BRIDGE_GENERATION_IMPLEMENTATION.md](MCP_BRIDGE_GENERATION_IMPLEMENTATION.md)を参照。
+
 ## 目的
 
 Codex などの外部エージェントが、Mebaco Studio で開いているプロジェクトの未保存状態を MCP 経由で参照し、安全な範囲で GUI 状態を更新できることを実証する。
@@ -92,7 +96,7 @@ Codex
 ## ディレクトリ構成
 
 ```text
-apps/mcp/
+code/apps/mcp/
   Cargo.toml
   src/
     main.rs
@@ -100,27 +104,27 @@ apps/mcp/
     tools/
     bridge/
 
-apps/studio/src/system/mcp/
+code/apps/studio/src/system/mcp/
   mcp-session-controller.ts
   mcp-session-state.ts
   mcp-tool-handler.ts
   mcp-types.ts
   McpStatusBadge.svelte
 
-apps/studio/src/system/infra/tauri/
+code/apps/studio/src/system/infra/tauri/
   mcp.ts
 
-apps/studio/src/system/terminal/catalog/
+code/apps/studio/src/system/terminal/catalog/
   mcp-catalog.ts
 
-apps/studio/src-tauri/src/mcp/
+code/apps/studio/src-tauri/src/mcp/
   mod.rs
   session.rs
   server.rs
   bridge.rs
 ```
 
-共通 Rust crate は MVP の開始時点では作らない。共有すべき通信型が安定した段階で `crates/mebaco-bridge-protocol` を検討する。
+共通 Rust crate は MVP の開始時点では作らない。共有すべき通信型が安定した段階で `code/crates/mebaco-bridge-protocol` を検討する。
 
 ## Studio 開発セッション
 
@@ -157,7 +161,7 @@ Studio は開発セッションごとに次を保持する。
 
 状態: **完了**
 
-- `apps/mcp` Rust crate
+- `code/apps/mcp` Rust crate
 - `ping`ツール
 - stderr logging
 - MCP initialize、tools/list、tools/call

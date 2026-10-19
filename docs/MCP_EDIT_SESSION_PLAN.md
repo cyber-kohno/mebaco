@@ -49,13 +49,13 @@ Stage 5: 2026-10-08実装。履歴グループ化と中断後の保持/rollback�
 - Studioフロントエンドの本番ビルド: 成功（既存a11y/チャンク関連警告あり）。
 - 生成したrelease exeのstdio initialize / tools/list: 成功、29ツール。cancelを追加。8つの更新ツールとcheckin/cancelでcheckoutId/expectedRevision必須、参照・選択・PreviewではcheckoutId不要を確認。
 
-生成先: `apps/mcp/target/next-release/release/mebaco-mcp.exe`。
+生成先: `code/apps/mcp/target/next-release/release/mebaco-mcp.exe`。
 第2段階の更新版MCPは正式接続で反映確認済み。
 第3段階はStudioフロントエンドのみの変更で、MCP再ビルド・Codex再起動は不要。
 第4段階はStudioのRust/フロントエンドとMCPを変更したため、Studio再ビルド・再起動とMCP exe反映・Codex再接続が必要。
 第5段階もStudioのRust/フロントエンドを更新する。MCPツール数/引数は29のままで、ツール説明を更新した候補exeを生成した。
 以後MCP exeを更新する場合は、利用側のMCP接続を無効化してstdioプロセスを停止した後、反映する（Studioの`mcp stop`だけではstdioプロセスは終了しない）。
-再検証は`apps/mcp`で`node scripts/verify-stdio.mjs`。引数で任意のexeパスを指定可能。
+再検証は`code/apps/mcp`で`node scripts/verify-stdio.mjs`。引数で任意のexeパスを指定可能。
 このスクリプトはStudioのツリーやcheckoutを操作せず、自身が起動したstdioプロセスだけを終了する。
 
 ## 第1段階のAPI
@@ -106,7 +106,7 @@ Codexだけを再起動してもStudioのcheckoutは残るため、バッジで�
 
 1. 未保存変更を必要に応じて保存してから、更新したStudioフロントエンドを起動する。
 2. MCPを無効化してプロセスを終了し、更新済みバイナリを
-   `apps/mcp/target/release/mebaco-mcp.exe`へ反映する。起動中のMCPプロセスは勝手に終了しない。
+   `code/apps/mcp/target/release/mebaco-mcp.exe`へ反映する。起動中のMCPプロセスは勝手に終了しない。
 3. MCPを再度有効化し、Codexを再起動またはMCPへ再接続して3つの新ツールを確認する。
 4. Studioで開発セッションを公開する。`list_development_sessions`から現在のsessionIdを取得する。
 5. `get_project_summary`でrevisionを取得し、`get_edit_session_status`がidleであることを確認する。
@@ -217,7 +217,7 @@ checkoutは更新を行う場合だけ必要。参照ツール、ノード選択
 ## 第4段階の実機確認手順
 
 1. checkoutを終了し、必要な変更を保存してからStudioをRust側も含め再ビルド・再起動する。フロントエンドの更新だけでは新しいTauri commandは使えない。
-2. 利用側MCPを無効化しstdioプロセスを停止して、候補exeを正式な`apps/mcp/target/release/mebaco-mcp.exe`へ反映する。Codexを再起動/再接続し、`cancel_edit_session`を含む29ツールを確認する。
+2. 利用側MCPを無効化しstdioプロセスを停止して、候補exeを正式な`code/apps/mcp/target/release/mebaco-mcp.exe`へ反映する。Codexを再起動/再接続し、`cancel_edit_session`を含む29ツールを確認する。
 3. StudioでMCPを公開し、最新のセッション一覧とrevisionを取得する。以降、以前のIDは流用しない。
 4. 開始前の選択・開閉・Criteria・dirtyを確認し、checkoutで`rollbackAvailable: true`を確認する。
 5. MCPでDisable/Enableやプロパティ更新を複数回行い、各更新がリアルタイムで反映されることを確認する。必要なら選択・Criteriaも移動し、要素ダイアログに未確定入力を作る。

@@ -377,10 +377,10 @@ openPath(rootNode, fromNodeId, targetNodeId): boolean
 
 関連ファイル:
 
-- `apps/studio/src/system/keyboard/app-keyboard-controller.ts`
-- `apps/studio/src/system/keyboard/keyboard-controller.ts`
-- `apps/studio/src/system/keyboard/shortcut-registry.ts`
-- `apps/studio/src/system/keyboard/shortcut-command.ts`
+- `code/apps/studio/src/system/keyboard/app-keyboard-controller.ts`
+- `code/apps/studio/src/system/keyboard/keyboard-controller.ts`
+- `code/apps/studio/src/system/keyboard/shortcut-registry.ts`
+- `code/apps/studio/src/system/keyboard/shortcut-command.ts`
 
 注意点:
 
@@ -393,9 +393,9 @@ openPath(rootNode, fromNodeId, targetNodeId): boolean
 
 関連ファイル:
 
-- `apps/studio/src/system/analysis/ReferenceGraphPanel.svelte`
-- `apps/studio/src/system/analysis/reference-graph.ts`
-- `apps/studio/src/system/analysis/reference-graph-controller.ts`
+- `code/apps/studio/src/system/analysis/ReferenceGraphPanel.svelte`
+- `code/apps/studio/src/system/analysis/reference-graph.ts`
+- `code/apps/studio/src/system/analysis/reference-graph-controller.ts`
 
 `reference-graph.ts`が返す`sourceNodeId`と`targetNodeId`は、既に実ツリー上の遷移先を指している。グラフ解析方式を変更せず、そのIDをナビゲーションへ渡す。
 

@@ -2,7 +2,7 @@
 
 ホームページに何を掲載するかを、実装の存在と初版で案内する範囲に分けて管理する。
 
-機械可読な項目は [`homepage-feature-catalog.mjs`](./homepage-feature-catalog.mjs) に置き、Astro側の `npm run check:coverage --workspace @mebaco/homepage` で根拠ソースと公開ページへのリンクを検査する。この文書は分類基準、現時点の判断、公開前レビューを記録する。
+機械可読な項目は [`homepage-feature-catalog.mjs`](./homepage-feature-catalog.mjs) に置き、Astro側の `npm --prefix code run check:docs` で根拠ソースと公開ページへのリンクを検査する。この文書は分類基準、現時点の判断、公開前レビューを記録する。
 
 ## 判定の意味
 

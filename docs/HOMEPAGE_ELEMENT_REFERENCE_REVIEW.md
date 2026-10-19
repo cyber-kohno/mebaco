@@ -2,7 +2,7 @@
 
 ## 今回の範囲
 
-App、Entry、Component、State、Tag、Textの基本6要素と、Props、Value Prop、Component Use、Slots、Slot、Slot Use、Slot Contents、Slot Content、Retentionの再利用関連9要素を個別仕様化した。`apps/homepage/src/data/element-reference-catalog.mjs` に各ページ、照合日、根拠ファイル、導入バージョンの状態を集約する。
+App、Entry、Component、State、Tag、Textの基本6要素と、Props、Value Prop、Component Use、Slots、Slot、Slot Use、Slot Contents、Slot Content、Retentionの再利用関連9要素を個別仕様化した。`code/apps/homepage/src/data/element-reference-catalog.mjs` に各ページ、照合日、根拠ファイル、導入バージョンの状態を集約する。
 
 `source-reviewed` は現行実装の照合状態であり、配布ビルドでの実機確認や初版のサポート保証を意味しない。導入バージョンは未確定（`null`）とし、Studioの開発版番号だけを根拠に断定しない。
 

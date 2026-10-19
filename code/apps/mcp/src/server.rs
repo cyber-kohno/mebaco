@@ -1,0 +1,1457 @@
+use crate::bridge::{
+    call_development_session, list_development_sessions as discover_development_sessions,
+};
+use crate::resources;
+use rmcp::{
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    model::{
+        CallToolResult, ContentBlock, Implementation, ListResourcesResult, PaginatedRequestParams,
+        ProtocolVersion, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
+        ServerCapabilities, ServerConfig,
+    },
+    schemars,
+    service::RequestContext,
+    tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
+};
+use serde::Serialize;
+
+#[derive(Clone)]
+pub struct MebacoMcpServer {
+    #[allow(dead_code)]
+    tool_router: ToolRouter<Self>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PingResult {
+    application: &'static str,
+    status: &'static str,
+    studio_required: bool,
+    identity: mebaco_mcp_protocol::ProductIdentity,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ShowMessageRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The message to display in Mebaco Studio (1-2000 characters).")]
+    message: String,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SessionRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct KindSchemaRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "Optional Studio element kind. Omit to list all registered kinds.")]
+    kind: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct CreateApplicationRequest {
+    #[schemars(
+        description = "The checkoutId returned by checkout_edit_session; required even for dryRun."
+    )]
+    checkout_id: String,
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(
+        description = "The new app identifier, using 1-32 lowercase kebab-case characters."
+    )]
+    app_name: String,
+    #[schemars(description = "The revision returned by a current project read.")]
+    expected_revision: u64,
+    #[schemars(description = "Validate without changing Studio. Defaults to false.")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ApplyChangesRequest {
+    #[schemars(
+        description = "The checkoutId returned by checkout_edit_session; required even for dryRun."
+    )]
+    checkout_id: String,
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The revision returned by a current project read.")]
+    expected_revision: u64,
+    #[schemars(description = "The ordered list of supported change operations to apply.")]
+    operations: Vec<serde_json::Value>,
+    #[schemars(description = "Validate without changing Studio. Defaults to false.")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SelectNodeRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The existing node ID to select in Studio.")]
+    node_id: i64,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct AppContextRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The stable appId returned by get_project_overview.")]
+    app_id: String,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct AppAnalysisContextRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The stable appId returned by get_project_overview.")]
+    app_id: String,
+    #[schemars(description = "Maximum semantic nodes to return, from 1 to 300. Defaults to 200.")]
+    max_nodes: Option<u16>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ComponentStructureRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(
+        description = "The stable componentId returned by project overview or app context."
+    )]
+    component_id: String,
+    #[schemars(description = "Maximum content-tree depth (default 3, maximum 8).")]
+    max_depth: Option<u8>,
+    #[schemars(description = "Maximum returned nodes (default 80, maximum 200).")]
+    max_nodes: Option<u16>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct NodeDetailsRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The live tree node ID returned by a project read tool.")]
+    node_id: u32,
+    #[schemars(
+        description = "Include allowlisted expression/source fields (maximum 8000 characters per field). Defaults to false."
+    )]
+    include_source: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CheckoutEditSessionRequest {
+    #[schemars(description = "The current sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(
+        description = "The revision from a current project read. Checkout does not change it."
+    )]
+    expected_revision: u64,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CheckinEditSessionRequest {
+    session_id: String,
+    #[schemars(description = "The checkoutId returned by checkout_edit_session.")]
+    checkout_id: String,
+    #[schemars(
+        description = "The current revision after finishing the work. Read again if it conflicts."
+    )]
+    expected_revision: u64,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PreviewViewport {
+    width: u32,
+    height: u32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct StartPreviewRequest {
+    session_id: String,
+    #[schemars(description = "Application definition UUID (not its numeric tree node ID).")]
+    app_id: String,
+    expected_revision: u64,
+    launcher_id: Option<String>,
+    launch_values: Option<serde_json::Map<String, serde_json::Value>>,
+    #[schemars(
+        description = "Runtime content area in CSS pixels, excluding the Preview header. Default 1024x768. Container sizing only; does not resize the native WebView or CSS viewport units/media queries."
+    )]
+    viewport: Option<PreviewViewport>,
+    #[schemars(
+        description = "Wait for rendering/tracked event handlers, 0-2000 ms. Default 500. settled=false means inspect again; it is not a passing test."
+    )]
+    timeout_ms: Option<u32>,
+    max_elements: Option<u32>,
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InspectPreviewRequest {
+    session_id: String,
+    preview_id: String,
+    timeout_ms: Option<u32>,
+    #[schemars(description = "Maximum returned elements, 1-500. Default 200.")]
+    max_elements: Option<u32>,
+    #[schemars(
+        description = "Maximum characters per text field, 1-16000. Default 4096; total text budget 64000. Check truncation flags."
+    )]
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum PreviewAction {
+    Input,
+    Click,
+    Focus,
+    Blur,
+    Scroll,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InteractPreviewRequest {
+    session_id: String,
+    preview_id: String,
+    element_id: String,
+    action: PreviewAction,
+    #[schemars(
+        description = "Replacement text for input, including empty string. Required for input; at most 64000 characters."
+    )]
+    value: Option<String>,
+    scroll_top: Option<f64>,
+    scroll_left: Option<f64>,
+    timeout_ms: Option<u32>,
+    max_elements: Option<u32>,
+    max_text_length: Option<u32>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ClosePreviewRequest {
+    session_id: String,
+    preview_id: String,
+}
+
+fn preview_call(
+    session_id: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<CallToolResult, McpError> {
+    match call_development_session(session_id, method, params) {
+        Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+            serde_json::to_string(&result)
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+        )])),
+        Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+            serde_json::to_string(&error)
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+        )])),
+    }
+}
+
+fn edit_session_call(
+    session_id: &str,
+    method: &str,
+    params: serde_json::Value,
+) -> Result<CallToolResult, McpError> {
+    if session_id.trim().is_empty() {
+        return Err(McpError::invalid_params(
+            "sessionId must be non-empty.",
+            None,
+        ));
+    }
+    // Both bridge transport errors and Studio errors are surfaced as MCP tool errors.
+    match call_development_session(session_id, method, params) {
+        Ok(result) => {
+            let error = result.get("error");
+            let content = vec![ContentBlock::text(
+                serde_json::to_string(error.unwrap_or(&result))
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )];
+            Ok(if error.is_some() {
+                CallToolResult::error(content)
+            } else {
+                CallToolResult::success(content)
+            })
+        }
+        Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+            serde_json::to_string(&error)
+                .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+        )])),
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct VerifyExpressionRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(
+        description = "The live tree node ID returned by a project read tool. The node and all expression fields on it are verified."
+    )]
+    node_id: u32,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct NodeReferencesRequest {
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The live tree node ID returned by a project read tool.")]
+    node_id: u32,
+    #[schemars(description = "Which graph direction to return. Defaults to both.")]
+    direction: Option<String>,
+    #[schemars(
+        description = "Maximum relationships per direction, from 1 to 200. Defaults to 50."
+    )]
+    limit: Option<u16>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SetNodeDisabledRequest {
+    #[schemars(
+        description = "The checkoutId returned by checkout_edit_session; required even for dryRun."
+    )]
+    checkout_id: String,
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The live tree node ID returned by a project read tool.")]
+    node_id: u32,
+    #[schemars(
+        description = "The revision returned by the read snapshot used to plan this update."
+    )]
+    expected_revision: u64,
+    #[schemars(description = "The disabled state to apply.")]
+    disabled: bool,
+    #[schemars(
+        description = "Validate and describe the update without changing Studio. Defaults to false."
+    )]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct UpdateNodePropertyRequest {
+    #[schemars(
+        description = "The checkoutId returned by checkout_edit_session; required even for dryRun."
+    )]
+    checkout_id: String,
+    #[schemars(description = "The complete sessionId returned by list_development_sessions.")]
+    session_id: String,
+    #[schemars(description = "The live tree node ID returned by a project read tool.")]
+    node_id: u32,
+    #[schemars(
+        description = "The revision returned by the read snapshot used to plan this update."
+    )]
+    expected_revision: u64,
+    #[schemars(description = "One of comment, tagName, or source.")]
+    property: String,
+    #[schemars(description = "The string value to apply.")]
+    value: String,
+    #[schemars(description = "Validate without changing Studio. Defaults to false.")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct DeleteNodeRequest {
+    checkout_id: String,
+    session_id: String,
+    node_id: u32,
+    expected_revision: u64,
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct InsertNodeRequest {
+    checkout_id: String,
+    session_id: String,
+    parent_node_id: u32,
+    expected_revision: u64,
+    kind: String,
+    index: Option<u32>,
+    tag_name: Option<String>,
+    value: Option<String>,
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct MoveNodeRequest {
+    checkout_id: String,
+    session_id: String,
+    node_id: u32,
+    expected_revision: u64,
+    direction: String,
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct UpdateNodeAttributeRequest {
+    session_id: String,
+    checkout_id: String,
+    node_id: u32,
+    expected_revision: u64,
+    name: String,
+    value: String,
+    dry_run: Option<bool>,
+}
+
+impl PingResult {
+    fn new() -> Self {
+        Self {
+            application: "Mebaco Studio",
+            status: "ok",
+            studio_required: false,
+            identity: crate::product_info::identity(),
+        }
+    }
+
+    fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("the static ping result must be serializable")
+    }
+}
+
+#[tool_router]
+impl MebacoMcpServer {
+    pub fn new() -> Self {
+        Self {
+            tool_router: Self::tool_router(),
+        }
+    }
+
+    #[tool(
+        description = "Check whether the Mebaco MCP adapter is running. This tool does not require Mebaco Studio to be open."
+    )]
+    async fn ping(&self) -> Result<CallToolResult, McpError> {
+        Ok(CallToolResult::success(vec![ContentBlock::text(
+            PingResult::new().to_json(),
+        )]))
+    }
+
+    #[tool(
+        description = "List Mebaco Studio development sessions with per-session compatibility status and both MCP bridge generations. Choose only compatible=true and use the full sessionId. Reachable legacy/incompatible sessions include a reason; do not operate on them. The result is refreshed on every call."
+    )]
+    async fn list_development_sessions(&self) -> Result<CallToolResult, McpError> {
+        let sessions = tokio::task::spawn_blocking(discover_development_sessions)
+            .await
+            .map_err(|_| McpError::internal_error("Session discovery failed.", None))?;
+        let json = serde_json::to_string(&sessions)
+            .map_err(|error| McpError::internal_error(error.to_string(), None))?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(json)]))
+    }
+
+    #[tool(
+        description = "Read the current Kind capabilities from Mebaco Studio's ElementRegistry. Omit kind to list all registered kinds; pass a kind to inspect its structural and supported MCP operations. Call list_development_sessions first."
+    )]
+    async fn get_kind_schema(
+        &self,
+        Parameters(request): Parameters<KindSchemaRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "getKindSchema",
+            serde_json::json!({ "kind": request.kind }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Create a new application from the Studio-standard initial structure using only an app name. Creates the App, its generated declarations/store/entry structure, a Main Component, and connects the Entry to Main. Pass expectedRevision and use dryRun to validate without changing Studio."
+    )]
+    async fn create_application(
+        &self,
+        Parameters(request): Parameters<CreateApplicationRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "createApplication",
+            serde_json::json!({
+                "appName": request.app_name,
+                "checkoutId": request.checkout_id,
+                "expectedRevision": request.expected_revision,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Apply up to 100 supported changes as one Studio transaction. Current operations include insertNode, createState, createLoop, createStyle, createStyleParameter, createObjectType, createUnionType, createSignatureType, applyStyle, setStyleRuleValue, setContentHostRetention, createVariable, createAction, createFunction, createLocalComponent, createTransition, createConditional, createSwitch, createBlock, setTextFormula, setTagAttributeFormula, setTagEvent, updateNodeProperty, updateNodeAttribute, moveNode, and deleteNode. setStyleRuleValue takes {nodeId,ruleIndex,declarationIndex?,value}; ruleIndex addresses style.rules, and declarationIndex is required when that rule is a state rule. value is {type:'literal',value:string} or {type:'formula',source:string}. createStyleParameter {parentNodeId,id,valueType?,defaultValue?,parameterId?} adds a parameter under a Style or its Parameters folder; valueType is string, number, boolean, or color. applyStyle {nodeId,styleId,arguments?} applies a Style or updates its arguments; arguments use {parameterId,binding:{type:'value',value:{type:'literal',value} | {type:'formula',source}}} or {parameterId,binding:{type:'default'}}. Omit arguments to use Studio's default/type-default bindings. Read the style node first with get_node_details(includeSource:true), and pass its revision as expectedRevision. Retention menu operations matching Studio are createVariable {parentNodeId,id,source,binding?}, createFunction {parentNodeId,id,implementationMode?,source?}, createLocalComponent {parentNodeId,id}, createStyle {parentNodeId,id,rules}, createObjectType {parentNodeId,id,shape?}, createUnionType {parentNodeId,id,definition?}, createSignatureType {parentNodeId,id,definition?}, createAction {parentNodeId,comment?,source?}, createTransition {parentNodeId}, createConditional {parentNodeId}, createSwitch {parentNodeId,valueType?,source}, and createBlock {parentNodeId,label?}. Each accepts a Retention node or a Block inside Retention as parentNodeId. createStyle also accepts the global styles container as before. Pass expectedRevision. With dryRun=true, all operations are validated and their planned results returned without committing changes; wouldChange reports whether the batch would modify the project."
+    )]
+    async fn apply_changes(
+        &self,
+        Parameters(request): Parameters<ApplyChangesRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.session_id.trim().is_empty() || request.operations.len() > 100 {
+            return Err(McpError::invalid_params(
+                "sessionId is required and operations must contain at most 100 items.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "applyChanges",
+            serde_json::json!({
+                "expectedRevision": request.expected_revision,
+                "dryRun": request.dry_run.unwrap_or(false),
+                "operations": request.operations,
+                "checkoutId": request.checkout_id,
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Display a non-persistent message in a specific active Mebaco Studio session. Call list_development_sessions first and pass its complete sessionId."
+    )]
+    async fn show_message(
+        &self,
+        Parameters(request): Parameters<ShowMessageRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        let message = request.message.trim();
+        if message.is_empty() || message.chars().count() > 2000 {
+            return Err(McpError::invalid_params(
+                "message must contain between 1 and 2000 characters.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "showMessage",
+            serde_json::json!({ "message": message }),
+        ) {
+            Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+                serde_json::to_string(&result)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read a summary of the current unsaved Mebaco Studio tree for a specific active session. Call list_development_sessions first and pass its complete sessionId."
+    )]
+    async fn get_project_summary(
+        &self,
+        Parameters(request): Parameters<SessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "getProjectSummary",
+            serde_json::json!({}),
+        ) {
+            Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+                serde_json::to_string(&result)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read the current unsaved project overview, App entries, and globally declared Components for a specific live Studio session. Call list_development_sessions first and pass its complete sessionId. This is the starting point for project analysis."
+    )]
+    async fn get_project_overview(
+        &self,
+        Parameters(request): Parameters<SessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "getProjectOverview",
+            serde_json::json!({}),
+        ) {
+            Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+                serde_json::to_string(&result)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read an App's Entry, resolved starting Component, initial prop bindings, and App-owned components. Obtain appId from get_project_overview. Formula sources are reported by type and are not evaluated."
+    )]
+    async fn get_app_context(
+        &self,
+        Parameters(request): Parameters<AppContextRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.app_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "appId must be a non-empty string.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "getAppContext",
+            serde_json::json!({ "appId": request.app_id }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read an analysis-oriented snapshot for one App in a single call: Entry component, state and declarations, semantic View/Retention nodes, source-bearing fields, and supported dependency edges. Use this before drilling into individual nodes."
+    )]
+    async fn get_app_analysis_context(
+        &self,
+        Parameters(request): Parameters<AppAnalysisContextRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.app_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "appId must be a non-empty string.",
+                None,
+            ));
+        }
+        if request
+            .max_nodes
+            .is_some_and(|value| value == 0 || value > 300)
+        {
+            return Err(McpError::invalid_params(
+                "maxNodes must be from 1 to 300.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "getAppAnalysisContext",
+            serde_json::json!({ "appId": request.app_id, "maxNodes": request.max_nodes.unwrap_or(200) }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read a Component's props, slots, Retention declarations, and renderable Elements tree while preserving each nested content host's optional Retention/Elements split. Obtain componentId from get_project_overview or get_app_context. Output is bounded; inspect omitted branches in separate calls later."
+    )]
+    async fn get_component_structure(
+        &self,
+        Parameters(request): Parameters<ComponentStructureRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.component_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "componentId must be a non-empty string.",
+                None,
+            ));
+        }
+        if request
+            .max_depth
+            .is_some_and(|value| value == 0 || value > 8)
+            || request
+                .max_nodes
+                .is_some_and(|value| value == 0 || value > 200)
+        {
+            return Err(McpError::invalid_params(
+                "maxDepth must be 1-8 and maxNodes must be 1-200.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "getComponentStructure",
+            serde_json::json!({
+                "componentId": request.component_id,
+                "maxDepth": request.max_depth,
+                "maxNodes": request.max_nodes,
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read safe allowlisted details and immediate children of a live tree node. Source and expression fields are omitted unless includeSource is true. Obtain nodeId from another read tool."
+    )]
+    async fn get_node_details(
+        &self,
+        Parameters(request): Parameters<NodeDetailsRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "getNodeDetails",
+            serde_json::json!({ "nodeId": request.node_id, "includeSource": request.include_source.unwrap_or(false) }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Check out a live Studio project before editing. Pass a current expectedRevision. Captures a rollback checkpoint in Studio Rust memory; returns checkoutId, editingLocked=true and rollbackAvailable=true after capture succeeds. User commits are locked, while selection, tree expansion, dialog drafts and reads remain available. Check in to keep changes, or cancel to roll back."
+    )]
+    async fn checkout_edit_session(
+        &self,
+        Parameters(request): Parameters<CheckoutEditSessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        edit_session_call(
+            &request.session_id,
+            "checkoutEditSession",
+            serde_json::json!({ "expectedRevision": request.expected_revision }),
+        )
+    }
+
+    #[tool(
+        description = "Finish agent work and clear its checkout state. Requires checkoutId and current expectedRevision. Content edits in this checkout become one Undo/Redo operation; unchanged work adds no history entry. Shows a localized completion notice in Studio without waiting for acknowledgement. Does not save. A lost/changed published session must be resolved through the Studio badge before new editing."
+    )]
+    async fn checkin_edit_session(
+        &self,
+        Parameters(request): Parameters<CheckinEditSessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.checkout_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "checkoutId must be non-empty.",
+                None,
+            ));
+        }
+        edit_session_call(
+            &request.session_id,
+            "checkinEditSession",
+            serde_json::json!({ "checkoutId": request.checkout_id, "expectedRevision": request.expected_revision }),
+        )
+    }
+
+    #[tool(
+        description = "Cancel agent work and roll back the live project, selection and tree view to checkout time. Requires the checkoutId and current expectedRevision. Restores the pre-checkout Undo/Redo history, increments revision (never resets it), releases the lock and shows a localized notice. Does not save or stop the agent. A failed rollback retains the lock; read status and the latest revision before retrying. Check in instead to keep changes."
+    )]
+    async fn cancel_edit_session(
+        &self,
+        Parameters(request): Parameters<CheckinEditSessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.checkout_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "checkoutId must be non-empty.",
+                None,
+            ));
+        }
+        edit_session_call(
+            &request.session_id,
+            "cancelEditSession",
+            serde_json::json!({ "checkoutId": request.checkout_id, "expectedRevision": request.expected_revision }),
+        )
+    }
+
+    #[tool(
+        description = "Read agent checkout state and current revision. editingLocked is true while checked out. rollbackAvailable indicates a Rust-memory checkpoint; operation is preparing/checking_in/rolling_back during asynchronous transitions. recoveryRequired means the published session changed/disappeared: resolve in Studio before new editing. sessionId identifies the owner checkout; publishedSessionId is the requested live session. No checkout is needed for reads or runtime preview."
+    )]
+    async fn get_edit_session_status(
+        &self,
+        Parameters(request): Parameters<SessionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        edit_session_call(
+            &request.session_id,
+            "getEditSessionStatus",
+            serde_json::json!({}),
+        )
+    }
+
+    #[tool(
+        description = "Start an instrumented real Studio preview of the current unsaved app, without Computer Use. Runs launch/effect code and shows a Preview dialog. Requires current expectedRevision; refuses to replace an existing preview. Project model is snapshotted, key-value storage is isolated in memory, and Resource I/O is blocked. Returns previewId and bounded rendered-element/error/layout snapshot. viewport sizes the runtime content container, not the native WebView. Close with close_preview when done."
+    )]
+    async fn start_preview(
+        &self,
+        Parameters(request): Parameters<StartPreviewRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        preview_call(
+            &request.session_id,
+            "startPreview",
+            serde_json::json!({
+                "appId": request.app_id, "expectedRevision": request.expected_revision,
+                "launcherId": request.launcher_id, "launchValues": request.launch_values,
+                "viewport": request.viewport.map(|v| serde_json::json!({"width": v.width, "height": v.height})),
+                "timeoutMs": request.timeout_ms, "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+            }),
+        )
+    }
+
+    #[tool(
+        description = "Inspect the current MCP-owned preview: rendered elements with elementId/nodeId/refKey, text/value, focus, rect/client/scroll dimensions, overflow and resize style, frame/dialog dimensions, runtime failure/diagnostics and app logs. Does not read arbitrary Studio DOM or execute scripts. settled only waits for Svelte and tracked tag event handlers, not all background work; check runtimeFailure, pendingActions, stale and truncation flags before judging results."
+    )]
+    async fn inspect_preview(
+        &self,
+        Parameters(request): Parameters<InspectPreviewRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        preview_call(
+            &request.session_id,
+            "inspectPreview",
+            serde_json::json!({
+                "previewId": request.preview_id, "timeoutMs": request.timeout_ms,
+                "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+            }),
+        )
+    }
+
+    #[tool(
+        description = "Perform one finite action in an MCP-owned preview and return its updated snapshot. Use elementId from the latest snapshot (IDs change when elements remount). input replaces text and dispatches input; blur commits blur-based editors; click focuses then clicks so prior blur runs. Supports focus and scroll as well. No arbitrary JS/selectors; rejects stale previews. Synthetic events do not reproduce trusted events, IME, native dialogs, or all keyboard behavior. These actions run the app's handlers."
+    )]
+    async fn interact_preview(
+        &self,
+        Parameters(request): Parameters<InteractPreviewRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        preview_call(
+            &request.session_id,
+            "interactPreview",
+            serde_json::json!({
+                "previewId": request.preview_id, "elementId": request.element_id, "action": request.action,
+                "value": request.value, "scrollTop": request.scroll_top, "scrollLeft": request.scroll_left,
+                "timeoutMs": request.timeout_ms, "maxElements": request.max_elements, "maxTextLength": request.max_text_length,
+            }),
+        )
+    }
+
+    #[tool(
+        description = "Close only the preview identified by the previewId returned by start_preview. Disposes preview runtime/resources and in-memory storage; does not save or modify the project. Never closes a manually opened preview or a different preview."
+    )]
+    async fn close_preview(
+        &self,
+        Parameters(request): Parameters<ClosePreviewRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        preview_call(
+            &request.session_id,
+            "closePreview",
+            serde_json::json!({ "previewId": request.preview_id }),
+        )
+    }
+
+    #[tool(
+        description = "Verify expressions on one live Studio node using Studio's expression parser, scope resolution, and type checks. This is read-only and returns status (verified, error, or not-applicable), messages, the checked revision, and whether the project changed during verification. It checks only the selected node, not descendants."
+    )]
+    async fn verify_expression(
+        &self,
+        Parameters(request): Parameters<VerifyExpressionRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "verifyExpression",
+            serde_json::json!({ "nodeId": request.node_id }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Read incoming references and outgoing dependencies reported by Mebaco's ReferenceGraph for a live tree node. This covers supported semantic/structural relationships, not every textual mention."
+    )]
+    async fn get_node_references(
+        &self,
+        Parameters(request): Parameters<NodeReferencesRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        let direction = request.direction.as_deref().unwrap_or("both");
+        if !["incoming", "outgoing", "both"].contains(&direction) {
+            return Err(McpError::invalid_params(
+                "direction must be incoming, outgoing, or both.",
+                None,
+            ));
+        }
+        if request.limit.is_some_and(|limit| limit == 0 || limit > 200) {
+            return Err(McpError::invalid_params(
+                "limit must be from 1 to 200.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "getNodeReferences",
+            serde_json::json!({ "nodeId": request.node_id, "direction": direction, "limit": request.limit.unwrap_or(50) }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Set the saved disabled state of one live tree node. Pass expectedRevision from a current read result to prevent stale writes. With dryRun=true, validate without changing Studio. The node kind must support Disable."
+    )]
+    async fn set_node_disabled(
+        &self,
+        Parameters(request): Parameters<SetNodeDisabledRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "setNodeDisabled",
+            serde_json::json!({
+                "nodeId": request.node_id,
+                "expectedRevision": request.expected_revision,
+                "disabled": request.disabled,
+                "checkoutId": request.checkout_id,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Update a limited allowlisted property on one live tree node. Pass expectedRevision from a current read result; use dryRun to validate without changing Studio."
+    )]
+    async fn update_node_property(
+        &self,
+        Parameters(request): Parameters<UpdateNodePropertyRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if !["comment", "tagName", "source"].contains(&request.property.as_str())
+            || request.value.len() > 8000
+        {
+            return Err(McpError::invalid_params("property must be comment, tagName, or source and value must be at most 8000 characters.", None));
+        }
+        match call_development_session(
+            &request.session_id,
+            "updateNodeProperty",
+            serde_json::json!({
+                "nodeId": request.node_id,
+                "expectedRevision": request.expected_revision,
+                "property": request.property,
+                "checkoutId": request.checkout_id,
+                "value": request.value,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Delete one non-root leaf node from the live Studio tree. Pass expectedRevision and use dryRun to validate without changing Studio."
+    )]
+    async fn delete_node(
+        &self,
+        Parameters(request): Parameters<DeleteNodeRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        match call_development_session(
+            &request.session_id,
+            "deleteNode",
+            serde_json::json!({
+                "checkoutId": request.checkout_id,
+                "nodeId": request.node_id,
+                "expectedRevision": request.expected_revision,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Insert a tag or text node under a live Studio node. Pass expectedRevision and use dryRun to validate without changing Studio."
+    )]
+    async fn insert_node(
+        &self,
+        Parameters(request): Parameters<InsertNodeRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if !["tag", "text"].contains(&request.kind.as_str())
+            || request.value.as_deref().unwrap_or("").len() > 8000
+        {
+            return Err(McpError::invalid_params(
+                "kind must be tag or text and value must be at most 8000 characters.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "insertNode",
+            serde_json::json!({
+                "checkoutId": request.checkout_id,
+                "parentNodeId": request.parent_node_id,
+                "expectedRevision": request.expected_revision,
+                "kind": request.kind,
+                "index": request.index,
+                "tagName": request.tag_name,
+                "value": request.value,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Move one live Studio node up or down within its current reorder group. Pass expectedRevision and use dryRun to validate without changing Studio."
+    )]
+    async fn move_node(
+        &self,
+        Parameters(request): Parameters<MoveNodeRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if !["up", "down"].contains(&request.direction.as_str()) {
+            return Err(McpError::invalid_params(
+                "direction must be up or down.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "moveNode",
+            serde_json::json!({
+                "checkoutId": request.checkout_id,
+                "nodeId": request.node_id,
+                "expectedRevision": request.expected_revision,
+                "direction": request.direction,
+                "dryRun": request.dry_run.unwrap_or(false),
+            }),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Add or update one literal HTML attribute on a live Tag node. Pass expectedRevision and use dryRun to validate without changing Studio."
+    )]
+    async fn update_node_attribute(
+        &self,
+        Parameters(request): Parameters<UpdateNodeAttributeRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.name.trim().is_empty() || request.value.len() > 8000 {
+            return Err(McpError::invalid_params(
+                "name must be non-empty and value must be at most 8000 characters.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "updateNodeAttribute",
+            serde_json::json!({"checkoutId":request.checkout_id,"nodeId":request.node_id,"expectedRevision":request.expected_revision,"name":request.name,"value":request.value,"dryRun":request.dry_run.unwrap_or(false)}),
+        ) {
+            Ok(result) => {
+                if let Some(error) = result.get("error") {
+                    return Ok(CallToolResult::error(vec![ContentBlock::text(
+                        serde_json::to_string(error)
+                            .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                    )]));
+                }
+                Ok(CallToolResult::success(vec![ContentBlock::text(
+                    serde_json::to_string(&result)
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+                )]))
+            }
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?,
+            )])),
+        }
+    }
+
+    #[tool(
+        description = "Select an existing node in the live Mebaco Studio tree without changing project content. Call get_project_summary first to obtain a node ID."
+    )]
+    async fn select_node(
+        &self,
+        Parameters(request): Parameters<SelectNodeRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        if request.node_id < 0 || request.node_id > i32::MAX as i64 {
+            return Err(McpError::invalid_params(
+                "nodeId must be a non-negative 32-bit integer.",
+                None,
+            ));
+        }
+        match call_development_session(
+            &request.session_id,
+            "selectNode",
+            serde_json::json!({ "nodeId": request.node_id }),
+        ) {
+            Ok(result) => Ok(CallToolResult::success(vec![ContentBlock::text(
+                serde_json::to_string(&result)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+            Err(error) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                serde_json::to_string(&error)
+                    .map_err(|error| McpError::internal_error(error.to_string(), None))?,
+            )])),
+        }
+    }
+}
+
+#[tool_handler]
+impl ServerHandler for MebacoMcpServer {
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, McpError> {
+        Ok(ListResourcesResult::with_all_items(resources::list()))
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, McpError> {
+        let content = resources::read(&request.uri).ok_or_else(|| {
+            McpError::resource_not_found(format!("Unknown Mebaco resource: {}", request.uri), None)
+        })?;
+        Ok(ReadResourceResponse::Complete(ReadResourceResult::new(
+            vec![content],
+        )))
+    }
+
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .build(),
+        )
+            .with_server_info(
+                Implementation::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+                    .with_title("Mebaco MCP"),
+            )
+            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_instructions(
+format!("Target MCP bridge generation: {}. {}", crate::product_info::identity().bridge_protocol_gen, "Mebaco development tools. Only use sessions with compatible=true; compatibility requires exactly matching MCP bridge generations, not matching product versions. Legacy/missing or different generations must be updated and the AI client MCP process restarted. Fixed guidance describes this MCP build and is not proof of a Studio connection. Read mebaco://model/core first, then consult the component/Retention and style resources as needed. ping and fixed model resources do not require Studio. Project tools use the current unsaved state of the specified live Studio session. Discover sessions before calling session tools. Read-only tools, selection and Preview do not require checkout. Before editing, read the current revision and call checkout_edit_session. Pass the returned checkoutId and current expectedRevision to every content update, including dryRun. Re-read state after each update and checkin_edit_session when finished; checkin does not save. After manual release, the old checkoutId cannot update the project. If work must be abandoned, call cancel_edit_session with the current revision to restore checkout-time project and interaction state; cancellation advances revision and does not save. Studio Rust-memory checkpoints do not survive Studio process exit. A completed checkout with content changes becomes one Undo/Redo operation. If the published Studio session is lost or changed, the edit lock and checkpoint remain for manual recovery; use the Studio badge to keep changes or roll back before editing again. Stopping or restarting the agent alone does not automatically end checkout. Use verify_expression to run Studio's expression checks on a node. For real runtime checks without Computer Use, use start_preview, inspect_preview and interact_preview, then close_preview. Inspect fresh element IDs and verify ready/settled/error/stale/truncation fields; preview container size is not native WebView size."
+                    .to_string()),
+            )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ping_result_is_stable_json() {
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&PingResult::new().to_json()).unwrap()
+                ["identity"],
+            serde_json::json!(crate::product_info::identity()),
+        );
+    }
+
+    #[test]
+    fn tool_router_exposes_ping() {
+        let router = MebacoMcpServer::tool_router();
+        assert!(router.has_route("ping"));
+        assert!(router.has_route("list_development_sessions"));
+        assert!(router.has_route("show_message"));
+        assert!(router.has_route("get_project_summary"));
+        assert!(router.has_route("get_kind_schema"));
+        assert!(router.has_route("apply_changes"));
+        assert!(router.has_route("create_application"));
+        assert!(router.has_route("get_project_overview"));
+        assert!(router.has_route("get_app_context"));
+        assert!(router.has_route("get_app_analysis_context"));
+        assert!(router.has_route("get_component_structure"));
+        assert!(router.has_route("get_node_details"));
+        assert!(router.has_route("verify_expression"));
+        assert!(router.has_route("get_node_references"));
+        assert!(router.has_route("set_node_disabled"));
+        assert!(router.has_route("select_node"));
+        assert!(router.has_route("start_preview"));
+        assert!(router.has_route("inspect_preview"));
+        assert!(router.has_route("interact_preview"));
+        assert!(router.has_route("close_preview"));
+        assert!(router.has_route("checkout_edit_session"));
+        assert!(router.has_route("checkin_edit_session"));
+        assert!(router.has_route("get_edit_session_status"));
+        assert!(router.has_route("cancel_edit_session"));
+        assert_eq!(router.list_all().len(), 29);
+    }
+
+    #[test]
+    fn content_update_schemas_require_checkout_id() {
+        let tools = MebacoMcpServer::tool_router().list_all();
+        for name in [
+            "create_application",
+            "apply_changes",
+            "set_node_disabled",
+            "update_node_property",
+            "delete_node",
+            "insert_node",
+            "move_node",
+            "update_node_attribute",
+        ] {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            let schema = serde_json::to_value(tool).unwrap();
+            let required = schema["inputSchema"]["required"].as_array().unwrap();
+            assert!(
+                required.contains(&serde_json::json!("checkoutId")),
+                "{name} must require checkoutId"
+            );
+            assert!(
+                required.contains(&serde_json::json!("expectedRevision")),
+                "{name} must require expectedRevision"
+            );
+        }
+        for name in [
+            "get_project_summary",
+            "get_project_overview",
+            "get_node_details",
+            "select_node",
+            "start_preview",
+            "inspect_preview",
+            "interact_preview",
+            "close_preview",
+        ] {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            let schema = serde_json::to_value(tool).unwrap();
+            assert!(
+                schema["inputSchema"]["properties"]
+                    .get("checkoutId")
+                    .is_none(),
+                "{name} does not need checkout"
+            );
+        }
+    }
+
+    #[test]
+    fn edit_finish_schemas_require_owner_and_revision() {
+        let tools = MebacoMcpServer::tool_router().list_all();
+        for name in ["checkin_edit_session", "cancel_edit_session"] {
+            let schema =
+                serde_json::to_value(tools.iter().find(|tool| tool.name == name).unwrap()).unwrap();
+            let required = schema["inputSchema"]["required"].as_array().unwrap();
+            for field in ["sessionId", "checkoutId", "expectedRevision"] {
+                assert!(
+                    required.contains(&serde_json::json!(field)),
+                    "{name} must require {field}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn server_advertises_tools_and_fixed_resources() {
+        let info = MebacoMcpServer::new().get_info();
+        assert!(info.capabilities.tools.is_some());
+        assert!(info.capabilities.resources.is_some());
+        assert_eq!(resources::list().len(), 3);
+        assert!(resources::read(resources::CORE_URI).is_some());
+        assert!(resources::read(resources::COMPONENTS_URI).is_some());
+        assert!(resources::read(resources::STYLES_URI).is_some());
+    }
+}

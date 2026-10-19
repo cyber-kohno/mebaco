@@ -107,23 +107,23 @@ API を使う以上、ユーザーの指示やプロジェクト要約は OpenAI
 
 現時点で AI ツール化しやすい既存構造は以下。
 
-- `apps/studio/src/system/workspace/tree/context-menu/tree-context-menu-resolver.ts`
+- `code/apps/studio/src/system/workspace/tree/context-menu/tree-context-menu-resolver.ts`
   - ノード、親ノード、rootNode からアクションメニューを解決している。
   - `list_actions(nodeId)` の入口候補。
 
-- `apps/studio/src/system/ui/action-menu/action-menu-state.ts`
+- `code/apps/studio/src/system/ui/action-menu/action-menu-state.ts`
   - アクションメニュー項目の型がある。
   - 現在の `callback` は UI 操作用なので、AI には安定した `actionId` と schema を返す形に拡張したい。
 
-- `apps/studio/src/system/workspace/tree/destination/tree-destination-controller.ts`
+- `code/apps/studio/src/system/workspace/tree/destination/tree-destination-controller.ts`
   - Copy / Move / Extract signature など、複数ステップのツリー操作がある。
   - AI から扱う場合は、途中状態を明示的な tool result として返せる設計が必要。
 
-- `apps/studio/src/system/terminal/catalog/verify-catalog.ts`
+- `code/apps/studio/src/system/terminal/catalog/verify-catalog.ts`
   - `verify current` / `verify project` の実装がある。
   - `verify(scope)` の入口候補。
 
-- `apps/studio/src/system/terminal/command-types.ts`
+- `code/apps/studio/src/system/terminal/command-types.ts`
   - コマンド実行コンテキストがある。
   - `openPreview`, `requestChoice`, `requestInput` など AI ループと似た抽象が含まれている。
 
@@ -134,7 +134,7 @@ API を使う以上、ユーザーの指示やプロジェクト要約は OpenAI
 名前は仮。
 
 ```text
-apps/studio/src/system/ai/
+code/apps/studio/src/system/ai/
   assistant-controller.ts
   assistant-session-store.ts
   openai-client.ts
@@ -424,11 +424,11 @@ AI ループは tool call を何度も回すため、上限が必要。
 
 最初に見るべき場所:
 
-- `apps/studio/src/system/workspace/tree/context-menu/tree-context-menu-resolver.ts`
-- `apps/studio/src/system/ui/action-menu/action-menu-state.ts`
-- `apps/studio/src/system/terminal/catalog/verify-catalog.ts`
-- `apps/studio/src/system/terminal/command-types.ts`
-- `apps/studio/src/system/workspace/tree/destination/tree-destination-controller.ts`
+- `code/apps/studio/src/system/workspace/tree/context-menu/tree-context-menu-resolver.ts`
+- `code/apps/studio/src/system/ui/action-menu/action-menu-state.ts`
+- `code/apps/studio/src/system/terminal/catalog/verify-catalog.ts`
+- `code/apps/studio/src/system/terminal/command-types.ts`
+- `code/apps/studio/src/system/workspace/tree/destination/tree-destination-controller.ts`
 
 次に決めるべきこと:
 

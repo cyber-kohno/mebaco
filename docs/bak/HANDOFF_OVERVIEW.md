@@ -16,7 +16,7 @@ Mebaco は、ツリーで UI・状態・型・スタイル・処理を組み立�
 
 ## 技術スタック
 
-メインアプリは `apps/studio` です。
+メインアプリは `code/apps/studio` です。
 
 - Tauri 2
 - Svelte 5
@@ -32,7 +32,7 @@ Tauri アプリとしての表示名は `Mebaco`、識別子は `com.mebaco.stud
 
 ### フォルダと命名
 
-新規実装は原則として `apps/studio/src/system` 配下に集約します。
+新規実装は原則として `code/apps/studio/src/system` 配下に集約します。
 
 命名規則は次の通りです。
 
@@ -414,7 +414,7 @@ npm run test
 実行場所:
 
 ```text
-apps/studio
+code/apps/studio
 ```
 
 UI プレビュー実行は `preview`、Vitest は `test` と呼び分けます。
@@ -449,43 +449,43 @@ Preview で表示とイベントを確認する
 ## 別環境で最初に見るとよい場所
 
 ```text
-apps/studio/src/system/AppRoot.svelte
-apps/studio/src/system/element/element.ts
-apps/studio/src/system/element/element-registry.ts
-apps/studio/src/system/element/element-definition.ts
-apps/studio/src/system/tree/TreeView.svelte
-apps/studio/src/system/element-dialog/ElementDialogLayer.svelte
-apps/studio/src/system/runtime/RuntimeView.svelte
-apps/studio/src/system/runtime/render/ElementDispatcher.svelte
-apps/studio/src/system/project/project-file.ts
+code/apps/studio/src/system/AppRoot.svelte
+code/apps/studio/src/system/element/element.ts
+code/apps/studio/src/system/element/element-registry.ts
+code/apps/studio/src/system/element/element-definition.ts
+code/apps/studio/src/system/tree/TreeView.svelte
+code/apps/studio/src/system/element-dialog/ElementDialogLayer.svelte
+code/apps/studio/src/system/runtime/RuntimeView.svelte
+code/apps/studio/src/system/runtime/render/ElementDispatcher.svelte
+code/apps/studio/src/system/project/project-file.ts
 ```
 
 Style まわりを見る場合:
 
 ```text
-apps/studio/src/system/element/kind/view/style-element.ts
-apps/studio/src/system/element/kind/view/StylePropsEditor.svelte
-apps/studio/src/system/element/kind/view/StyleBasesEditor.svelte
-apps/studio/src/system/runtime/style/style-resolver.ts
-apps/studio/src/system/runtime/style/style-monitor.ts
+code/apps/studio/src/system/element/kind/view/style-element.ts
+code/apps/studio/src/system/element/kind/view/StylePropsEditor.svelte
+code/apps/studio/src/system/element/kind/view/StyleBasesEditor.svelte
+code/apps/studio/src/system/runtime/style/style-resolver.ts
+code/apps/studio/src/system/runtime/style/style-monitor.ts
 ```
 
 Type まわりを見る場合:
 
 ```text
-apps/studio/src/system/element/kind/type/type-expression.ts
-apps/studio/src/system/element/kind/type/object-shape.ts
-apps/studio/src/system/element/kind/type/ObjectShapeEditor.svelte
-apps/studio/src/system/element/kind/type/union-definition.ts
-apps/studio/src/system/element/kind/type/ValueTypeEditor.svelte
+code/apps/studio/src/system/element/kind/type/type-expression.ts
+code/apps/studio/src/system/element/kind/type/object-shape.ts
+code/apps/studio/src/system/element/kind/type/ObjectShapeEditor.svelte
+code/apps/studio/src/system/element/kind/type/union-definition.ts
+code/apps/studio/src/system/element/kind/type/ValueTypeEditor.svelte
 ```
 
 Formula / Monaco まわりを見る場合:
 
 ```text
-apps/studio/src/system/ui/formula
-apps/studio/src/system/ui/monaco
-apps/studio/src/system/runtime/formula
-apps/studio/src/system/runtime/script
+code/apps/studio/src/system/ui/formula
+code/apps/studio/src/system/ui/monaco
+code/apps/studio/src/system/runtime/formula
+code/apps/studio/src/system/runtime/script
 ```
 

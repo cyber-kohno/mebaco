@@ -1,0 +1,9 @@
+[package]
+name = "mebaco-mcp-transport"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+publish = false
+[dependencies]
+serde_json = "1.0"
+mebaco-mcp-protocol = { path = "../mcp-protocol" }

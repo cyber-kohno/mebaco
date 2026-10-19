@@ -87,10 +87,10 @@ Resource を使うアプリはそのアクセスでエラーになるため、�
 
 ## 開発者用テスト
 
-`apps/studio/scripts/test-mcp-preview.mjs` は、製品の Studio とは独立した Vite サーバーとヘッドレス Chromium で実描画を確認する。
+`code/apps/studio/scripts/test-mcp-preview.mjs` は、製品の Studio とは独立した Vite サーバーとヘッドレス Chromium で実描画を確認する。
 テスト専用 TreeStore に置き換えるため、開いているプロジェクトは操作しない。
 Playwright が別の場所にある場合は `MEBACO_PLAYWRIGHT_MODULE` にエントリーポイントの file URL を指定する。
 既定はインストール済み Edge (`msedge`)。`MEBACO_TEST_BROWSER_CHANNEL=chrome` で Chrome を使用できる。
-`apps/studio` で `node scripts/test-mcp-preview.mjs` を実行する。ブラウザーとサーバーは終了時に閉じる。
+`code/apps/studio` で `node scripts/test-mcp-preview.mjs` を実行する。ブラウザーとサーバーは終了時に閉じる。
 
 テスト範囲: 双方向変換、空欄からの復元、blur の重複、実 textarea、フォーカス、固定サイズ、内側スクロール、外枠 overflow 検出、出力制限、revision 競合、閉じたプレビュー ID、実行エラー、終了処理。

@@ -47,13 +47,13 @@ Function要素とProcedure要素は実装済みである。ProcedureはRetention
 
 関連ファイル:
 
-- `apps/studio/src/system/runtime/runtime-state.ts`
-- `apps/studio/src/system/runtime/execution-policy.ts`
-- `apps/studio/src/system/runtime/state/state-view.ts`
-- `apps/studio/src/system/runtime/retention/retention-resolver.ts`
-- `apps/studio/src/system/runtime/action/action-evaluator.ts`
-- `apps/studio/src/system/runtime/formula/formula-context.ts`
-- `apps/studio/src/system/runtime/script/script-compiler.ts`
+- `code/apps/studio/src/system/runtime/runtime-state.ts`
+- `code/apps/studio/src/system/runtime/execution-policy.ts`
+- `code/apps/studio/src/system/runtime/state/state-view.ts`
+- `code/apps/studio/src/system/runtime/retention/retention-resolver.ts`
+- `code/apps/studio/src/system/runtime/action/action-evaluator.ts`
+- `code/apps/studio/src/system/runtime/formula/formula-context.ts`
+- `code/apps/studio/src/system/runtime/script/script-compiler.ts`
 
 ## 検出対象
 

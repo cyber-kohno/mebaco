@@ -29,10 +29,10 @@
 ## 網羅性の維持
 
 - Studioの `ElementRegistry` を現行要素の照合元とする。
-- `apps/homepage/src/data/element-catalog.mjs` が文書化対象のkindと分類を保持する。
+- `code/apps/homepage/src/data/element-catalog.mjs` が文書化対象のkindと分類を保持する。
 - `docs/homepage-feature-catalog.mjs` がユーザー向け機能と実装根拠、公開判断、参照ページを保持する。
-- `apps/homepage/src/data/element-reference-catalog.mjs` が個別要素ページ、照合日、根拠ファイル、導入バージョンを保持する。現在はStudio `ElementRegistry` の82 kindすべてを個別仕様化しており、ページごとの根拠と共通見出しをCoverage checkerで照合する。
-- `npm run check:coverage --workspace @mebaco/homepage` で要素の漏れ、廃止済み項目、重複、機能の根拠ファイルとリンク切れ、個別ページの共通見出しと根拠参照を検出する。
+- `code/apps/homepage/src/data/element-reference-catalog.mjs` が個別要素ページ、照合日、根拠ファイル、導入バージョンを保持する。現在はStudio `ElementRegistry` の82 kindすべてを個別仕様化しており、ページごとの根拠と共通見出しをCoverage checkerで照合する。
+- `npm --prefix code run check:docs` で要素の漏れ、廃止済み項目、重複、機能の根拠ファイルとリンク切れ、個別ページの共通見出しと根拠参照を検出する。
 - 個別リファレンスの拡張と公開前確認は `docs/HOMEPAGE_ELEMENT_REFERENCE_REVIEW.md` に記録する。Registryの網羅性と、個別仕様本文の整備率は別に表示する。
 - 追加・変更PRでは、該当ページ、画面キャプチャ、用語・互換性記述の更新を同時に確認する。
 - Registry照合はkind／ページ／根拠ファイル／共通見出しの網羅を確認するが、本文の意味的な正しさや画面操作は保証しない。ソース照合は実施中、配布ビルドを使った画面操作・利用者向けチュートリアル確認は公開前ゲートに残す。
@@ -47,4 +47,4 @@
 - 既知の制限、エラー調査方法、互換性、ライセンス、プライバシーを確認する。
 - リンク切れと未完成表示を解消する。
 
-サイトの実体と執筆開始用ページは `apps/homepage/` に配置する。
+サイトの実体と執筆開始用ページは `code/apps/homepage/` に配置する。

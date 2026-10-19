@@ -1,6 +1,6 @@
 # ホームページ入門チュートリアルの検証台帳
 
-対象は `apps/homepage/src/content/docs/start/first-project.md` と、そこから続く `guides/build-ui.md` / `guides/state-and-actions.md`。本文を更新したときは、以下の根拠とデスクトップ操作を再確認する。
+対象は `code/apps/homepage/src/content/docs/start/first-project.md` と、そこから続く `guides/build-ui.md` / `guides/state-and-actions.md`。本文を更新したときは、以下の根拠とデスクトップ操作を再確認する。
 
 ## 現在の確認範囲
 
@@ -15,20 +15,20 @@
 
 | 本文の内容 | 根拠 |
 | --- | --- |
-| 新規Projectと開発ホーム | `apps/studio/src/system/workspace/screen/DevelopHomeScreen.svelte` / `apps/studio/src/system/project/project-tree-factory.ts` |
-| App追加、Main自動生成、Entry参照 | `apps/studio/src/system/workspace/element-definition/project/apps-element-definition.ts` / `apps/studio/src/system/workspace/element-definition/app/app-element-definition.ts` |
-| Mainの子構造 | `apps/studio/src/system/workspace/element-definition/component/component-element-definition.ts` |
-| Stateの型と初期値 | `apps/studio/src/system/workspace/element-definition/variable/store/state-element-definition.ts` / `apps/studio/src/system/ui/input/ValueSourceField.svelte` / `apps/studio/src/system/workspace/element-editor/type-system/ValueTypeEditor.svelte` |
-| Tag / Text追加メニュー | `apps/studio/src/system/workspace/tree/context-menu/content-actions.ts` |
-| Tag nameとAttributeタブ | `apps/studio/src/system/workspace/element-definition/view/tag-element-definition.ts` |
-| Textの固定値・式、文字列型 | `apps/studio/src/system/workspace/element-definition/view/text-element-definition.ts` / `apps/studio/src/system/workspace/element-editor/view/TextSourceEditor.svelte` |
-| 式切替とポップオーバー | `apps/studio/src/system/ui/formula/FormulaModeToggle.svelte` / `apps/studio/src/system/ui/formula/CompactFormulaField.svelte` |
-| clickとAction入力 | `apps/studio/src/system/model/view/tag-event-catalog.ts` / `apps/studio/src/system/workspace/element-editor/view/TagAttributesEditor.svelte` / `apps/studio/src/system/ui/script/ActionField.svelte` |
-| 作成・更新・日本語表記 | `apps/studio/src/system/workspace/element-editor/layer/ElementDialogLayer.svelte` / `apps/studio/src/system/application/localization/messages/ja.ts` |
-| T、Ctrl+Sと操作条件 | `apps/studio/src/system/application/keyboard/app-keyboard-controller.ts` |
-| 選択Appのrun | `apps/studio/src/system/terminal/provider/app-provider.ts` / `apps/studio/src/system/terminal/catalog/run-catalog.ts` |
-| Previewの終了とState再初期化 | `apps/studio/src/system/runtime/preview/PreviewDialog.svelte` / `apps/studio/src/system/runtime/view/RuntimeView.svelte` / `apps/studio/src/system/runtime/runtime-state.ts` |
-| Projectの保存・再読込 | `apps/studio/src/system/project/project-file.ts` / `apps/studio/src/system/workspace/DevelopOperations.svelte` |
+| 新規Projectと開発ホーム | `code/apps/studio/src/system/workspace/screen/DevelopHomeScreen.svelte` / `code/apps/studio/src/system/project/project-tree-factory.ts` |
+| App追加、Main自動生成、Entry参照 | `code/apps/studio/src/system/workspace/element-definition/project/apps-element-definition.ts` / `code/apps/studio/src/system/workspace/element-definition/app/app-element-definition.ts` |
+| Mainの子構造 | `code/apps/studio/src/system/workspace/element-definition/component/component-element-definition.ts` |
+| Stateの型と初期値 | `code/apps/studio/src/system/workspace/element-definition/variable/store/state-element-definition.ts` / `code/apps/studio/src/system/ui/input/ValueSourceField.svelte` / `code/apps/studio/src/system/workspace/element-editor/type-system/ValueTypeEditor.svelte` |
+| Tag / Text追加メニュー | `code/apps/studio/src/system/workspace/tree/context-menu/content-actions.ts` |
+| Tag nameとAttributeタブ | `code/apps/studio/src/system/workspace/element-definition/view/tag-element-definition.ts` |
+| Textの固定値・式、文字列型 | `code/apps/studio/src/system/workspace/element-definition/view/text-element-definition.ts` / `code/apps/studio/src/system/workspace/element-editor/view/TextSourceEditor.svelte` |
+| 式切替とポップオーバー | `code/apps/studio/src/system/ui/formula/FormulaModeToggle.svelte` / `code/apps/studio/src/system/ui/formula/CompactFormulaField.svelte` |
+| clickとAction入力 | `code/apps/studio/src/system/model/view/tag-event-catalog.ts` / `code/apps/studio/src/system/workspace/element-editor/view/TagAttributesEditor.svelte` / `code/apps/studio/src/system/ui/script/ActionField.svelte` |
+| 作成・更新・日本語表記 | `code/apps/studio/src/system/workspace/element-editor/layer/ElementDialogLayer.svelte` / `code/apps/studio/src/system/application/localization/messages/ja.ts` |
+| T、Ctrl+Sと操作条件 | `code/apps/studio/src/system/application/keyboard/app-keyboard-controller.ts` |
+| 選択Appのrun | `code/apps/studio/src/system/terminal/provider/app-provider.ts` / `code/apps/studio/src/system/terminal/catalog/run-catalog.ts` |
+| Previewの終了とState再初期化 | `code/apps/studio/src/system/runtime/preview/PreviewDialog.svelte` / `code/apps/studio/src/system/runtime/view/RuntimeView.svelte` / `code/apps/studio/src/system/runtime/runtime-state.ts` |
+| Projectの保存・再読込 | `code/apps/studio/src/system/project/project-file.ts` / `code/apps/studio/src/system/workspace/DevelopOperations.svelte` |
 
 ## デスクトップ版の通し確認（公開前ゲート）
 
@@ -55,8 +55,8 @@
 サイトビルドと仕様台帳チェッカーを実行する。必要に応じてStudioの既存RuntimeState、ActionEvaluator、StateView、Keyboardのテストも確認する。これらはネイティブ保存ダイアログや画面操作の代わりにはならない。
 
 ```powershell
-npm run build --workspace @mebaco/homepage
-npm run check:docs
+npm --prefix code run build:homepage
+npm --prefix code run check:docs
 ```
 
 ### 2026-10-02の自動確認結果
