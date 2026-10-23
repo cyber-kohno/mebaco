@@ -8,6 +8,7 @@
 {#if $sessionStore != null}
   <main class="direct-runtime" aria-label="Mebaco application">
     <RuntimeView
+          sessionId={$sessionStore.id}
       appNode={$sessionStore.appNode}
       projectNode={$sessionStore.projectNode}
       resourceSession={$sessionStore.resourceSession}

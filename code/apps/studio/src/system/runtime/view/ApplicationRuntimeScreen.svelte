@@ -1,38 +1,34 @@
 <script lang="ts">
   import LogOut from '@lucide/svelte/icons/log-out'
   import RuntimeSessionStore from '../runtime-session-store'
-  import RuntimeView from './RuntimeView.svelte'
+  import RuntimeSessionView from './RuntimeSessionView.svelte'
   import { translatorStore } from '@system/application/localization'
 
   const sessionStore = RuntimeSessionStore.store
+  const sessions = RuntimeSessionStore.sessions
 </script>
 
-{#if $sessionStore?.presentation?.type === 'application'}
-  <section class="application-runtime" aria-label={$translatorStore('runtime.application.label')}>
-    <header class="application-header">
-      <strong>{$sessionStore.presentation.title}</strong>
-      <button type="button" onclick={RuntimeSessionStore.close}>
-        <LogOut size={16} />
-        {$translatorStore('runtime.application.exit')}
-      </button>
-    </header>
-    <div class="application-body">
-      {#key $sessionStore}
-        <RuntimeView
-          appNode={$sessionStore.appNode}
-          projectNode={$sessionStore.projectNode}
-          resourceSession={$sessionStore.resourceSession}
-          storageSession={$sessionStore.storageSession}
-          logSession={$sessionStore.logSession}
-          launcherId={$sessionStore.launcherId}
-          launchValues={$sessionStore.launchValues}
-        />
-      {/key}
-    </div>
-  </section>
-{/if}
+{#each $sessions.filter((session) => session.kind === 'application') as session (session.id)}
+  {#if session.presentation?.type === 'application'}
+    <section hidden={$sessionStore?.id !== session.id} inert={$sessionStore?.id !== session.id} class="application-runtime" aria-label={$translatorStore('runtime.application.label')}>
+      <header class="application-header">
+        <strong>{session.presentation.title}</strong>
+        <button type="button" onclick={() => RuntimeSessionStore.close(session.id)}>
+          <LogOut size={16} />
+          {$translatorStore('runtime.application.exit')}
+        </button>
+      </header>
+      <div class="application-body">
+        {#key session.revision}
+          <RuntimeSessionView {session} />
+        {/key}
+      </div>
+    </section>
+  {/if}
+{/each}
 
 <style>
+  .application-runtime[hidden] { display: none; }
   .application-runtime {
     display: flex;
     flex-direction: column;

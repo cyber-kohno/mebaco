@@ -22,6 +22,8 @@ namespace PreviewController {
     logSession?: RuntimeLog.Session
     inspection?: RuntimePreviewProbe.Session
     presentation?: RuntimeSessionStore.Presentation
+    // Internal multi-session entry point. Existing launch UIs retain replacement behavior.
+    retainExisting?: boolean
   }
 
   const findOwnerApp = (
@@ -65,6 +67,8 @@ namespace PreviewController {
     storageSession?: StorageRuntime.Session,
     inspection?: RuntimePreviewProbe.Session,
     presentation?: RuntimeSessionStore.Presentation,
+    sessionId?: string,
+    retainExisting = false,
   ): boolean => {
     if (appNode.element.kind !== 'app') return false
 
@@ -77,7 +81,7 @@ namespace PreviewController {
       StorageRuntime.developmentScope(rootNode),
     )
 
-    RuntimeSessionStore.open({
+    const session: RuntimeSessionStore.Input = {
       app: appNode.element as App.Element,
       appNode,
       projectNode: rootNode,
@@ -88,7 +92,10 @@ namespace PreviewController {
       launchValues,
       inspection,
       presentation,
-    })
+    }
+    if (sessionId != null) return RuntimeSessionStore.replace(sessionId, session)
+    if (retainExisting) RuntimeSessionStore.create(session)
+    else RuntimeSessionStore.open(session)
     return true
   }
 
@@ -113,6 +120,8 @@ namespace PreviewController {
       ),
       options.inspection,
       options.presentation,
+      undefined,
+      options.retainExisting,
     )
     if (!opened) resourceSession.dispose()
     return opened
@@ -133,8 +142,11 @@ namespace PreviewController {
     rootNode: TreeNode.Node,
     appDefinitionId: string,
     launchValues: Readonly<Record<string, unknown>>,
+    sessionId?: string,
   ): boolean => {
-    const currentSession = get(RuntimeSessionStore.store)
+    const currentSession = sessionId == null
+      ? get(RuntimeSessionStore.store)
+      : RuntimeSessionStore.find(sessionId)
     // Ignore delayed transitions from a runtime that has already been closed.
     if (currentSession == null || currentSession.projectNode !== rootNode) return false
     const appNode = findApp(rootNode, appDefinitionId)
@@ -152,11 +164,12 @@ namespace PreviewController {
       currentSession.storageSession,
       currentSession.inspection,
       currentSession.presentation,
+      currentSession.id,
     )
   }
 
-  export const close = () => {
-    RuntimeSessionStore.close()
+  export const close = (sessionId?: string) => {
+    RuntimeSessionStore.close(sessionId)
   }
 }
 

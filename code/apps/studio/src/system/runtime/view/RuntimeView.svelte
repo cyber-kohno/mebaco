@@ -28,8 +28,10 @@
   import RenderEffects from '../effect/RenderEffects.svelte'
   import ExecutionPolicy from '../execution-policy'
   import RuntimePreviewProbe from '../preview/runtime-preview-probe'
+  import { provideRenderInstanceScope } from '../render/render-instance-scope'
 
   type Props = {
+    sessionId: string
     appNode: TreeNode.Node
     projectNode: TreeNode.Node
     resourceSession: ResourceRuntime.Session
@@ -40,8 +42,9 @@
     inspection?: RuntimePreviewProbe.Session
   }
 
-  let { appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues, inspection }: Props = $props()
+  let { sessionId, appNode, projectNode, resourceSession, storageSession, logSession, launcherId, launchValues, inspection }: Props = $props()
   RuntimePreviewProbe.provide(untrack(() => inspection))
+  provideRenderInstanceScope(untrack(() => sessionId))
   let runtimeHost = $state<HTMLElement | null>(null)
   $effect(() => {
     if (runtimeHost != null && inspection != null) {
@@ -70,7 +73,7 @@
     if (transitionRequested) return
     transitionRequested = true
     queueMicrotask(() => {
-      if (!PreviewController.transition(projectNode, appDefinitionId, values)) {
+      if (!PreviewController.transition(projectNode, appDefinitionId, values, sessionId)) {
         transitionRequested = false
       }
     })

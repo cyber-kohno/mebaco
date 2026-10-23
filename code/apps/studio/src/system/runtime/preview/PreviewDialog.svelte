@@ -57,6 +57,7 @@
       style:height={$sessionStore.inspection == null ? undefined : `${$sessionStore.inspection.viewport.height}px`}>
       {#key $sessionStore}
         <RuntimeView
+          sessionId={$sessionStore.id}
           appNode={$sessionStore.appNode}
           projectNode={$sessionStore.projectNode}
           resourceSession={$sessionStore.resourceSession}

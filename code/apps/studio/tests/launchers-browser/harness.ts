@@ -11,6 +11,7 @@ import ClientPackageStore from '../../src/system/client/client-package-store'
 import ClientNavigation from '../../src/system/client/client-navigation-store'
 import type ClientPackage from '../../src/system/client/client-package'
 import PreviewController from '../../src/system/runtime/preview/preview-controller'
+import RuntimeSessionStore from '../../src/system/runtime/runtime-session-store'
 import type TreeNode from '../../src/system/model/tree/tree-node'
 import { API_GEN, APP_VERSION, SCHEMA_GEN } from '../../src/system/version'
 
@@ -80,6 +81,29 @@ const fixture = () => {
 mount(AppRoot, { target: document.getElementById('app')! })
 Object.assign(window, { launcherHarness: {
   fixture,
+  sessions: RuntimeSessionStore,
+  openRetained: (title: string, color: string) => {
+    const root = structuredClone(get(TreeStore.rootNode))
+    const app = root.children.find((child) => child.element.kind === 'apps')!.children[0]!
+    const component = app.children.find((child) => child.element.kind === 'component')!
+    component.children.push(node({ kind: 'store' }, [node({ kind: 'states' }, [node({
+      kind: 'state', id: 'count', valueType: { type: 'number' }, nullable: false,
+      initial: { type: 'literal', value: '0' },
+    })])]))
+    const style = component.children.find((child) => child.element.kind === 'retention')!.children[0]!.element
+    if (style.kind === 'style') style.rules.push({ type: 'declaration', property: 'color', value: { type: 'literal', value: color } })
+    component.children.find((child) => child.element.kind === 'elements')!.children.push(node({
+      kind: 'tag', tagName: 'button', comment: '', styles: [], attributes: [{
+        type: 'event', name: 'click', preventDefault: false, stopPropagation: false,
+        action: { type: 'script', source: '$state.count += 1;' },
+      }],
+    }, [node({ kind: 'text', source: { type: 'formula', source: '`Count: ${$state.count}`' } })]))
+    PreviewController.open({
+      projectNode: root, appDefinitionId: 'browser-app', launcherId: 'browser-launcher',
+      presentation: { type: 'application', title }, retainExisting: true,
+    })
+    return get(RuntimeSessionStore.store)!.id
+  },
   openClient: () => {
     appAreaStore.set('client')
     ClientNavigation.openLaunchSetup('browser-installation')

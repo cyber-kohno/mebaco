@@ -4,6 +4,10 @@ const contextKey = Symbol('mebaco-render-instance-scope')
 
 const current = (): string => getContext<string>(contextKey) ?? 'root'
 
+export const provideRenderInstanceScope = (sessionId: string): void => {
+  setContext(contextKey, `session-${sessionId}`)
+}
+
 export const extendRenderInstanceScope = (
   nodeId: number,
   iterationIndex: number,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { studioMcpIdentityPlugin } from '../../../release/studio-mcp.mjs'
 
 // Exercises the production AppRoot in an isolated browser without a Tauri bridge.
 // Use MEBACO_PLAYWRIGHT_MODULE for an existing Playwright installation.
@@ -9,7 +10,7 @@ const { chromium } = await import(process.env.MEBACO_PLAYWRIGHT_MODULE || 'playw
 const root = fileURLToPath(new URL('../', import.meta.url))
 const server = await createServer({
   configFile: false, root,
-  plugins: [svelte(), {
+  plugins: [studioMcpIdentityPlugin(), svelte(), {
     name: 'launchers-test-page', configureServer(server) {
       server.middlewares.use('/__launchers-test', (_request, response) => {
         response.setHeader('Content-Type', 'text/html')
@@ -148,6 +149,29 @@ try {
   assert.equal(await page.locator('.runtime-dialog.maximized').count(), 1)
   await page.getByRole('button', { name: 'Close preview' }).click()
   assert.equal(await page.locator('.runtime-dialog').count(), 0)
+  // Internal multi-session APIs retain real component State and DOM while hidden.
+  const firstId = await page.evaluate(() => window.launcherHarness.openRetained('First', 'rgb(255, 0, 0)'))
+  await runtime.getByRole('button', { name: 'Count: 0', exact: true }).click()
+  await runtime.getByRole('button', { name: 'Count: 1', exact: true }).waitFor()
+  await page.evaluate(() => { window.retainedCounter = document.querySelector('.application-runtime:not([hidden]) .runtime-view button') })
+  const secondId = await page.evaluate(() => window.launcherHarness.openRetained('Second', 'rgb(0, 0, 255)'))
+  assert.equal(await page.locator('.application-runtime').count(), 2)
+  await runtime.getByRole('button', { name: 'Count: 0', exact: true }).waitFor()
+  assert.equal(await runtime.getByText('Current development code', { exact: true }).evaluate((element) => getComputedStyle(element).color), 'rgb(0, 0, 255)')
+  await page.evaluate((id) => window.launcherHarness.sessions.activate(id), firstId)
+  await runtime.getByRole('button', { name: 'Count: 1', exact: true }).waitFor()
+  assert.equal(await page.evaluate(() => window.retainedCounter === document.querySelector('.application-runtime:not([hidden]) .runtime-view button')), true)
+  assert.equal(await runtime.getByText('Current development code', { exact: true }).evaluate((element) => getComputedStyle(element).color), 'rgb(255, 0, 0)')
+  await page.evaluate(() => window.launcherHarness.sessions.deactivate())
+  assert.equal(await runtime.count(), 0)
+  assert.equal(await page.locator('.application-runtime').count(), 2)
+  await page.evaluate((id) => window.launcherHarness.sessions.activate(id), firstId)
+  await runtime.getByRole('button', { name: 'Count: 1', exact: true }).waitFor()
+  await runtime.getByRole('button', { name: 'Exit application' }).click()
+  await page.evaluate((id) => window.launcherHarness.sessions.activate(id), secondId)
+  await runtime.getByRole('button', { name: 'Count: 0', exact: true }).waitFor()
+  await runtime.getByRole('button', { name: 'Exit application' }).click()
+  assert.equal(await page.locator('.application-runtime').count(), 0)
   assert.deepEqual(errors, [])
   console.log('Launcher browser checks passed: record-wide selection/deselection, keyboard activation, shared hover in both selection states, arguments, application exit/return and preview compatibility.')
 } finally {
